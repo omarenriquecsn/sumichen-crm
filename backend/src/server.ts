@@ -14,6 +14,7 @@ const allowedOrigins = [
   'https://crm-sumichen-back.vercel.app',
   'https://crmsumichem.vps.webdock.cloud',
   'https://crmsumichen.com',
+  'https://sumichen-crm.vercel.app'
 
 ];
 app.use(
