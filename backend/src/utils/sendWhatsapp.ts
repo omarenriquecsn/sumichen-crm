@@ -1,0 +1,83 @@
+
+import dotenv from 'dotenv';
+import axios from 'axios';
+dotenv.config();
+
+/**
+ * Utilidades de envío por WhatsApp Cloud API (Meta).
+ *
+ * - `sendWhatsAppText`: mensaje de texto libre. Solo funciona dentro de la
+ *   ventana de 24h tras un mensaje entrante del cliente (session window).
+ * - `sendWhatsAppTemplate`: plantilla aprobada (fuera de la ventana de 24h).
+ */
+
+const getPhoneId = (phoneNumberId?: string) => phoneNumberId || process.env.META_PHONE_ID;
+const getToken = () => process.env.META_TOKEN;
+
+const normalizarTelefono = (telefono: string) => {
+  const digitos = telefono.replace(/\D/g, '');
+  return digitos.startsWith('0') ? '58' + digitos.slice(1) : digitos;
+};
+
+/**
+ * Envía un mensaje de texto libre por WhatsApp Cloud API.
+ * @param to Número del destinatario en formato internacional (ej: 584125072254)
+ * @param body Contenido del mensaje
+ * @param phoneNumberId Opcional: el phone_number_id del número de negocio que
+ *        envió/recibió (se guarda en metadata del lead al recibir el webhook).
+ */
+export const sendWhatsAppText = async (to: string, body: string, phoneNumberId?: string) => {
+  const phoneId = getPhoneId(phoneNumberId);
+  const token = getToken();
+  if (!phoneId || !token) {
+    throw new Error('META_PHONE_ID / META_TOKEN no configurados');
+  }
+
+  const url = `https://graph.facebook.com/v19.0/${phoneId}/messages`;
+  const data = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: normalizarTelefono(to),
+    type: 'text',
+    text: { preview_url: false, body },
+  };
+
+  const response = await axios.post(
+    url,
+    data,
+    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+  );
+  return response.data;
+};
+
+/**
+ * Envía una plantilla de WhatsApp llamada 'pedido' usando la API de Meta.
+ * @param recipient Número de WhatsApp en formato internacional (ej: 584125072254)
+ * @param templateParams Array de parámetros para la plantilla (opcional)
+ */
+const sendWhatsAppTemplate = async (template: string) => {
+  try {
+    const recipient = process.env.META_RECIPIENT;
+    const data: any = {
+      messaging_product: 'whatsapp',
+      to: recipient,
+      type: 'template',
+      template: {
+        name: template,
+        language: { code: 'es' },
+      },
+    };
+
+    const response = await axios.post(
+      `https://graph.facebook.com/v19.0/${getPhoneId()}/messages?access_token=${getToken()}`,
+      data,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error enviando plantilla WhatsApp:', error.response?.data || error.message);
+    throw new Error('Error al enviar la plantilla de WhatsApp');
+  }
+};
+
+export default sendWhatsAppTemplate;

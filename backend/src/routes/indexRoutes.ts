@@ -1,0 +1,43 @@
+import { Router } from 'express';
+import actividadesRoutes from './actividadesRoutes';
+import clientesRoutes from './clientesRoutes';
+import metasRoutes from './metasRoutes';
+import oportunidadesRoutes from './oportunidadesRoutes';
+import pedidosRoutes from './pedidosRoutes';
+import productosRoutes from './productosRoutes';
+import reunionesRoutes from './reunionesRoutes';
+import ticketsRoutes from './ticketsRoutes';
+import usuariosRoutes from './usuariosRoutes';
+import descargasRoutes from './descargasRoutes';
+import notificaciones from './notificacionesRoutes';
+import archivosRoutes from './archivosRoutes';
+import zonasRoutes from './zonasRoutes';
+import leadsRoutes from './leadsRoutes';
+import conversacionesRoutes from './conversacionesRoutes';
+import whatsappWebhookRoutes from './whatsappWebhookRoutes';
+import menuBienvenidaRoutes from './menuBienvenidaRoutes';
+import transporteRoutes from './transporteRoutes';
+
+// import turnRoutes from "./turnRoutes"
+const router: Router = Router();
+
+router.use('/', actividadesRoutes);
+router.use('/', clientesRoutes);
+router.use('/', metasRoutes);
+router.use('/', oportunidadesRoutes);
+router.use('/', pedidosRoutes);
+router.use('/', productosRoutes);
+router.use('/', reunionesRoutes);
+router.use('/', ticketsRoutes);
+router.use('/', usuariosRoutes);
+router.use('/', descargasRoutes);
+router.use('/', notificaciones);
+router.use('/', archivosRoutes);
+router.use('/', zonasRoutes);
+router.use('/', leadsRoutes);
+router.use('/', conversacionesRoutes);
+router.use('/', whatsappWebhookRoutes);
+router.use('/', menuBienvenidaRoutes);
+router.use('/', transporteRoutes);
+
+export default router;
