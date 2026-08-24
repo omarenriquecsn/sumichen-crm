@@ -166,7 +166,7 @@ No hay script de test funcional ni de typecheck dedicado (el typecheck real es `
 4. **Typos en nombres** ✅: se renombraron archivos e identificadores (ver Punto 4 en la bitácora). Quedan nombres raros en UI (ej. `menuVendedor`, `Analitica`, `DashboarVendedorModal`) pero son solo estéticos y no generan confusión en imports.
 5. **Rutas sin verificación de rol consistente** ✅: `jwtHandler` ahora lee el rol autoritativo de la tabla `vendedores` en cada request (`req.user.rol`); los controladores lo usan en vez del rol auto-reportado del JWT. El signup público y el trigger de Supabase crean usuarios siempre como `vendedor`. El primer admin debe crearse/promoverse manualmente (SQL o `PUT /usuarios/:id` por un admin existente).
 6. **`notificacionesRoutes.ts` reutilizaba el router de `actividadesRoutes.ts`** ✅: ahora crea su propio `Router()` (sin cambios de comportamiento).
-7. Sin tests y sin CI (el repo no es git; no hay host de CI). ✅ Backend ahora tiene `lint` (eslint 9 flat config + typescript-eslint, reglas relajadas para legacy) y `typecheck` (`tsc --noEmit`); el script `test` ya no falla (es un placeholder que sale 0).
+7. Sin tests y sin CI. ✅ El repo ahora es git (remoto `origin` = `https://github.com/omarenriquecsn/sumichen-crm`, rama `main`; se limpiaron los `.git` anidados de `backend/` y `project/`). Backend ahora tiene `lint` (eslint 9 flat config + typescript-eslint, reglas relajadas para legacy) y `typecheck` (`tsc --noEmit`); el script `test` ya no falla (es un placeholder que sale 0).
 8. `google calendar` ✅: feature ya implementada en el frontend — al crear una reunión se genera y abre el link de Google Calendar (`utils/googleCalendarLink.ts`, usado en `Reuniones.tsx`, `ReunionesModal.tsx`, `ClienteDetalle.tsx`, `ClienteDetalleModal.tsx`). Se actualizó la nota que lo marcaba como pendiente.
 9. Importaciones a mitad de archivo ✅: movidos al inicio en `pedidosControllers.ts` (los imports de express, servicios y utils estaban después de `subirEvidencia`).
 10. Schema canónico SQL de Supabase ✅: realineado con las entidades en el Punto 10 (`still_sky.sql` reescrito + trigger con `supabase_id`).
@@ -259,7 +259,7 @@ Sesión de mantenimiento: **Punto 1 (Seguridad)** ✅, **Punto 2 (Migraciones)**
 - `eslint.config.mjs` (flat config ESLint 9 + `typescript-eslint`, se instaló como devDependency). Reglas relajadas a propósito porque el código es legacy (no tenía lint previo): `no-explicit-any`, `no-unused-vars`, `no-empty-object-type`, `no-require-imports` y `no-namespace` en off.
 - Fixes menores que exigió el lint: `asyncHandler` tipó `fn` con firma explícita en vez de `Function`; `exportPedidos.ts` usó `const` para `lastExportPath`.
 - Resultado: `npm run lint` = 0 errores, `npm run typecheck` = 0 errores, `npm run build` OK, `npm test` sale 0.
-- ⚠ Sigue sin haber tests reales ni CI (el repo no es git). El placeholder de `test` está documentado para que nadie crea que hay suite.
+- ⚠ Sigue sin haber tests reales ni CI. El repo ya es git (https://github.com/omarenriquecsn/sumichen-crm, rama `main`) pero no hay pipeline de CI configurado. El placeholder de `test` está documentado para que nadie crea que hay suite.
 
 ### Punto 8 — Google Calendar ✅ (sin cambios de código)
 
@@ -542,7 +542,7 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 - **Feature "Resultados de conversación"** ✅ (22/08): lead `perdido` se reactiva al volver a escribir; acciones "Cliente" (formulario manual `ConvertirLeadModal`) y "Perder" en `/chat` y `/leads`; botones Convertir/Reasignar visibles con estado `reasignado`. `PUT /leads/:id/convertir` acepta `datos_cliente`. Ver "Feature — Resultados de conversación" en §8.
 - ⚠ **Pendiente de deploy**: el endpoint `POST /usuarios/registrar` (backend) y el frontend con el enlace "Registrar Usuarios" necesitan desplegarse en el VPS para estar en producción.
 - Pendiente opcional: rotar credenciales de los `.env` si el repo se publica.
-- Próximas mejoras candidatas: tests reales + CI (requiere poner el repo en git), limpiar imports de `useSupabase`/`useAdmin` migrando a `useApi`, evaluar el `POST /usuarios` público (hoy fallback del signup), escribir tests.
+- Próximas mejoras candidatas: tests reales + CI (el repo ya está en GitHub en `https://github.com/omarenriquecsn/sumichen-crm`), limpiar imports de `useSupabase`/`useAdmin` migrando a `useApi`, evaluar el `POST /usuarios` público (hoy fallback del signup), escribir tests.
 - Confirmar con el usuario el **alcance** de la próxima actualización (nuevo módulo, fix, refactor, deploy).
 - Schema de datos: ya se eligió **migraciones TypeORM** (baseline idempotente). Para cambios futuros de schema: crear una migración nueva en `src/database/migrations/`, NO editar el baseline.
 - Para cualquier cambio de API: seguir el patrón routes → controllers → services → repositories → entity.
