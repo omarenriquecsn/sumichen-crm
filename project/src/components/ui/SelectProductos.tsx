@@ -46,9 +46,9 @@ const SelectorDeProductos = ({ productos, onSeleccionar }: SelectorDeProductosPr
         {
           producto_id: producto.id,
           cantidad: 1,
-          precio_base: producto.precio_base || 0,
+          precio_base: Number(producto.precio_base) || 0,
           porcentaje_negociacion: 0,
-          precio_unitario: producto.precio_base || 0,
+          precio_unitario: Number(producto.precio_base) || 0,
           nombre: producto.nombre,
           descripcion: producto.descripcion,
         },
@@ -228,7 +228,7 @@ const SelectorDeProductos = ({ productos, onSeleccionar }: SelectorDeProductosPr
                     type="number"
                     min={0}
                     step="0.0001"
-                    value={producto.precio_unitario.toFixed(4)}
+                    value={Number(producto.precio_unitario || 0).toFixed(4)}
                     readOnly
                     className="w-full border rounded px-2 py-1 bg-gray-100 text-gray-700 appearance-none"
                     style={{ MozAppearance: 'textfield' }}
