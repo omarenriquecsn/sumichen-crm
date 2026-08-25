@@ -13,6 +13,7 @@ import {
   getProductosPedidosByVendedorService,
   deleteProductos_pedidoService,
 } from './productos_pedidoServices';
+import { createTransporte } from '../repositories/transporteRepository';
 
 // import { sendWhatsappNotification } from '../utils/whatsapp';
 import dotenv from 'dotenv';
@@ -58,8 +59,13 @@ export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
 
   neuevoPedido.total = neuevoPedido.subtotal;
 
+  // El transporte se crea EXPLÍCITAMENTE con su repositorio (genera el uuid),
+  // NO con cascade de TypeORM (que insertaba la fila con id NULL y rompía).
   if (transporte_detalle && rest.transporte === 'externo') {
-    neuevoPedido.transporte_detalle = transporte_detalle as Transporte;
+    const transporteGuardado = await createTransporte(
+      transporte_detalle as Partial<Transporte>,
+    );
+    neuevoPedido.transporte_detalle = transporteGuardado;
   }
 
   const pedido = await createPedido(neuevoPedido);
@@ -106,14 +112,18 @@ export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
   const vendedor = await getUsuarioByIdDb(pedido.vendedor_id);
 
   if (vendedor && pushoverToken && pushoverUser) {
-   await sendPushNotification({
-      token: pushoverToken,
-      title: 'Nuevo pedido',
-      message: `Nuevo pedido creado por ${vendedor.nombre}, Cliente: ${cliente?.empresa}, Total del Pedido: ${pedido.total} fecha: ${new Date().toLocaleString()}`,
-      user:pushoverUser,
-      url: process.env.APP_PUBLIC_URL || 'https://crmsumichen.com',
-      device: 'chrome'
-    });
+    try {
+      await sendPushNotification({
+        token: pushoverToken,
+        title: 'Nuevo pedido',
+        message: `Nuevo pedido creado por ${vendedor.nombre}, Cliente: ${cliente?.empresa}, Total del Pedido: ${pedido.total} fecha: ${new Date().toLocaleString()}`,
+        user: pushoverUser,
+        url: process.env.APP_PUBLIC_URL || 'https://crmsumichen.com',
+        device: 'chrome',
+      });
+    } catch (error) {
+      console.error('No se pudo enviar notificación Pushover:', error);
+    }
   }
 
   return pedido;
