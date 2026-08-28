@@ -14,6 +14,8 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  Phone,
+  Mail,
 } from "lucide-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -23,11 +25,11 @@ import { calculoIncremento } from "../../utils/ventas";
 import {
   OportunidadesUtilmes,
   valorPipeline,
-  obtenerReunionesProximas,
 } from "../../utils/oportunidades";
 import { clientesActivos } from "../../utils/clientes";
 import { typeChange } from "../../constants/typeChange";
-import { formatearActividades } from "../../utils/actividades";
+import { formatearActividades, obtenerProximasActividades } from "../../utils/actividades";
+import { ActividadDetalleModal } from "../../components/forms/ActividadDetalleModal";
 import { useGetMetas } from "../../hooks/useMetas";
 import useVendedores from "../../hooks/useVendedores";
 import { User } from "@supabase/supabase-js";
@@ -77,6 +79,11 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
 
   const [page, setPage] = React.useState(1);
   const pageSize = 5; // o el número de actividades que quieras mostrar por página
+
+  const [actividadSeleccionada, setActividadSeleccionada] = React.useState<{
+    id: string;
+    origen: "reunion" | "actividad";
+  } | null>(null);
 
   // Si se pasan props, úsalos. Si no, usa los datos de los hooks.
   const _clientes = Array.isArray(clientesData) ?  clientesData.filter(cliente => cliente.vendedor_id === vendedor?.id) : clientesData ?? [];
@@ -166,7 +173,7 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
     ...formatearActividades(actividadesArray, _clientes, vendedoresData),
   ];
   const reunionesArray = Array.isArray(_reuniones) ? _reuniones : [];
-  const upcomingMeetings = [...obtenerReunionesProximas(reunionesArray)];
+  const proximasActividades = obtenerProximasActividades(actividadesArray, reunionesArray);
 
   // Paginación actividades
   const totalPages = Math.ceil(recentActivities.length / pageSize);
@@ -276,7 +283,13 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
                 {paginatedActivities.map((activity) => (
                   <div
                     key={activity.id}
-                    className="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg"
+                    onClick={() =>
+                      setActividadSeleccionada({
+                        id: activity.id,
+                        origen: "actividad",
+                      })
+                    }
+                    className="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
                   >
                     <div
                       className={`p-2 rounded-full ${
@@ -348,36 +361,83 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
               </div>
             </div>
 
-            {/* Próximas reuniones */}
+            {/* Próximas Actividades */}
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Próximas Reuniones
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Próximas Actividades
+                </h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Empresa
+                </h3>
+              </div>
               <div className="space-y-4">
-                {upcomingMeetings.map((meeting) => (
+                {proximasActividades.map((item) => (
                   <div
-                    key={meeting.id}
-                    className="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg"
+                    key={item.id}
+                    onClick={() =>
+                      setActividadSeleccionada({
+                        id: item.id,
+                        origen: item.origen,
+                      })
+                    }
+                    className="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
                   >
-                    <div className="p-2 bg-blue-100 rounded-full">
-                      <Calendar className="h-4 w-4 text-blue-600" />
+                    <div
+                      className={`p-2 rounded-full ${
+                        item.tipo === "reunion"
+                          ? "bg-blue-100"
+                          : item.tipo === "llamada"
+                          ? "bg-green-100"
+                          : "bg-purple-100"
+                      }`}
+                    >
+                      {item.tipo === "reunion" ? (
+                        <Calendar className="h-4 w-4 text-blue-600" />
+                      ) : item.tipo === "llamada" ? (
+                        <Phone className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <Mail className="h-4 w-4 text-purple-600" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">
-                        {meeting.titulo}
+                        {item.titulo}
                       </p>
-                      <p className="text-sm text-gray-500">
-                        {/* ...cliente info... */}
+                      <p className="text-sm capitalize text-gray-400 font-medium">
+                        {item.tipo}
                       </p>
-                      <p className="text-sm text-blue-600">
-                        {dayjs(meeting.fecha_inicio).format("dddd")} a las{" "}
-                        {dayjs(
-                          new Date(meeting.fecha_inicio).getHours()
-                        ).format("HH:mm")}
+                      <p
+                        className={`text-sm ${
+                          item.tipo === "reunion"
+                            ? "text-blue-600"
+                            : item.tipo === "llamada"
+                            ? "text-green-600"
+                            : "text-purple-600"
+                        }`}
+                      >
+                        {item.tipo === "reunion"
+                          ? `${dayjs(item.fecha).format("dddd")} a las ${dayjs(
+                              item.fecha
+                            ).format("HH:mm")}`
+                          : `${dayjs(item.fecha).format("dddd DD/MM")}`}
+                      </p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">
+                        {Array.isArray(clientesData)
+                          ? clientesData.find((c) => c.id === item.cliente_id)
+                              ?.empresa
+                          : ""}
                       </p>
                     </div>
                   </div>
                 ))}
+                {proximasActividades.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No hay actividades próximas programadas.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -394,6 +454,16 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
             </div>
           </div>
         </div>
+
+        <ActividadDetalleModal
+          isOpen={!!actividadSeleccionada}
+          item={actividadSeleccionada}
+          actividades={_actividades}
+          reuniones={_reuniones}
+          clientes={_clientes}
+          vendedores={vendedoresData ?? []}
+          onClose={() => setActividadSeleccionada(null)}
+        />
       </div>
     </div>
   );

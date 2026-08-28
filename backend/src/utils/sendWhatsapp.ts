@@ -51,6 +51,54 @@ export const sendWhatsAppText = async (to: string, body: string, phoneNumberId?:
 };
 
 /**
+ * Envía un documento (PDF) por WhatsApp Cloud API.
+ * 1) Sube el archivo a /media (multipart) y obtiene el media_id.
+ * 2) Envía un mensaje tipo 'document' referenciando ese media_id.
+ * Solo funciona dentro de la ventana de 24h tras un mensaje entrante.
+ */
+export const sendWhatsAppDocument = async (
+  to: string,
+  pdfBuffer: Buffer,
+  filename: string,
+  caption?: string,
+  phoneNumberId?: string
+) => {
+  const phoneId = getPhoneId(phoneNumberId);
+  const token = getToken();
+  if (!phoneId || !token) {
+    throw new Error('META_PHONE_ID / META_TOKEN no configurados');
+  }
+
+  // 1) Subir el PDF y obtener el media_id
+  const formData = new FormData();
+  formData.append('messaging_product', 'whatsapp');
+  formData.append('file', new Blob([new Uint8Array(pdfBuffer)], { type: 'application/pdf' }), filename);
+
+  const uploadResponse = await axios.post(
+    `https://graph.facebook.com/v19.0/${phoneId}/media`,
+    formData,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const mediaId: string = uploadResponse.data.id;
+
+  // 2) Enviar el mensaje de tipo documento
+  const data = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: normalizarTelefono(to),
+    type: 'document',
+    document: { id: mediaId, filename, caption: caption || '' },
+  };
+
+  const response = await axios.post(
+    `https://graph.facebook.com/v19.0/${phoneId}/messages`,
+    data,
+    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+  );
+  return response.data;
+};
+
+/**
  * Envía una plantilla de WhatsApp llamada 'pedido' usando la API de Meta.
  * @param recipient Número de WhatsApp en formato internacional (ej: 584125072254)
  * @param templateParams Array de parámetros para la plantilla (opcional)

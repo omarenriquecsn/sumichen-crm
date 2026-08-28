@@ -261,9 +261,9 @@ const MarketingDashboard: React.FC = () => {
                   onChange={(e) => setMenuForm((prev) => ({ ...prev, mensaje_confirmacion: e.target.value }))}
                   rows={3}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="¡Listo, {nombre}! En breve {vendedor} te contactará."
+                  placeholder="¡Listo, {nombre}! {vendedor} ({telefono_vendedor}) te contactará."
                 />
-                <p className="text-xs text-gray-400 mt-1">Variables: {"{nombre}"}, {"{vendedor}"}</p>
+                <p className="text-xs text-gray-400 mt-1">Variables: {"{nombre}"}, {"{vendedor}"}, {"{telefono_vendedor}"}</p>
               </div>
 
               {/* Opciones de intención */}
@@ -287,8 +287,7 @@ const MarketingDashboard: React.FC = () => {
                         className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="cotizacion">Cotización</option>
-                        <option value="informacion">Información</option>
-                        <option value="soporte">Soporte</option>
+                        <option value="catalogo">Catálogo</option>
                       </select>
                       <button
                         onClick={() =>

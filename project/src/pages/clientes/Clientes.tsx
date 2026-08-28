@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Layout } from "../../components/layout/Layout";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -34,6 +34,10 @@ import {
   esClienteNuevoEsteMes,
 } from "../../utils/clientes";
 import useVendedores from "../../hooks/useVendedores";
+import {
+  guardarEstadoVista,
+  recuperarEstadoVista,
+} from "../../utils/vistaListas";
 
 type PropsClientes = {
   clientes?: Cliente[];
@@ -42,12 +46,42 @@ type PropsClientes = {
 
 export const Clientes: React.FC<PropsClientes> = (props) => {
   const [isModalOpen, setModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterEstado, setFilterEstado] = useState("todos");
-  const [soloNuevos, setSoloNuevos] = useState(false);
-  
-  const [page, setPage] = useState(1);
+  const estadoVistaClientes = recuperarEstadoVista("clientes:vista", {
+    page: 1,
+    searchTerm: "",
+    filterEstado: "todos",
+    soloNuevos: false,
+    filterSector: "todos",
+    buscarSoloNotas: false,
+  });
+  const [searchTerm, setSearchTerm] = useState(estadoVistaClientes.searchTerm);
+  const [filterEstado, setFilterEstado] = useState(
+    estadoVistaClientes.filterEstado
+  );
+  const [soloNuevos, setSoloNuevos] = useState(
+    estadoVistaClientes.soloNuevos
+  );
+  const [filterSector, setFilterSector] = useState(
+    estadoVistaClientes.filterSector
+  );
+  const [buscarSoloNotas, setBuscarSoloNotas] = useState(
+    estadoVistaClientes.buscarSoloNotas
+  );
+  const [page, setPage] = useState(estadoVistaClientes.page);
   const pageSize = 6; // Puedes cambiar este valor si lo deseas
+
+  useEffect(() => {
+    return () => {
+      guardarEstadoVista("clientes:vista", {
+        page,
+        searchTerm,
+        filterEstado,
+        soloNuevos,
+        filterSector,
+        buscarSoloNotas,
+      });
+    };
+  }, [page, searchTerm, filterEstado, soloNuevos, filterSector, buscarSoloNotas]);
 
   const supabase = useSupabase();
 
@@ -109,23 +143,40 @@ export const Clientes: React.FC<PropsClientes> = (props) => {
 
   const clientesArray = Array.isArray(clientes) ? clientes : [];
   const filteredClientes = clientesArray.filter((cliente) => {
-    const matchesSearch =
-      cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.empresa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const termino = searchTerm.trim().toLowerCase();
+    let matchesSearch: boolean;
+    if (buscarSoloNotas) {
+      matchesSearch =
+        !termino || (cliente.notas ?? "").toLowerCase().includes(termino);
+    } else {
+      matchesSearch =
+        !termino ||
+        cliente.rif.toLowerCase().includes(termino) ||
+        cliente.nombre.toLowerCase().includes(termino) ||
+        cliente.apellido.toLowerCase().includes(termino) ||
+        cliente.email.toLowerCase().includes(termino) ||
+        cliente.telefono.toLowerCase().includes(termino) ||
+        (cliente.empresa ?? "").toLowerCase().includes(termino) ||
+        (cliente.ciudad ?? "").toLowerCase().includes(termino);
+    }
 
     const matchesFilter =
       filterEstado === "todos" || cliente.estado === filterEstado;
 
     const matchesNuevos = !soloNuevos || esClienteNuevoEsteMes(cliente);
 
-    return matchesSearch && matchesFilter && matchesNuevos;
+    const matchesSector =
+      filterSector === "todos" || cliente.sector === filterSector;
+
+    return (
+      matchesSearch && matchesFilter && matchesNuevos && matchesSector
+    );
   });
   const totalPages = Math.ceil(filteredClientes.length / pageSize);
+  const paginaEfectiva = Math.min(page, Math.max(1, totalPages));
   const paginatedClientes = filteredClientes.slice(
-    (page - 1) * pageSize,
-    page * pageSize
+    (paginaEfectiva - 1) * pageSize,
+    paginaEfectiva * pageSize
   );
 
   return (
@@ -142,7 +193,11 @@ export const Clientes: React.FC<PropsClientes> = (props) => {
               <Search className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Buscar clientes..."
+                placeholder={
+                  buscarSoloNotas
+                    ? "Buscar en notas del cliente..."
+                    : "Buscar por RIF, empresa, contacto o ciudad..."
+                }
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -161,6 +216,18 @@ export const Clientes: React.FC<PropsClientes> = (props) => {
                 <option value="prospecto">Prospectos</option>
                 <option value="activo">Activos</option>
                 <option value="inactivo">Inactivos</option>
+              </select>
+              <select
+                value={filterSector}
+                onChange={(e) => setFilterSector(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="todos">Todos los sectores</option>
+                {Object.values(CustomerSector).map((sector) => (
+                  <option key={sector} value={sector}>
+                    {sector}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -184,6 +251,18 @@ export const Clientes: React.FC<PropsClientes> = (props) => {
           />
           <label htmlFor="soloNuevos" className="text-sm text-gray-600">
             Clientes nuevos este mes
+          </label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="buscarSoloNotas"
+            checked={buscarSoloNotas}
+            onChange={() => setBuscarSoloNotas((v) => !v)}
+            className="mr-1"
+          />
+          <label htmlFor="buscarSoloNotas" className="text-sm text-gray-600">
+            Buscar solo en notas del cliente
           </label>
         </div>
         {/* Lista de clientes */}
@@ -339,29 +418,29 @@ export const Clientes: React.FC<PropsClientes> = (props) => {
           <button
             className={`px-4 py-2 rounded font-semibold transition-colors duration-200
                           ${
-                            page === 1
+                            paginaEfectiva === 1
                               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                               : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 shadow"
                           }
                         `}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
+            disabled={paginaEfectiva === 1}
           >
             ← Anterior
           </button>
           <span className="text-gray-700 font-medium">
-            Página {page} de {totalPages}
+            Página {paginaEfectiva} de {totalPages}
           </span>
           <button
             className={`px-4 py-2 rounded font-semibold transition-colors duration-200
                           ${
-                            page === totalPages
+                            paginaEfectiva === totalPages
                               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                               : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 shadow"
                           }
                         `}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
+            disabled={paginaEfectiva === totalPages}
           >
             Siguiente →
           </button>

@@ -9,7 +9,7 @@ import {
 export interface OpcionIntencion {
   numero: number;
   etiqueta: string;
-  tipo_web: 'cotizacion' | 'informacion' | 'soporte';
+  tipo_web: 'cotizacion' | 'informacion' | 'soporte' | 'catalogo';
 }
 
 @Entity('menu_bienvenida')
@@ -32,10 +32,10 @@ export class MenuBienvenida {
   @Column({ type: 'text', default: '{vendedor} de la zona {zona} te atenderá. ¿Qué necesitas?\n{opciones}' })
   pregunta_intencion: string;
 
-  @Column({ type: 'text', default: '¡Listo, {nombre}! En breve {vendedor} te contactará por este medio.' })
+  @Column({ type: 'text', default: '¡Listo, {nombre}! {vendedor} ({telefono_vendedor}) te contactará por este medio.' })
   mensaje_confirmacion: string;
 
-  @Column({ type: 'jsonb', default: () => `'[{"numero":1,"etiqueta":"Cotización","tipo_web":"cotizacion"},{"numero":2,"etiqueta":"Información","tipo_web":"informacion"},{"numero":3,"etiqueta":"Soporte","tipo_web":"soporte"}]'` })
+  @Column({ type: 'jsonb', default: () => `'[{"numero":1,"etiqueta":"Cotización","tipo_web":"cotizacion"},{"numero":2,"etiqueta":"Catálogo","tipo_web":"catalogo"}]'` })
   opciones_intencion: OpcionIntencion[];
 
   @CreateDateColumn({ type: 'timestamptz' })

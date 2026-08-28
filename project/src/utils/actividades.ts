@@ -4,10 +4,12 @@ import {
   ActividadFormateada,
   Cliente,
   Meta,
+  Reunion,
   User,
 } from "../types";
 import { NavigateFunction } from "react-router-dom";
 import { toast } from "react-toastify";
+import { obtenerReunionesProximas } from "./oportunidades";
 
 export function formatearActividades(
   actividades: Actividad[],
@@ -143,4 +145,80 @@ export function handleCrearActividadUtil({
       },
     }
   );
+}
+
+export type ProximaActividadItem = {
+  id: string;
+  tipo: "llamada" | "email" | "reunion";
+  titulo: string;
+  fecha: Date;
+  cliente_id: string;
+  vendedor_id: string;
+  origen: "reunion" | "actividad";
+};
+
+export function obtenerActividadesProximas(
+  actividades: Actividad[],
+  dias = 2
+): Actividad[] {
+  if (!actividades || !Array.isArray(actividades)) return [];
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const limite = new Date();
+  limite.setDate(hoy.getDate() + dias);
+  limite.setHours(23, 59, 59, 999);
+
+  return actividades
+    .map((a) => ({
+      ...a,
+      fechaObj: new Date(a.fecha),
+    }))
+    .filter(
+      (a) =>
+        !a.completado &&
+        ["llamada", "email", "reunion"].includes(a.tipo) &&
+        a.fechaObj >= hoy &&
+        a.fechaObj <= limite
+    )
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+    .slice(0, 4);
+}
+
+export function obtenerProximasActividades(
+  actividades: Actividad[],
+  reuniones: Reunion[]
+): ProximaActividadItem[] {
+  const actProximas = obtenerActividadesProximas(actividades);
+  const reuProximas = obtenerReunionesProximas(reuniones);
+
+  const reunionIds = new Set(reuniones.map((r) => r.id));
+
+  const actProximasSinDuplicados = actProximas.filter(
+    (a) => !(a.id_tipo_actividad && reunionIds.has(a.id_tipo_actividad))
+  );
+
+  const items: ProximaActividadItem[] = [
+    ...reuProximas.map((r) => ({
+      id: r.id,
+      tipo: "reunion" as const,
+      titulo: r.titulo,
+      fecha: new Date(r.fecha_inicio),
+      cliente_id: r.cliente_id,
+      vendedor_id: r.vendedor_id,
+      origen: "reunion" as const,
+    })),
+    ...actProximasSinDuplicados.map((a) => ({
+      id: a.id,
+      tipo: a.tipo as "llamada" | "email" | "reunion",
+      titulo: a.titulo,
+      fecha: new Date(a.fecha),
+      cliente_id: a.cliente_id,
+      vendedor_id: a.vendedor_id,
+      origen: "actividad" as const,
+    })),
+  ];
+
+  return items
+    .sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
+    .slice(0, 6);
 }

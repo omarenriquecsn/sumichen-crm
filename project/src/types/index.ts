@@ -362,7 +362,7 @@ export type Mes = {
 // ===== MARKETING / LEADS / CHAT =====
 
 export type OrigenLead = 'instagram' | 'web' | 'whatsapp';
-export type TipoWeb = 'cotizacion' | 'informacion' | 'soporte';
+export type TipoWeb = 'cotizacion' | 'informacion' | 'soporte' | 'catalogo';
 export type CanalEntrada = 'instagram_boton' | 'web_formulario' | 'whatsapp_mensaje';
 export type EstadoLead =
   | 'nuevo'
@@ -466,7 +466,7 @@ export interface Zona {
 export interface OpcionIntencion {
   numero: number;
   etiqueta: string;
-  tipo_web: "cotizacion" | "informacion" | "soporte";
+  tipo_web: "cotizacion" | "informacion" | "soporte" | "catalogo";
 }
 
 export interface MenuBienvenida {

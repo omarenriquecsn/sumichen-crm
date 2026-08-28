@@ -27,7 +27,7 @@ export const updateMenuBienvenidaService = async (data: any) => {
   if (data.opciones_intencion !== undefined) {
     if (!Array.isArray(data.opciones_intencion)) throw new ApiError('opciones_intencion debe ser un array', 400);
     const opciones = data.opciones_intencion as OpcionIntencion[];
-    const tiposValidos = ['cotizacion', 'informacion', 'soporte'];
+    const tiposValidos = ['cotizacion', 'informacion', 'soporte', 'catalogo'];
     for (const op of opciones) {
       if (!op.numero || typeof op.numero !== 'number') throw new ApiError('Cada opción requiere un número', 400);
       if (!op.etiqueta || typeof op.etiqueta !== 'string') throw new ApiError('Cada opción requiere una etiqueta', 400);

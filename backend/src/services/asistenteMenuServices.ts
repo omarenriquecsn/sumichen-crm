@@ -76,6 +76,8 @@ const getVendedorNombre = (lead: any) =>
     ? `${lead.vendedor_asignado.nombre} ${lead.vendedor_asignado.apellido}`.trim()
     : '';
 
+const getVendedorTelefono = (lead: any) => lead?.vendedor_asignado?.telefono || '';
+
 const matchEstado = (cuerpo: string, estados: string[]): string | null => {
   const c = normalizar(cuerpo.trim());
   if (/^\d+$/.test(c)) {
@@ -214,9 +216,29 @@ export const procesarRespuestaIntencion = async (lead: any, cuerpo: string) => {
   const leadActual = await getLeadById(lead.id);
   const texto = config.mensaje_confirmacion
     .replace('{nombre}', nombre)
-    .replace('{vendedor}', getVendedorNombre(leadActual));
+    .replace('{vendedor}', getVendedorNombre(leadActual))
+    .replace('{telefono_vendedor}', getVendedorTelefono(leadActual));
 
   await enviarSeguro(telefono, texto, phoneNumberId);
+
+  // Opción "Catálogo": genera el PDF desde el inventario y lo envía al cliente.
+  if (opcion.tipo_web === 'catalogo') {
+    try {
+      const { generarCatalogoPDF } = await import('../utils/catalogoProductos');
+      const { sendWhatsAppDocument } = await import('../utils/sendWhatsapp');
+      const pdfBuffer = await generarCatalogoPDF();
+      await sendWhatsAppDocument(
+        telefono,
+        pdfBuffer,
+        'catalogo_sumichem.pdf',
+        'Catálogo de productos Sumichem',
+        phoneNumberId
+      );
+    } catch (err) {
+      console.error('[Asistente] Error enviando catálogo:', err instanceof Error ? err.message : err);
+    }
+  }
+
   await updateLead(lead.id, {
     tipo_web: opcion.tipo_web as any,
     metadata: { ...lead.metadata, paso_menu: 'completado', intencion_seleccionada: opcion.etiqueta },

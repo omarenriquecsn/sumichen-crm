@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -29,6 +29,10 @@ import { User as UserSupabase } from "@supabase/supabase-js";
 import { PedidosDetailModal } from "./PedidosDetailModal";
 import utc from "dayjs/plugin/utc";
 import { useCrearNotificacion } from "../../hooks/useNotificaciones";
+import {
+  guardarEstadoVista,
+  recuperarEstadoVista,
+} from "../../utils/vistaListas";
 dayjs.extend(utc);
 
 type PedidosProps = {
@@ -64,8 +68,25 @@ export const PedidosModal: React.FC<PedidosProps> = ({
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState<Pedido | null>(
     null
   );
-  const [terminoBusqueda, setTerminoBusqueda] = useState("");
-  const [filtroEstado, setFiltroEstado] = useState("todos");
+  const estadoVistaPedidosModal = recuperarEstadoVista("pedidosModal:vista", {
+    terminoBusqueda: "",
+    filtroEstado: "todos",
+  });
+  const [terminoBusqueda, setTerminoBusqueda] = useState(
+    estadoVistaPedidosModal.terminoBusqueda
+  );
+  const [filtroEstado, setFiltroEstado] = useState(
+    estadoVistaPedidosModal.filtroEstado
+  );
+
+  useEffect(() => {
+    return () => {
+      guardarEstadoVista("pedidosModal:vista", {
+        terminoBusqueda,
+        filtroEstado,
+      });
+    };
+  }, [terminoBusqueda, filtroEstado]);
 
   const { data: pedidosDb } = supabase.usePedidos();
 

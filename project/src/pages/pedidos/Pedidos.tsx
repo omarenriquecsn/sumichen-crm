@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Layout } from "../../components/layout/Layout";
 import {
   Plus,
@@ -35,6 +35,11 @@ import { getEstadoColor, handleCrearPedidoUtil } from "../../utils/pedidos";
 import { handleActualizarPedidoUtil } from "../../utils/pedidos";
 import useVendedores from "../../hooks/useVendedores";
 import { useCrearNotificacion } from "../../hooks/useNotificaciones";
+import {
+  guardarEstadoVista,
+  recuperarEstadoVista,
+  getContenedorScroll,
+} from "../../utils/vistaListas";
 
 type PedidosProps = {
   pedidosProp?: Pedido[];
@@ -62,8 +67,16 @@ export const Pedidos: React.FC<PedidosProps> = ({
     null
   );
 
-  const [terminoBusqueda, setTerminoBusqueda] = useState("");
-  const [filtroEstado, setFiltroEstado] = useState("todos");
+  const estadoVistaPedidos = recuperarEstadoVista("pedidos:vista", {
+    terminoBusqueda: "",
+    filtroEstado: "todos",
+  });
+  const [terminoBusqueda, setTerminoBusqueda] = useState(
+    estadoVistaPedidos.terminoBusqueda
+  );
+  const [filtroEstado, setFiltroEstado] = useState(
+    estadoVistaPedidos.filtroEstado
+  );
 
   const { data: pedidosDb } = supabase.usePedidos();
 
@@ -77,6 +90,50 @@ export const Pedidos: React.FC<PedidosProps> = ({
 
   const { mutate: nuevoPedido, isPending: isCreandoPedido } =
     supabase.useCrearPedido();
+
+  const scrollTopRef = useRef(0);
+  const scrollRestauradoRef = useRef(false);
+
+  useEffect(() => {
+    const contenedor = getContenedorScroll();
+    const onScroll = () => {
+      if (contenedor instanceof HTMLElement) {
+        scrollTopRef.current = contenedor.scrollTop;
+      } else if (contenedor === window) {
+        scrollTopRef.current = window.scrollY;
+      }
+    };
+    contenedor.addEventListener("scroll", onScroll, { passive: true });
+    return () => contenedor.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      guardarEstadoVista("pedidos:vista", {
+        terminoBusqueda,
+        filtroEstado,
+        scrollTop: scrollTopRef.current,
+      });
+    };
+  }, [terminoBusqueda, filtroEstado]);
+
+  const hayPedidos = Array.isArray(pedidos) && pedidos.length > 0;
+
+  useEffect(() => {
+    if (hayPedidos && !scrollRestauradoRef.current) {
+      const { scrollTop } = recuperarEstadoVista<{ scrollTop: number }>(
+        "pedidos:vista",
+        { scrollTop: 0 }
+      );
+      const contenedor = getContenedorScroll();
+      if (contenedor instanceof HTMLElement) {
+        contenedor.scrollTop = scrollTop;
+      } else if (contenedor === window) {
+        window.scrollTo(0, scrollTop);
+      }
+      scrollRestauradoRef.current = true;
+    }
+  }, [hayPedidos]);
 
   if (!currentUser) {
     toast.error("Debes iniciar sesión para ver los pedidos");

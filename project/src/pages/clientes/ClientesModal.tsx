@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -34,6 +34,10 @@ import {
 import useVendedores from "../../hooks/useVendedores";
 import { ClienteDetalleModal } from "./ClienteDetalleModal";
 import { User as UserSupabase } from "@supabase/supabase-js";
+import {
+  guardarEstadoVista,
+  recuperarEstadoVista,
+} from "../../utils/vistaListas";
 
 type PropsClientes = {
   vendedor: UserSupabase | null;
@@ -51,10 +55,43 @@ export const ClientesModal: React.FC<PropsClientes> = ({
   const [selectedCliente, setSelectedCliente] = useState<Cliente>(
     {} as Cliente
   );
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterEstado, setFilterEstado] = useState("todos");
-  const [page, setPage] = useState(1);
-  const [soloNuevos, setSoloNuevos] = useState(false);
+  const estadoVistaClientesModal = recuperarEstadoVista("clientesModal:vista", {
+    page: 1,
+    searchTerm: "",
+    filterEstado: "todos",
+    soloNuevos: false,
+    filterSector: "todos",
+    buscarSoloNotas: false,
+  });
+  const [searchTerm, setSearchTerm] = useState(
+    estadoVistaClientesModal.searchTerm
+  );
+  const [filterEstado, setFilterEstado] = useState(
+    estadoVistaClientesModal.filterEstado
+  );
+  const [page, setPage] = useState(estadoVistaClientesModal.page);
+  const [soloNuevos, setSoloNuevos] = useState(
+    estadoVistaClientesModal.soloNuevos
+  );
+  const [filterSector, setFilterSector] = useState(
+    estadoVistaClientesModal.filterSector
+  );
+  const [buscarSoloNotas, setBuscarSoloNotas] = useState(
+    estadoVistaClientesModal.buscarSoloNotas
+  );
+
+  useEffect(() => {
+    return () => {
+      guardarEstadoVista("clientesModal:vista", {
+        page,
+        searchTerm,
+        filterEstado,
+        soloNuevos,
+        filterSector,
+        buscarSoloNotas,
+      });
+    };
+  }, [page, searchTerm, filterEstado, soloNuevos, filterSector, buscarSoloNotas]);
 
   const pageSize = 6; // Puedes cambiar este valor si lo deseas
 
@@ -122,23 +159,40 @@ export const ClientesModal: React.FC<PropsClientes> = ({
 
   const clientesArray = Array.isArray(clientes) ? clientes : [];
   const filteredClientes = clientesArray.filter((cliente) => {
-    const matchesSearch =
-      cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.empresa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const termino = searchTerm.trim().toLowerCase();
+    let matchesSearch: boolean;
+    if (buscarSoloNotas) {
+      matchesSearch =
+        !termino || (cliente.notas ?? "").toLowerCase().includes(termino);
+    } else {
+      matchesSearch =
+        !termino ||
+        cliente.rif.toLowerCase().includes(termino) ||
+        cliente.nombre.toLowerCase().includes(termino) ||
+        cliente.apellido.toLowerCase().includes(termino) ||
+        cliente.email.toLowerCase().includes(termino) ||
+        cliente.telefono.toLowerCase().includes(termino) ||
+        (cliente.empresa ?? "").toLowerCase().includes(termino) ||
+        (cliente.ciudad ?? "").toLowerCase().includes(termino);
+    }
 
     const matchesFilter =
       filterEstado === "todos" || cliente.estado === filterEstado;
 
     const matchesNuevos = !soloNuevos || esClienteNuevoEsteMes(cliente);
 
-    return matchesSearch && matchesFilter && matchesNuevos;
+    const matchesSector =
+      filterSector === "todos" || cliente.sector === filterSector;
+
+    return (
+      matchesSearch && matchesFilter && matchesNuevos && matchesSector
+    );
   });
   const totalPages = Math.ceil(filteredClientes.length / pageSize);
+  const paginaEfectiva = Math.min(page, Math.max(1, totalPages));
   const paginatedClientes = filteredClientes.slice(
-    (page - 1) * pageSize,
-    page * pageSize
+    (paginaEfectiva - 1) * pageSize,
+    paginaEfectiva * pageSize
   );
 
   if (!isOpenClientes) return null;
@@ -181,7 +235,11 @@ export const ClientesModal: React.FC<PropsClientes> = ({
                 <Search className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Buscar clientes..."
+                  placeholder={
+                    buscarSoloNotas
+                      ? "Buscar en notas del cliente..."
+                      : "Buscar por RIF, empresa, contacto o ciudad..."
+                  }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -200,6 +258,18 @@ export const ClientesModal: React.FC<PropsClientes> = ({
                   <option value="prospecto">Prospectos</option>
                   <option value="activo">Activos</option>
                   <option value="inactivo">Inactivos</option>
+                </select>
+                <select
+                  value={filterSector}
+                  onChange={(e) => setFilterSector(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="todos">Todos los sectores</option>
+                  {Object.values(CustomerSector).map((sector) => (
+                    <option key={sector} value={sector}>
+                      {sector}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -223,6 +293,18 @@ export const ClientesModal: React.FC<PropsClientes> = ({
             />
             <label htmlFor="soloNuevos" className="text-sm text-gray-600">
               Solo clientes nuevos este mes
+            </label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="buscarSoloNotas"
+              checked={buscarSoloNotas}
+              onChange={() => setBuscarSoloNotas((v) => !v)}
+              className="mr-1"
+            />
+            <label htmlFor="buscarSoloNotas" className="text-sm text-gray-600">
+              Buscar solo en notas del cliente
             </label>
           </div>
           {/* Lista de clientes */}
@@ -382,29 +464,29 @@ export const ClientesModal: React.FC<PropsClientes> = ({
             <button
               className={`px-4 py-2 rounded font-semibold transition-colors duration-200
                           ${
-                            page === 1
+                            paginaEfectiva === 1
                               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                               : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 shadow"
                           }
                         `}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
+              disabled={paginaEfectiva === 1}
             >
               ← Anterior
             </button>
             <span className="text-gray-700 font-medium">
-              Página {page} de {totalPages}
+              Página {paginaEfectiva} de {totalPages}
             </span>
             <button
               className={`px-4 py-2 rounded font-semibold transition-colors duration-200
                           ${
-                            page === totalPages
+                            paginaEfectiva === totalPages
                               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                               : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 shadow"
                           }
                         `}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
+              disabled={paginaEfectiva === totalPages}
             >
               Siguiente →
             </button>
