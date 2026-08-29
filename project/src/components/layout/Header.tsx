@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Bell, CheckCircle, Menu, XCircle } from "lucide-react";
 import { useNotificaciones } from "../../hooks/useNotificaciones";
 import { useAuth } from "../../context/useAuth";
-import { useEliminarNotificaciones } from "../../hooks/useNotificaciones";
+import { useMarcarTodasNotificacionesLeidas } from "../../hooks/useNotificaciones";
 // ...
 
 
@@ -19,37 +19,17 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { userData } = useAuth();
 
-  const { data: notificaciones } = useNotificaciones(userData?.id ?? ""); // Reemplaza con el ID real del usuario
+  const { data: notificaciones } = useNotificaciones(userData?.id ?? "");
   const [mostrarDropdown, setMostrarDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { mutate: eliminarNotificaciones } = useEliminarNotificaciones(userData?.id ?? "");
+  const { mutate: marcarTodasLeidas } = useMarcarTodasNotificacionesLeidas(
+    userData?.id ?? ""
+  );
 
-// ...existing code...
-
-  // Cierra el dropdown si se hace click fuera
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setMostrarDropdown(false);
-      }
-    }
-    if (mostrarDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      // Si el dropdown estaba abierto y ahora se cierra, elimina las notificaciones
-      if (mostrarDropdown) {
-        eliminarNotificaciones();
-      }
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [mostrarDropdown, eliminarNotificaciones]);
-
-// ...existing code...
+  const noLeidas = Array.isArray(notificaciones)
+    ? notificaciones.filter((n) => !n.leida).length
+    : 0;
 
   // Cierra el dropdown si se hace click fuera
   useEffect(() => {
@@ -68,6 +48,13 @@ export const Header: React.FC<HeaderProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [mostrarDropdown]);
+
+  // Al cerrar el dropdown, marca las notificaciones como leídas (no se borran)
+  useEffect(() => {
+    if (!mostrarDropdown && noLeidas > 0) {
+      marcarTodasLeidas();
+    }
+  }, [mostrarDropdown, noLeidas, marcarTodasLeidas]);
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4">
@@ -109,11 +96,11 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setMostrarDropdown(!mostrarDropdown)} // <-- Agrega esto
           >
             <Bell className="h-6 w-6" />
-            <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-              {Array.isArray(notificaciones) && notificaciones.length > 0
-                ? notificaciones.length
-                : 0}
-            </span>
+            {noLeidas > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                {noLeidas}
+              </span>
+            )}
           </button>
 
           {/* Chat */}
@@ -133,14 +120,21 @@ export const Header: React.FC<HeaderProps> = ({
                 notificaciones.map((n) => (
                   <div
                     key={n.id}
-                     className="flex items-center gap-2 p-4 border-b last:border-b-0 text-sm text-gray-800"
+                    className={`flex items-center gap-2 p-4 border-b last:border-b-0 text-sm ${
+                      n.leida
+                        ? "text-gray-600"
+                        : "text-gray-800 font-medium"
+                    }`}
                   >
                     {n.tipo === "aprobado" ? (
-                      <CheckCircle className="text-green-600 w-5 h-5" />
+                      <CheckCircle className="text-green-600 w-5 h-5 shrink-0" />
                     ) : n.tipo === "cancelado" ? (
-                      <XCircle className="text-red-600 w-5 h-5" />
+                      <XCircle className="text-red-600 w-5 h-5 shrink-0" />
                     ) : null}
-                    <span>{n.descripcion}</span>
+                    <span className="flex-1">{n.descripcion}</span>
+                    {!n.leida && (
+                      <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                    )}
                   </div>
                 ))
               )}

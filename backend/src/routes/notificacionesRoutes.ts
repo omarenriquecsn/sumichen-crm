@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { crearNotificacionController, eliminarNotificacion, marcarNotificacionComoLeidaController, obtenerNotificacionesController } from "../controllers/notificacionesControllers";
+import { crearNotificacionController, eliminarNotificacion, marcarNotificacionComoLeidaController, marcarTodasComoLeidasController, obtenerNotificacionesController } from "../controllers/notificacionesControllers";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import verificarToken from "../middlewares/jwtHandler";
 
@@ -10,6 +10,8 @@ router.get('/notificaciones/:id', verificarToken, asyncHandler(obtenerNotificaci
 router.post('/notificaciones', verificarToken, asyncHandler(crearNotificacionController));
 
 router.patch('/notificaciones/:id/leida', verificarToken, asyncHandler(marcarNotificacionComoLeidaController));
+
+router.patch('/notificaciones/:id/leida-todas', verificarToken, asyncHandler(marcarTodasComoLeidasController));
 
 router.delete('/notificaciones/:id', verificarToken, asyncHandler(eliminarNotificacion));
 

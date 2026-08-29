@@ -53,6 +53,29 @@ export function useMarcarNotificacionLeida(usuarioId: string) {
   });
 }
 
+export function useMarcarTodasNotificacionesLeidas(usuarioId: string) {
+  const { session } = useAuth();
+
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      await axios.patch(
+        `${URL}/notificaciones/${usuarioId}/leida-todas`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        }
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["notificaciones", usuarioId],
+      });
+    },
+  });
+}
+
 export function useCrearNotificacion() {
   const { session } = useAuth();
   const token = session?.access_token;
