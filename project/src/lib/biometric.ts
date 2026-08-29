@@ -225,14 +225,13 @@ export async function iniciarSesionBiometrica(): Promise<{ email?: string }> {
   const data = (await completarRes.json()) as { token_hash?: string; email?: string };
   const tokenHash = data.token_hash;
   const email = data.email;
-  if (!tokenHash || !email) {
+  if (!tokenHash) {
     throw new Error("Respuesta inválida del servidor.");
   }
 
   const { error } = await supabase.auth.verifyOtp({
     type: "magiclink",
     token_hash: tokenHash,
-    email,
   });
   if (error) throw new Error(error.message || "Error iniciando sesión biométrica.");
 
