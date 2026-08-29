@@ -248,12 +248,12 @@ export const ClientesModal: React.FC<PropsClientes> = ({
               </div>
 
               {/* Filtros */}
-              <div className="flex items-center space-x-2">
-                <Filter className="h-5 w-5 text-gray-400" />
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 sm:space-x-2">
+                <Filter className="h-5 w-5 text-gray-400 hidden sm:inline" />
                 <select
                   value={filterEstado}
                   onChange={(e) => setFilterEstado(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full sm:w-auto sm:min-w-0 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="todos">Todos los estados</option>
                   <option value="prospecto">Prospectos</option>
@@ -263,7 +263,7 @@ export const ClientesModal: React.FC<PropsClientes> = ({
                 <select
                   value={filterSector}
                   onChange={(e) => setFilterSector(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full sm:w-auto sm:min-w-0 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="todos">Todos los sectores</option>
                   {Object.values(CustomerSector).map((sector) => (

@@ -271,20 +271,20 @@ const MarketingDashboard: React.FC = () => {
                 <label className="block text-xs font-medium text-gray-500 mb-1">Opciones de intención (se guardan en tipo_web)</label>
                 <div className="space-y-2">
                   {menuForm.opciones_intencion.map((op, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="w-8 h-8 bg-blue-100 text-blue-700 rounded flex items-center justify-center font-semibold text-sm">
+                    <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg sm:p-0 sm:bg-transparent bg-gray-50">
+                      <span className="w-8 h-8 bg-blue-100 text-blue-700 rounded flex items-center justify-center font-semibold text-sm shrink-0">
                         {i + 1}
                       </span>
                       <input
                         value={op.etiqueta}
                         onChange={(e) => setOpcion(i, { etiqueta: e.target.value })}
-                        className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full sm:flex-1 sm:min-w-0 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Etiqueta (ej. Cotización)"
                       />
                       <select
                         value={op.tipo_web}
                         onChange={(e) => setOpcion(i, { tipo_web: e.target.value as OpcionIntencion["tipo_web"] })}
-                        className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full sm:w-40 sm:shrink-0 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="cotizacion">Cotización</option>
                         <option value="catalogo">Catálogo</option>
@@ -296,7 +296,7 @@ const MarketingDashboard: React.FC = () => {
                             opciones_intencion: prev.opciones_intencion.filter((_, idx) => idx !== i),
                           }))
                         }
-                        className="text-red-500 hover:text-red-700"
+                        className="text-red-500 hover:text-red-700 shrink-0 self-end sm:self-auto"
                         title="Quitar opción"
                       >
                         <Trash2 className="h-4 w-4" />
