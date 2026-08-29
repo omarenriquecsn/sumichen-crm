@@ -110,12 +110,37 @@ export const DashboardAdmin: React.FC = () => {
     0
   ) : 0;
 
+  //total ventas del mes actual por precio base (precio_base * cantidad) solo pedidos confirmados
+  const totalVentasMesPrecioBase = Array.isArray(pedidosMes)
+    ? pedidosMes
+        .filter((pedido) => pedido.estado === "procesado")
+        .reduce((total, pedido) => {
+          const basePorPedido = Array.isArray(pedido.productos_pedido)
+            ? pedido.productos_pedido.reduce(
+                (acc, pp) =>
+                  acc +
+                  (Number(pp.precio_base) || 0) * (Number(pp.cantidad) || 0),
+                0
+              )
+            : 0;
+          return total + basePorPedido;
+        }, 0)
+    : 0;
+
+  //total ventas del mes actual (precio unitario) solo pedidos confirmados
+  const totalVentasMesConfirmadas = Array.isArray(pedidosMes)
+    ? pedidosMes
+        .filter((pedido) => pedido.estado === "procesado")
+        .reduce((total, pedido) => total + Number(pedido.total), 0)
+    : 0;
+
   //porcetaje de la meta mensual
   const porcentajeMeta = () => {
     if (
       totalVentasMes === 0 ||
       totalVentasMes < 0 ||
-      totalVentasMes === undefined
+      totalVentasMes === undefined ||
+      !metaVentasMes
     )
       return 0;
     return (totalVentasMes / metaVentasMes) * 100;
@@ -186,6 +211,7 @@ export const DashboardAdmin: React.FC = () => {
     {
       title: "Total Vendedores",
       value: cantidadVendedores,
+      subtitle: "",
       change: ``,
       changeType: `${typeChange(calculoIncrementoVendedores())}`,
       icon: Users,
@@ -194,14 +220,25 @@ export const DashboardAdmin: React.FC = () => {
     {
       title: "Ventas Totales",
       value: ventasCerradas,
+      subtitle: "",
       change: ``,
       changeType: `${typeChange(incrementoVentas)}`,
       icon: DollarSign,
       color: "green",
     },
     {
+      title: "Ventas del Mes (Precio Base)",
+      value: `$${totalVentasMesPrecioBase.toFixed(2)}`,
+      subtitle: `Total del mes: $${totalVentasMesConfirmadas.toFixed(2)}`,
+      change: "",
+      changeType: "",
+      icon: DollarSign,
+      color: "green",
+    },
+    {
       title: "Clientes Activos",
       value: CantidadClientesActivos,
+      subtitle: "",
       change: ``,
       changeType: `${typeChange(incrementoClientes)}`,
       icon: UserCheck,
@@ -210,6 +247,7 @@ export const DashboardAdmin: React.FC = () => {
     {
       title: "Meta Global",
       value: `%${porcentajeMeta().toFixed(2)}`,
+      subtitle: "",
       change: "",
       changeType: "" as const,
       icon: Target,
@@ -301,7 +339,7 @@ export const DashboardAdmin: React.FC = () => {
     >
       <div className="space-y-6">
         {/* Estadísticas globales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           {globalStats.map((stat) => (
             <div
               key={stat.title}
@@ -315,6 +353,11 @@ export const DashboardAdmin: React.FC = () => {
                   <p className="text-2xl font-bold text-gray-900 mt-2">
                     {Array.isArray(stat.value) ? stat.value.length : stat.value}
                   </p>
+                  {stat.subtitle ? (
+                    <p className="text-sm text-gray-500 mt-1">
+                      {stat.subtitle}
+                    </p>
+                  ) : null}
                   <p
                     className={`text-sm mt-2 ${
                       stat.changeType === "positive"
