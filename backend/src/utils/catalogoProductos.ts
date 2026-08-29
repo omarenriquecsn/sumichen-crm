@@ -56,9 +56,9 @@ const generarPdf = (productos: ProductoCatalogo[]): Promise<Buffer> => {
  * Genera el catálogo de productos (PDF) leyendo el inventario diario
  * `inventario.xlsx` del bucket `inventario` de Supabase Storage.
  *
- * Detecta la fila de encabezado (primera) y las columnas "Nombre" y
- * "Descripción" por nombre, y arma un PDF con el encabezado de Sumichem y la
- * lista de productos disponibles. Devuelve el Buffer del PDF.
+ * Detecta la fila de encabezado (primera) y la columna "Descripción" por
+ * nombre (la lista de productos disponibles). Cada fila con descripción no
+ * vacía se convierte en un producto del catálogo. Devuelve el Buffer del PDF.
  */
 export const generarCatalogoPDF = async (): Promise<Buffer> => {
   const { data, error } = await supabase.storage
@@ -78,17 +78,19 @@ export const generarCatalogoPDF = async (): Promise<Buffer> => {
     throw new Error('El inventario no contiene hojas');
   }
 
-  let nombreIndex = -1;
   let descripcionIndex = -1;
+  const headersDetectados: string[] = [];
 
   worksheet.getRow(1).eachCell((cell, colNumber) => {
     const header = normalizar(String(cell.value ?? ''));
-    if (nombreIndex === -1 && header.includes('nombre')) nombreIndex = colNumber;
     if (descripcionIndex === -1 && header.includes('descripc')) descripcionIndex = colNumber;
+    headersDetectados.push(String(cell.value ?? ''));
   });
 
-  if (nombreIndex === -1 || descripcionIndex === -1) {
-    throw new Error('No se encontraron las columnas "Nombre" y/o "Descripción" en el inventario');
+  if (descripcionIndex === -1) {
+    throw new Error(
+      `No se encontró la columna "Descripción" en el inventario. Columnas detectadas: ${headersDetectados.join(' | ') || '(sin encabezados)'}`
+    );
   }
 
   const productos: ProductoCatalogo[] = [];
@@ -97,8 +99,7 @@ export const generarCatalogoPDF = async (): Promise<Buffer> => {
     if (rowNumber === 1) return;
     const descripcion = String(row.getCell(descripcionIndex).value ?? '').trim();
     if (!descripcion) return;
-    const nombre = String(row.getCell(nombreIndex).value ?? '').trim();
-    productos.push({ nombre: nombre || `Producto ${productos.length + 1}`, descripcion });
+    productos.push({ nombre: descripcion, descripcion: '' });
   });
 
   if (productos.length === 0) {

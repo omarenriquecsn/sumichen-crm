@@ -233,9 +233,10 @@ export const procesarRespuestaIntencion = async (lead: any, cuerpo: string) => {
   }
 
   const leadActual = await getLeadById(lead.id);
+  const vendedor = getVendedorNombre(leadActual);
   const texto = config.mensaje_confirmacion
     .replace('{nombre}', nombre)
-    .replace('{vendedor}', getVendedorNombre(leadActual))
+    .replace('{vendedor}', vendedor)
     .replace('{telefono_vendedor}', getVendedorTelefono(leadActual));
 
   await enviarSeguro(telefono, texto, phoneNumberId);
@@ -254,7 +255,11 @@ export const procesarRespuestaIntencion = async (lead: any, cuerpo: string) => {
         phoneNumberId
       );
     } catch (err) {
-      console.error('[Asistente] Error enviando catálogo:', err instanceof Error ? err.message : err);
+      console.error('[Asistente] Error enviando catálogo:', err instanceof Error ? err.stack || err.message : err);
+      const aviso = vendedor
+        ? `Disculpa, por ahora no está disponible el catálogo. ${vendedor} te lo hará llegar por este medio.`
+        : 'Disculpa, por ahora no está disponible el catálogo. Un asesor te contactará para enviártelo.';
+      await enviarSeguro(telefono, aviso, phoneNumberId);
     }
   }
 
