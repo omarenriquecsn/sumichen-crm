@@ -393,87 +393,67 @@ export const PedidosModal: React.FC<PedidosProps> = ({
           {/* Lista de pedidos */}
           <div className="space-y-4">
             {pedidosFiltrados?.map((pedido) => (
-              <div
-                key={pedido.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-4">
-                    <div
-                      className={`p-3 rounded-lg ${getEstadoColor(
-                        pedido.estado
-                      )}`}
-                    >
-                      {getEstadoIcon(pedido.estado)}
-                    </div>
-                    <div>
-                      {/* <h3 className="text-lg font-semibold text-gray-900">
-                     Pedido Nº {pedido.numero}
-                    </h3> */}
-                      <div className="flex items-center space-x-4 mt-1">
-                        <div className="flex items-center space-x-1">
-                          <User className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            {cliente(pedido.cliente_id)?.empresa}
-                          </span>
-                        </div>
-                        <div className="lg:block md:block hidden">
-                          <p className="text-sm font-medium text-gray-600">
-                            Fecha de Creación
-                          </p>
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">
-                              {dayjs(pedido.fecha_creacion).format(
-                                "DD/MM/YYYY"
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="lg:block md:block hidden">
-                          <p className="text-sm font-medium text-gray-600">
-                            Fecha de Entrega
-                          </p>
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">
-                              {dayjs
-                                .utc(pedido.fecha_entrega)
-                                .format("DD/MM/YYYY")}
-                            </span>
-                          </div>
-                        </div>
-                        {currentUser?.rol === "admin" && (
-                          <div className="lg:block md:block hidden">
-                            <p className="text-sm font-medium text-gray-600">
-                              Vendedor
-                            </p>
-                            <p className="text-sm font-medium text-gray-600">
-                              {
-                                vendedoresDb?.find(
-                                  (v: Vendedor) => v.id === pedido.vendedor_id
-                                )?.nombre
-                              }
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+            <div
+              key={pedido.id}
+              className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6"
+            >
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`p-3 rounded-lg shrink-0 ${getEstadoColor(
+                      pedido.estado
+                    )}`}
+                  >
+                    {getEstadoIcon(pedido.estado)}
                   </div>
-
-                  <div className="text-right">
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium capitalize ${getEstadoColor(
-                        pedido.estado
-                      )}`}
-                    >
-                      {pedido.estado}
-                    </span>
-                    <p className="text-2xl font-bold text-gray-900 mt-2">
-                      ${pedido.total.toLocaleString()}
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-600 truncate flex items-center gap-1">
+                      <User className="h-4 w-4 text-gray-400 shrink-0" />
+                      {cliente(pedido.cliente_id)?.empresa || "Cliente"}
                     </p>
                   </div>
                 </div>
+
+                <div className="text-right shrink-0">
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium capitalize ${getEstadoColor(
+                      pedido.estado
+                    )}`}
+                  >
+                    {pedido.estado}
+                  </span>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 mt-1">
+                    ${pedido.total.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-gray-600 mb-3">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Calendar className="h-4 w-4 text-gray-400 shrink-0" />
+                  <span className="truncate">
+                    Creado: {dayjs(pedido.fecha_creacion).format("DD/MM/YYYY")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Calendar className="h-4 w-4 text-gray-400 shrink-0" />
+                  <span className="truncate">
+                    Entrega:{" "}
+                    {dayjs.utc(pedido.fecha_entrega).format("DD/MM/YYYY")}
+                  </span>
+                </div>
+                {currentUser?.rol === "admin" && (
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <User className="h-4 w-4 text-gray-400 shrink-0" />
+                    <span className="truncate">
+                      Vendedor:{" "}
+                      {vendedoresDb?.find(
+                        (v: Vendedor) => v.id === pedido.vendedor_id
+                      )?.nombre}
+                    </span>
+                  </div>
+                )}
+              </div>
 
                 {/* Productos */}
                 <div className="border-t border-gray-200 pt-4">

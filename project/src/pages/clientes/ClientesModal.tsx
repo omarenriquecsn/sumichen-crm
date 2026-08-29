@@ -33,6 +33,7 @@ import {
 } from "../../utils/clientes";
 import useVendedores from "../../hooks/useVendedores";
 import { ClienteDetalleModal } from "./ClienteDetalleModal";
+import { ClienteTarjeta } from "../../components/ui/ClienteTarjeta";
 import { User as UserSupabase } from "@supabase/supabase-js";
 import {
   guardarEstadoVista,
@@ -307,13 +308,51 @@ export const ClientesModal: React.FC<PropsClientes> = ({
               Buscar solo en notas del cliente
             </label>
           </div>
-          {/* Lista de clientes */}
+          {/* Lista de clientes (móvil/tablet: tarjetas) */}
           {clientesArray.length === 0 ? (
             <div className="text-center text-gray-500 mt-10">
               <p>No se encontraron clientes.</p>
             </div>
           ) : null}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          {paginatedClientes?.length > 0 && (
+            <div className="grid grid-cols-1 gap-3 lg:hidden">
+              {paginatedClientes.map((cliente) => (
+                <div
+                  key={cliente.id}
+                  onClick={() => {
+                    setIsOpenCliente(true);
+                    setSelectedCliente(cliente);
+                  }}
+                >
+                  <ClienteTarjeta
+                    cliente={cliente}
+                    rol={currentUser?.rol}
+                    vendedorNombre={
+                      currentUser?.rol === "admin"
+                        ? `${
+                            Vendedores?.find(
+                              (v: Vendedor) => v.id === cliente.vendedor_id
+                            )?.nombre ?? ""
+                          } ${
+                            Vendedores?.find(
+                              (v: Vendedor) => v.id === cliente.vendedor_id
+                            )?.apellido ?? ""
+                          }`.trim()
+                        : undefined
+                    }
+                    ventas={
+                      pedidosPorCliente(cliente.id)?.reduce(
+                        (total, pedido) => total + Number(pedido.total),
+                        0
+                      ) || 0
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Lista de clientes (desktop: tabla) */}
+          <div className="hidden lg:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
