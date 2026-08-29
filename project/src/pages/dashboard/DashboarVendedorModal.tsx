@@ -271,11 +271,11 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Actividades recientes */}
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 min-h-[600px] flex flex-col h-full">
-              <div className="flex items-center gap-36">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
                   Actividades Recientes
                 </h3>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
                   Empresa
                 </h3>
               </div>
@@ -289,7 +289,7 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
                         origen: "actividad",
                       })
                     }
-                    className="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
+                    className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
                   >
                     <div
                       className={`p-2 rounded-full ${
@@ -308,18 +308,20 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
                         <AlertCircle className="h-4 w-4 text-red-600" />
                       )}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 break-words">
                         {activity.title}
                       </p>
-                      <p className="text-sm text-gray-500">{activity.time}</p>
+                      <p className="text-sm text-gray-500 break-words">
+                        {activity.time}
+                      </p>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 break-words">
                         {activity.cliente}
                       </p>
                       {_currentUser?.rol === "admin" && (
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500 break-words">
                           {activity.vendedor}
                         </p>
                       )}
@@ -381,7 +383,7 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
                         origen: item.origen,
                       })
                     }
-                    className="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
+                    className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
                   >
                     <div
                       className={`p-2 rounded-full ${
@@ -400,8 +402,8 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
                         <Mail className="h-4 w-4 text-purple-600" />
                       )}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 break-words">
                         {item.titulo}
                       </p>
                       <p className="text-sm capitalize text-gray-400 font-medium">
@@ -423,8 +425,8 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
                           : `${dayjs(item.fecha).format("dddd DD/MM")}`}
                       </p>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 break-words">
                         {Array.isArray(clientesData)
                           ? clientesData.find((c) => c.id === item.cliente_id)
                               ?.empresa
