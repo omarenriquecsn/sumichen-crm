@@ -177,3 +177,50 @@ export const enviarPushDePrueba = (vendedorDbId: string) =>
     url: './',
     tag: `test-${Date.now()}`,
   });
+
+export interface EnviarLlamadaParams {
+  telefono: string;
+  nombre?: string;
+  clienteId: string;
+  endpointOrigen?: string;
+}
+
+/**
+ * Envía una notificación push a los dispositivos del vendedor (excluyendo el
+ * dispositivo que origina la acción) para que el usuario pueda llamar desde
+ * su móvil: al tocar la notificación, la app abre `#/clientes/:id?accion=llamar`.
+ */
+export const enviarLlamadaAlMovil = async (
+  vendedorDbId: string,
+  params: EnviarLlamadaParams,
+): Promise<{ enviadas: number; total: number }> => {
+  if (!vendedorDbId) return { enviadas: 0, total: 0 };
+
+  const telefono = params.telefono.replace(/\D/g, '');
+  if (!telefono) return { enviadas: 0, total: 0 };
+
+  const subs = await obtenerSuscripcionesPorVendedorRepository(vendedorDbId);
+  const destinatarios = subs.filter((s) => s.endpoint !== params.endpointOrigen);
+  if (!destinatarios.length) return { enviadas: 0, total: subs.length };
+
+  const nombre = params.nombre || 'el cliente';
+  const url = `./#/clientes/${params.clienteId}?accion=llamar&telefono=${telefono}`;
+
+  const resultados = await Promise.all(
+    destinatarios.map((s) =>
+      enviarASuscripcion(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        {
+          titulo: `📞 Llamar a ${nombre}`,
+          cuerpo: telefono,
+          url,
+          tag: `llamar-${params.clienteId}-${Date.now()}`,
+        },
+      ),
+    ),
+  );
+  return {
+    enviadas: resultados.filter(Boolean).length,
+    total: destinatarios.length,
+  };
+};

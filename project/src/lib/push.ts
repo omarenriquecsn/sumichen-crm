@@ -197,6 +197,49 @@ export async function enviarPushDePruebaFront(): Promise<void> {
   }
 }
 
+/**
+ * Envía una notificación push al móvil del usuario (excluyendo el dispositivo
+ * desde donde se dispara) para que pueda llamar desde el teléfono. Al tocar la
+ * notificación, la app abre `#/clientes/:id?accion=llamar` y muestra "Llamar ahora".
+ */
+export async function enviarLlamadaMovilFront(params: {
+  telefono: string;
+  clienteId: string;
+  nombre?: string;
+}): Promise<{ enviadas: number; total: number }> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error("Sesión no válida");
+
+  let endpointOrigen: string | undefined;
+  if ("serviceWorker" in navigator) {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    endpointOrigen = sub?.endpoint;
+  }
+
+  const res = await fetch(`${URL}/push/enviar-llamada`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      telefono: params.telefono,
+      clienteId: params.clienteId,
+      nombre: params.nombre,
+      endpointOrigen,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Error enviando la notificación al móvil");
+  }
+  return res.json();
+}
+
 /** Lista las preferencias de notificación por evento del usuario autenticado. */
 export async function listarPreferencias(): Promise<PreferenciaNotificacion[]> {
   const {

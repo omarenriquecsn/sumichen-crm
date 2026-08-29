@@ -14,7 +14,6 @@ import {
   User2,
   Check,
   Trash,
-  UserCheck,
 } from "lucide-react";
 import {
   Actividad,
@@ -45,6 +44,7 @@ import { useNavigate } from "react-router-dom";
 import generarGoogleCalendarLink from "../../utils/googleCalendarLink";
 import { ConfirmarAccionToast } from "../../components/ui/ConfirmarAccionToast";
 import { useAuth } from "../../context/useAuth";
+import { AccionesRapidasCliente } from "../../components/ui/AccionesRapidasCliente";
 interface ClienteDetalleModalProps {
   vendedor: User | null;
   cliente: Cliente;
@@ -650,110 +650,50 @@ export const ClienteDetalleModal: React.FC<ClienteDetalleModalProps> = ({
 
               {/* Panel lateral */}
               <div className="space-y-6">
-                {/* Acciones rápidas */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Acciones Rápidas
-                  </h3>
-                  <div className="space-y-3">
-                    {isMobile && cliente.telefono && (
-                      <a href={`tel:${cliente.telefono}`}>
-                        <button
-                          onClick={() =>
-                            crearActividad({
-                              actividadData: {
-                                titulo: "Llamada",
-                                fecha: new Date(),
-                                cliente_id: cliente.id,
-                                descripcion: "Se ha llamado al cliente ",
-                                tipo: "llamada",
-                                completado: true,
-                              },
-                              currentUser: currentUser,
-                            })
-                          }
-                          className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                        >
-                          <Phone className="h-4 w-4" />
-                          <span>Llamar</span>
-                        </button>
-                      </a>
-                    )}
-                    {isMobile ? (
-                      <a
-                        href={`mailto:${cliente.email}?subject=Contacto desde CRM&body=Hola ${cliente.nombre},`}
-                      >
-                        <button
-                          onClick={() =>
-                            crearActividad({
-                              actividadData: {
-                                titulo: "Email",
-                                fecha: new Date(),
-                                cliente_id: cliente.id,
-                                descripcion:
-                                  "Se ha enviado un correo al cliente ",
-                                tipo: "email",
-                                completado: true,
-                              },
-                              currentUser: currentUser,
-                            })
-                          }
-                          className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-                        >
-                          <Mail className="h-4 w-4" />
-                          <span>Enviar Email</span>
-                        </button>
-                      </a>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          abrirGmail({
-                            cliente,
-                            currentUser,
-                            navigate,
-                            crearActividad,
-                          })
-                        }
-                        className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-                      >
-                        <Mail className="h-4 w-4" />
-                        <span>Enviar Email</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setModalCopen(true)}
-                      className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
-                    >
-                      <Calendar className="h-4 w-4" />
-                      <span>Agendar Reunión</span>
-                    </button>
-                    <button
-                      onClick={() => setModalPedidoVisible(true)}
-                      className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2"
-                    >
-                      <FileText className="h-4 w-4" />
-                      <span>Crear Pedido</span>
-                    </button>
-                  </div>
-                  {currentUser.rol === "admin" && (
-                    <div>
-                      <button
-                        onClick={() => setModalVendedorVisible(true)}
-                        className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 mt-4"
-                      >
-                        <UserCheck className="h-4 w-4" />
-                        <span>Asignar Vendedor</span>
-                      </button>
-                      <button
-                        onClick={handleEliminarDefinitivamente}
-                        className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2 mt-2"
-                      >
-                        <Trash className="h-4 w-4" />
-                        <span>Eliminar Definitivamente</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
+              {/* Acciones rápidas */}
+              <AccionesRapidasCliente
+                cliente={cliente}
+                isMobile={isMobile}
+                esAdmin={currentUser.rol === "admin"}
+                onLlamar={() =>
+                  crearActividad({
+                    actividadData: {
+                      titulo: "Llamada",
+                      fecha: new Date(),
+                      cliente_id: cliente.id,
+                      descripcion: "Se ha llamado al cliente ",
+                      tipo: "llamada",
+                      completado: true,
+                    },
+                    currentUser: currentUser,
+                  })
+                }
+                onEmailMovil={() =>
+                  crearActividad({
+                    actividadData: {
+                      titulo: "Email",
+                      fecha: new Date(),
+                      cliente_id: cliente.id,
+                      descripcion: "Se ha enviado un correo al cliente ",
+                      tipo: "email",
+                      completado: true,
+                    },
+                    currentUser: currentUser,
+                  })
+                }
+                onEmailDesktop={() =>
+                  abrirGmail({
+                    cliente,
+                    currentUser,
+                    navigate,
+                    crearActividad,
+                  })
+                }
+                onAgendarReunion={() => setModalCopen(true)}
+                onCrearPedido={() => setModalPedidoVisible(true)}
+                onAsignarVendedor={() => setModalVendedorVisible(true)}
+                onEliminarDefinitivamente={handleEliminarDefinitivamente}
+              />
 
                 {/* Resumen de ventas */}
                 <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">

@@ -4,6 +4,7 @@ import {
   eliminarSuscripcion,
   obtenerSuscripciones,
   enviarPushDePrueba,
+  enviarLlamadaAlMovil,
 } from '../services/pushServices';
 
 const vendedorDbId = (req: Request): string | undefined =>
@@ -60,4 +61,25 @@ export const enviarPruebaController = async (req: Request, res: Response) => {
       .json({ error: 'No hay dispositivos suscritos para este usuario' });
   }
   res.json({ success: true, enviadas });
+};
+
+export const enviarLlamadaController = async (req: Request, res: Response) => {
+  const vendedorId = vendedorDbId(req);
+  if (!vendedorId) return res.status(401).json({ error: 'No autorizado' });
+
+  const { telefono, nombre, clienteId, endpointOrigen } = req.body || {};
+  if (!telefono || !clienteId) {
+    return res
+      .status(400)
+      .json({ error: 'telefono y clienteId son requeridos' });
+  }
+
+  const { enviadas, total } = await enviarLlamadaAlMovil(vendedorId, {
+    telefono,
+    nombre,
+    clienteId,
+    endpointOrigen,
+  });
+
+  res.json({ success: true, enviadas, total });
 };

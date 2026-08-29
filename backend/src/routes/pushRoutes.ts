@@ -6,6 +6,7 @@ import {
   eliminarSuscripcionController,
   listarSuscripcionesController,
   enviarPruebaController,
+  enviarLlamadaController,
 } from '../controllers/pushControllers';
 
 const router: Router = Router();
@@ -15,5 +16,6 @@ router.post('/push/suscripcion', verificarToken, asyncHandler(guardarSuscripcion
 router.delete('/push/suscripcion', verificarToken, asyncHandler(eliminarSuscripcionController));
 router.get('/push/suscripciones', verificarToken, asyncHandler(listarSuscripcionesController));
 router.post('/push/test', verificarToken, asyncHandler(enviarPruebaController));
+router.post('/push/enviar-llamada', verificarToken, asyncHandler(enviarLlamadaController));
 
 export default router;
