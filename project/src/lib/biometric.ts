@@ -173,10 +173,8 @@ export async function registrarBiometrico(dispositivo?: string): Promise<boolean
     }),
   });
   if (!completarRes.ok) {
-    const err = (await completarRes.json().catch(() => ({}))) as {
-      error?: string;
-    };
-    throw new Error(err.error || "No se pudo guardar la huella.");
+    const err = (await completarRes.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(err.message || err.error || "No se pudo guardar la huella.");
   }
   return true;
 }
@@ -218,10 +216,8 @@ export async function iniciarSesionBiometrica(): Promise<{ email?: string }> {
     body: JSON.stringify({ response: serializarCredencial(credencial) }),
   });
   if (!completarRes.ok) {
-    const err = (await completarRes.json().catch(() => ({}))) as {
-      error?: string;
-    };
-    throw new Error(err.error || "La verificación biométrica falló.");
+    const err = (await completarRes.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(err.message || err.error || "La verificación biométrica falló.");
   }
   const data = (await completarRes.json()) as { token_hash?: string; email?: string };
   const tokenHash = data.token_hash;
