@@ -12,6 +12,8 @@ import { getLeadById } from '../repositories/leadsRepository';
 import { ApiError } from '../utils/ApiError';
 import { EstadoConversacionEnum, CanalConversacionEnum } from '../entities/Conversacion';
 import { RemitenteTipoEnum, TipoMensajeEnum } from '../entities/Mensaje';
+import { enviarPushAUsuario } from './pushServices';
+import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 
 export const getConversacionesService = async (filtros: { vendedor_id?: string; estado?: string }, reqUser?: any) => {
   if (reqUser?.rol === 'vendedor') {
@@ -186,6 +188,24 @@ export const recibirMensajeExternoService = async (
 
   await updateConversacion(conv.id, { ultimo_mensaje_en: new Date() });
   await updateConversacion(conv.id, { estado: EstadoConversacionEnum.ABIERTA });
+
+  // Web Push — evento `mensaje_nuevo`: avisa al vendedor de la conversación.
+  if (conv.vendedor_id) {
+    try {
+      const nombre = lead.datos_contacto?.nombre || 'el cliente';
+      await enviarPushAUsuario(
+        conv.vendedor_id,
+        {
+          titulo: `💬 Nuevo mensaje de ${nombre}`,
+          cuerpo: contenido.slice(0, 120),
+          url: `#/chat/${conv.id}`,
+        },
+        EventoNotificacionEnum.MENSAJE_NUEVO,
+      );
+    } catch (err) {
+      console.error('No se pudo enviar push de mensaje nuevo:', err);
+    }
+  }
 
   // Actualizar última actividad del lead
   const leadRepo = (await import('../config/dataBaseConfig')).AppDataSource.getRepository('leads');

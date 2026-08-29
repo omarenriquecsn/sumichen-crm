@@ -22,6 +22,7 @@ import { MenuBienvenida } from '../entities/MenuBienvenida';
 import { Transporte } from '../entities/Transporte';
 import { PushSuscripcion } from '../entities/PushSuscripcion';
 import { CredencialBiometrica } from '../entities/CredencialBiometrica';
+import { PreferenciaNotificacion } from '../entities/PreferenciaNotificacion';
 dotenv.config();
 
 export const AppDataSource = new DataSource({
@@ -52,6 +53,7 @@ export const AppDataSource = new DataSource({
     Transporte,
     PushSuscripcion,
     CredencialBiometrica,
+    PreferenciaNotificacion,
   ],
   migrations: ['build/database/migrations/**/*.js'],
   dropSchema: false,

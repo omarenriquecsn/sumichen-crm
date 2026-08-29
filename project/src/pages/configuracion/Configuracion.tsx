@@ -21,9 +21,14 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-toastify";
-import { useNotificacionesPush } from "../../hooks/useNotificacionesPush";
+import { useNotificacionesPush, usePreferenciasNotificacion } from "../../hooks/useNotificacionesPush";
 import { useInstalarApp } from "../../hooks/useInstalarApp";
 import { InstalarAppModal } from "../../components/ui/InstalarAppModal";
+import { useActualizarPerfil } from "../../hooks/useActualizarPerfil";
+import {
+  CATEGORIAS_NOTIFICACIONES,
+  EVENTOS_NOTIFICACIONES,
+} from "../../constants/eventosNotificacion";
 import {
   registrarBiometrico,
   listarCredenciales,
@@ -32,10 +37,14 @@ import {
 } from "../../lib/biometric";
 
 export const Configuracion: React.FC = () => {
-  const { userData, session } = useAuth();
+  const { userData, session, refreshUserData } = useAuth();
+  const actualizarPerfil = useActualizarPerfil();
   const [activeTab, setActiveTab] = useState("perfil");
   const [showPassword, setShowPassword] = useState(false);
   const push = useNotificacionesPush();
+  const prefs = usePreferenciasNotificacion();
+  const [prefsLocales, setPrefsLocales] = useState<Record<string, boolean>>({});
+  const prefsLocalesRef = React.useRef<Record<string, boolean>>({});
   const { disponible: instalable, instalar: instalarApp } = useInstalarApp();
   const [mostrarInstrucciones, setMostrarInstrucciones] = useState(false);
   const [credencialesBiometricas, setCredencialesBiometricas] = useState<
@@ -84,18 +93,26 @@ export const Configuracion: React.FC = () => {
   const [perfilData, setPerfilData] = useState({
     nombre: userData?.nombre || "",
     apellido: userData?.apellido || "",
-    email: session?.user.user_metadata.email || "",
+    email: session?.user.email || "",
     telefono: userData?.telefono || "",
     avatar: userData?.avatar || "",
   });
+  // Evita que el useEffect de sincronización pise lo que el usuario está escribiendo.
+  const perfilEdito = React.useRef(false);
 
-  const [notificaciones, setNotificaciones] = useState({
-    emailNuevosClientes: true,
-    emailReuniones: true,
-    emailTickets: true,
-    pushNotificaciones: false,
-    resumenSemanal: true,
-  });
+  // userData llega después del montaje (query async): rellena el formulario
+  // cuando carga, salvo que el usuario ya haya editado algún campo.
+  useEffect(() => {
+    if (!userData) return;
+    if (perfilEdito.current) return;
+    setPerfilData((prev) => ({
+      nombre: userData?.nombre ?? prev.nombre,
+      apellido: userData?.apellido ?? prev.apellido,
+      email: session?.user.email || prev.email,
+      telefono: userData?.telefono ?? prev.telefono,
+      avatar: userData?.avatar ?? prev.avatar,
+    }));
+  }, [userData, session]);
 
   const [configuracionGeneral, setConfiguracionGeneral] = useState({
     idioma: "es",
@@ -112,17 +129,52 @@ export const Configuracion: React.FC = () => {
   ];
 
   const handlePerfilChange = (field: string, value: string) => {
+    perfilEdito.current = true;
     setPerfilData((prev) => ({
       ...prev,
       [field]: value,
     }));
   };
 
-  const handleNotificacionChange = (field: string, value: boolean) => {
-    setNotificaciones((prev) => ({
-      ...prev,
-      [field]: value,
+  // Sincroniza el estado local de los toggles con las preferencias del backend
+  // (se aplican las que aún no estén en el estado local, para no pisar ediciones).
+  useEffect(() => {
+    if (!prefs.preferencias.length) return;
+    setPrefsLocales((prev) => {
+      let cambiado = false;
+      const next = { ...prev };
+      for (const p of prefs.preferencias) {
+        if (next[p.evento] === undefined) {
+          next[p.evento] = p.habilitado;
+          cambiado = true;
+        }
+      }
+      if (cambiado) prefsLocalesRef.current = next;
+      return cambiado ? next : prev;
+    });
+  }, [prefs.preferencias]);
+
+  const handleToggleEvento = async (evento: string, habilitado: boolean) => {
+    setPrefsLocales((prev) => {
+      const actualizado = { ...prev, [evento]: habilitado };
+      prefsLocalesRef.current = actualizado;
+      return actualizado;
+    });
+    const nuevas = EVENTOS_NOTIFICACIONES.map((e) => ({
+      evento: e.evento,
+      habilitado: prefsLocalesRef.current[e.evento] ?? prefs.habilitado(e.evento),
     }));
+    const res = await prefs.guardar(nuevas);
+    if (!res.ok) {
+      toast.error(res.error || "Error guardando preferencias.");
+      setPrefsLocales((prev) => {
+        const actualizado = { ...prev, [evento]: !habilitado };
+        prefsLocalesRef.current = actualizado;
+        return actualizado;
+      });
+    } else {
+      toast.success("Preferencias de notificación actualizadas.");
+    }
   };
 
   const handleGeneralChange = (field: string, value: string) => {
@@ -132,9 +184,20 @@ export const Configuracion: React.FC = () => {
     }));
   };
 
-  const handleSave = () => {
-    // Aquí implementarías la lógica para guardar la configuración
-    console.log("Guardando configuración...");
+  const handleSave = async () => {
+    try {
+      await actualizarPerfil.mutateAsync({
+        nombre: perfilData.nombre,
+        apellido: perfilData.apellido,
+        telefono: perfilData.telefono,
+      });
+      await refreshUserData();
+      toast.success("Perfil actualizado correctamente.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Error al guardar el perfil."
+      );
+    }
   };
 
  const handleSeguridadChange = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -292,113 +355,61 @@ export const Configuracion: React.FC = () => {
               {activeTab === "notificaciones" && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
                       Preferencias de Notificación
                     </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Elige qué notificaciones quieres recibir en este dispositivo
+                      (y en cualquier otro donde inicies sesión). Los cambios se
+                      guardan automáticamente.
+                    </p>
 
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                        <div>
-                          <h4 className="font-medium text-gray-900">
-                            Nuevos Clientes
+                    <div className="space-y-6">
+                      {CATEGORIAS_NOTIFICACIONES.map((cat) => (
+                        <div key={cat.categoria}>
+                          <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                            {cat.categoria}
                           </h4>
-                          <p className="text-sm text-gray-500">
-                            Recibir notificaciones por email cuando se registren
-                            nuevos clientes
-                          </p>
+                          <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
+                            {cat.eventos.map((ev) => {
+                              const Icono = ev.icono;
+                              const activo =
+                                prefsLocales[ev.evento] ??
+                                prefs.habilitado(ev.evento);
+                              return (
+                                <div
+                                  key={ev.evento}
+                                  className="flex items-center justify-between px-4 py-3"
+                                >
+                                  <div className="flex items-start gap-3 min-w-0">
+                                    <Icono className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-gray-900 text-sm">
+                                        {ev.etiqueta}
+                                      </p>
+                                      <p className="text-sm text-gray-500">
+                                        {ev.descripcion}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={activo}
+                                      disabled={prefs.guardando}
+                                      onChange={(e) =>
+                                        handleToggleEvento(ev.evento, e.target.checked)
+                                      }
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                  </label>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={notificaciones.emailNuevosClientes}
-                            onChange={(e) =>
-                              handleNotificacionChange(
-                                "emailNuevosClientes",
-                                e.target.checked
-                              )
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                        <div>
-                          <h4 className="font-medium text-gray-900">
-                            Recordatorios de Reuniones
-                          </h4>
-                          <p className="text-sm text-gray-500">
-                            Recibir recordatorios por email antes de las
-                            reuniones
-                          </p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={notificaciones.emailReuniones}
-                            onChange={(e) =>
-                              handleNotificacionChange(
-                                "emailReuniones",
-                                e.target.checked
-                              )
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                        <div>
-                          <h4 className="font-medium text-gray-900">
-                            Tickets de Soporte
-                          </h4>
-                          <p className="text-sm text-gray-500">
-                            Notificaciones sobre nuevos tickets y
-                            actualizaciones
-                          </p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={notificaciones.emailTickets}
-                            onChange={(e) =>
-                              handleNotificacionChange(
-                                "emailTickets",
-                                e.target.checked
-                              )
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                        <div>
-                          <h4 className="font-medium text-gray-900">
-                            Resumen Semanal
-                          </h4>
-                          <p className="text-sm text-gray-500">
-                            Recibir un resumen semanal de actividades y métricas
-                          </p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={notificaciones.resumenSemanal}
-                            onChange={(e) =>
-                              handleNotificacionChange(
-                                "resumenSemanal",
-                                e.target.checked
-                              )
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
+                      ))}
                     </div>
                   </div>
 
@@ -796,9 +807,14 @@ export const Configuracion: React.FC = () => {
               <div className="border-t border-gray-200 pt-6 mt-8">
                 <button
                   onClick={handleSave}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  disabled={actualizarPerfil.isPending}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Save className="h-5 w-5" />
+                  {actualizarPerfil.isPending ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Save className="h-5 w-5" />
+                  )}
                   <span>Guardar Cambios</span>
                 </button>
               </div>

@@ -13,6 +13,11 @@ export interface SuscripcionGuardada {
   fecha_actualizacion: string;
 }
 
+export interface PreferenciaNotificacion {
+  evento: string;
+  habilitado: boolean;
+}
+
 /** Convierte la clave VAPID (base64url) a Uint8Array para pushManager.subscribe. */
 export function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -190,4 +195,44 @@ export async function enviarPushDePruebaFront(): Promise<void> {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Error enviando notificación de prueba");
   }
+}
+
+/** Lista las preferencias de notificación por evento del usuario autenticado. */
+export async function listarPreferencias(): Promise<PreferenciaNotificacion[]> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error("Sesión no válida");
+
+  const res = await fetch(`${URL}/preferencias-notificaciones`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Error listando preferencias de notificación");
+  return res.json();
+}
+
+/** Guarda las preferencias de notificación por evento del usuario autenticado. */
+export async function guardarPreferencias(
+  preferencias: PreferenciaNotificacion[]
+): Promise<PreferenciaNotificacion[]> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error("Sesión no válida");
+
+  const res = await fetch(`${URL}/preferencias-notificaciones`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ preferencias }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Error guardando preferencias de notificación");
+  }
+  return (await res.json()).preferencias;
 }

@@ -8,6 +8,8 @@ import {
 import { ApiError } from '../utils/ApiError';
 import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
+import { enviarPushATodos } from '../services/pushServices';
+import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -60,6 +62,21 @@ export const subirInventario = [
 
     if (error) {
       return res.status(500).json({ error: 'Error al subir el archivo' });
+    }
+
+    // Web Push — evento `productos_actualizados`: se avisa a todos los usuarios
+    // (admins + vendedores) de que el inventario cambió.
+    try {
+      await enviarPushATodos(
+        {
+          titulo: '📦 Productos actualizados',
+          cuerpo: 'El inventario (inventario.xlsx) fue actualizado. Revisa el catálogo.',
+          url: '#/productos',
+        },
+        EventoNotificacionEnum.PRODUCTOS_ACTUALIZADOS,
+      );
+    } catch (err) {
+      console.error('No se pudo enviar push de productos actualizados:', err);
     }
 
     res.status(200).json({ message: 'Archivo subido exitosamente', fileName });

@@ -3,6 +3,8 @@ import { getZonas } from '../repositories/zonasRepository';
 import { asignarLeadAutomatico, updateLead, getLeadById } from '../repositories/leadsRepository';
 import { abrirConversacionParaLead } from './conversacionesServices';
 import { OpcionIntencion } from '../entities/MenuBienvenida';
+import { enviarPushAUsuario } from './pushServices';
+import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 
 /**
  * Asistente de bienvenida (WhatsApp).
@@ -171,6 +173,23 @@ export const procesarRespuestaEstado = async (lead: any, cuerpo: string) => {
   // abrirConversacionParaLead limpia mensajes_pendientes; lo reforzamos para no
   // reintroducir la lista vieja en el update posterior.
   await abrirConversacionParaLead(lead.id, asignado.vendedor_asignado_id!, 'whatsapp');
+
+  // Web Push — evento `lead_asignado`: el vendedor recibe el aviso del SLA de 12h.
+  if (asignado.vendedor_asignado_id) {
+    try {
+      await enviarPushAUsuario(
+        asignado.vendedor_asignado_id,
+        {
+          titulo: '🔔 Nuevo lead asignado',
+          cuerpo: `${nombre} fue asignado a ti por WhatsApp. Dispones de 12 horas para atenderlo.`,
+          url: '#/chat',
+        },
+        EventoNotificacionEnum.LEAD_ASIGNADO,
+      );
+    } catch (err) {
+      console.error('[Asistente] No se pudo enviar push de lead asignado:', err instanceof Error ? err.message : err);
+    }
+  }
 
   const leadActual = await getLeadById(lead.id);
   const vendedor = getVendedorNombre(leadActual);

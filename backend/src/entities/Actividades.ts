@@ -53,6 +53,12 @@ export class Actividad {
   @Column({ type: 'boolean', default: false })
   completado: boolean;
 
+  @Column({ name: 'recordatorio_enviado', type: 'boolean', default: false })
+  recordatorio_enviado?: boolean;
+
+  @Column({ name: 'recordatorio_enviado_en', type: 'timestamptz', nullable: true })
+  recordatorio_enviado_en?: Date;
+
   @CreateDateColumn({ type: 'timestamptz' })
   fecha_creacion: Date;
 

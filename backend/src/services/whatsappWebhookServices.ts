@@ -14,6 +14,8 @@ import { EstadoLeadEnum, CanalEntradaEnum, OrigenLeadEnum } from '../entities/Le
 import { EstadoConversacionEnum, CanalConversacionEnum } from '../entities/Conversacion';
 import { RemitenteTipoEnum, TipoMensajeEnum } from '../entities/Mensaje';
 import { procesarAsistente } from './asistenteMenuServices';
+import { enviarPushAUsuario, enviarPushAAdmins } from './pushServices';
+import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 
 /**
  * Fase 2 — Webhook entrante de WhatsApp (Meta Cloud API).
@@ -141,6 +143,21 @@ const procesarMensajeWhatsApp = async (msg: any, value: any, _payload: any) => {
     // Asistente de bienvenida: primer contacto → envía menú de estados.
     await procesarAsistente(lead.id, cuerpo);
 
+    // Web Push — evento `lead_nuevo_sin_asignar`: avisa a los admins de que
+    // llegó un lead que aún nadie atiende.
+    try {
+      await enviarPushAAdmins(
+        {
+          titulo: '🔔 Nuevo lead de WhatsApp',
+          cuerpo: `${nombre} escribió: "${cuerpo.slice(0, 80)}". Pendiente de asignar.`,
+          url: '#/leads',
+        },
+        EventoNotificacionEnum.LEAD_NUEVO_SIN_ASIGNAR,
+      );
+    } catch (err) {
+      console.error('No se pudo enviar push de nuevo lead sin asignar:', err);
+    }
+
     return { wamid, leadId: lead.id, accion: 'lead_creado', nombre, telefono, mensaje: cuerpo };
   }
 
@@ -170,6 +187,23 @@ const procesarMensajeWhatsApp = async (msg: any, value: any, _payload: any) => {
       detectado_sin_stock: false,
     });
     await updateConversacion(conv.id, { ultimo_mensaje_en: new Date(), estado: EstadoConversacionEnum.ABIERTA });
+
+    // Web Push — evento `mensaje_nuevo`: avisa al vendedor de la conversación.
+    if (lead.vendedor_asignado_id) {
+      try {
+        await enviarPushAUsuario(
+          lead.vendedor_asignado_id,
+          {
+            titulo: `💬 Nuevo mensaje de ${nombre}`,
+            cuerpo: cuerpo.slice(0, 120),
+            url: `#/chat/${conv.id}`,
+          },
+          EventoNotificacionEnum.MENSAJE_NUEVO,
+        );
+      } catch (err) {
+        console.error('No se pudo enviar push de mensaje nuevo:', err);
+      }
+    }
 
     // Asistente: si el lead está en el paso de intención, la respuesta se
     // captura aquí (el lead ya tiene vendedor asignado).

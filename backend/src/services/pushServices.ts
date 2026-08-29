@@ -8,6 +8,10 @@ import {
   obtenerSuscripcionesPorVendedoresRepository,
   guardarSuscripcionRepository,
 } from '../repositories/pushSuscripcionRepository';
+import {
+  obtenerPreferenciasDeVendedoresRepository,
+  eventoHabilitadoRepository,
+} from '../repositories/preferenciasNotificacionRepository';
 
 // Inicializa VAPID (las llaves se cargan desde .env vía dotenv en dataBaseConfig).
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -78,10 +82,17 @@ export const obtenerSuscripciones = (vendedorDbId: string) =>
 
 /**
  * Envía una notificación push a TODOS los dispositivos de un vendedor.
- * Listo para cablear eventos de negocio (pedidos, mensajes, leads, SLA, etc.).
+ * Si se indica un `evento`, se respeta la preferencia del usuario
+ * (tabla preferencias_notificaciones); sin evento (ej. prueba) siempre se envía.
  */
-export const enviarPushAUsuario = async (vendedorDbId: string, payload: PushPayload) => {
+export const enviarPushAUsuario = async (
+  vendedorDbId: string,
+  payload: PushPayload,
+  evento?: string,
+) => {
   if (!vendedorDbId) return 0;
+  if (evento && !(await eventoHabilitadoRepository(vendedorDbId, evento))) return 0;
+
   const subs = await obtenerSuscripcionesPorVendedorRepository(vendedorDbId);
   if (!subs.length) return 0;
 
@@ -95,13 +106,58 @@ export const enviarPushAUsuario = async (vendedorDbId: string, payload: PushPayl
 
 /**
  * Envía una notificación push a todos los usuarios con rol 'admin'.
+ * Respeta las preferencias por evento de cada admin (solo se notifica a quien
+ * tiene el evento habilitado).
  */
-export const enviarPushAAdmins = async (payload: PushPayload) => {
+export const enviarPushAAdmins = async (payload: PushPayload, evento?: string) => {
   const admins = await AppDataSource.getRepository(Vendedor).findBy({ rol: RolesEnum.ADMIN });
   if (!admins.length) return 0;
 
+  // Filtrar admins que tengan el evento deshabilitado.
+  let adminsDestino = admins;
+  if (evento) {
+    const prefs = await obtenerPreferenciasDeVendedoresRepository(admins.map((a) => a.id));
+    const deshabilitados = new Set(
+      prefs.filter((p) => p.evento === evento && !p.habilitado).map((p) => p.vendedor_id)
+    );
+    adminsDestino = admins.filter((a) => !deshabilitados.has(a.id));
+    if (!adminsDestino.length) return 0;
+  }
+
   const subs = await obtenerSuscripcionesPorVendedoresRepository(
-    admins.map((a) => a.id)
+    adminsDestino.map((a) => a.id)
+  );
+  if (!subs.length) return 0;
+
+  const resultados = await Promise.all(
+    subs.map((s) =>
+      enviarASuscripcion({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload)
+    )
+  );
+  return resultados.filter(Boolean).length;
+};
+
+/**
+ * Envía una notificación push a TODOS los vendedores activos (admins y
+ * vendedores). Respeta las preferencias por evento de cada uno. Útil para
+ * avisos globales (ej. inventario de productos actualizado).
+ */
+export const enviarPushATodos = async (payload: PushPayload, evento?: string) => {
+  const vendedores = await AppDataSource.getRepository(Vendedor).find({ where: { activo: true } });
+  if (!vendedores.length) return 0;
+
+  let vendedoresDestino = vendedores;
+  if (evento) {
+    const prefs = await obtenerPreferenciasDeVendedoresRepository(vendedores.map((v) => v.id));
+    const deshabilitados = new Set(
+      prefs.filter((p) => p.evento === evento && !p.habilitado).map((p) => p.vendedor_id)
+    );
+    vendedoresDestino = vendedores.filter((v) => !deshabilitados.has(v.id));
+    if (!vendedoresDestino.length) return 0;
+  }
+
+  const subs = await obtenerSuscripcionesPorVendedoresRepository(
+    vendedoresDestino.map((v) => v.id)
   );
   if (!subs.length) return 0;
 

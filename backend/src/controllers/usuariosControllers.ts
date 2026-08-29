@@ -6,6 +6,7 @@ import {
   updateUsuariosService,
   deleteUsuariosService,
   registrarUsuarioService,
+  actualizarMiPerfilService,
 } from '../services/usuariosServices';
 import { ApiError } from '../utils/ApiError';
 import { Vendedor } from '../entities/Vendedores';
@@ -69,6 +70,13 @@ export const updateUsuario = async (req: Request, res: Response) => {
   const { id } = req.params;
   const actualizado = await updateUsuariosService(id, req.body);
   if (!actualizado) throw new ApiError('No se pudo actualizar el usuario', 400);
+  res.json(actualizado);
+};
+
+// Configuración → Perfil: el usuario autenticado actualiza SU PROPIO perfil
+// (nombre, apellido, telefono). `req.user.id` es el supabase_id (decoded.sub).
+export const actualizarMiPerfil = async (req: Request, res: Response) => {
+  const actualizado = await actualizarMiPerfilService(req.user?.id as string, req.body);
   res.json(actualizado);
 };
 

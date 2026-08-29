@@ -1,6 +1,7 @@
 import { CrearPedidoDto } from '../dtos/CrearPedidoDto';
 import { Pedido } from '../entities/Pedidos';
 import { Transporte } from '../entities/Transporte';
+import { AppDataSource } from '../config/dataBaseConfig';
 import {
   getPedidos,
   getPedidoById,
@@ -14,6 +15,11 @@ import {
   deleteProductos_pedidoService,
 } from './productos_pedidoServices';
 import { createTransporte } from '../repositories/transporteRepository';
+import {
+  enviarPushAUsuario,
+  enviarPushAAdmins,
+} from './pushServices';
+import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 
 // import { sendWhatsappNotification } from '../utils/whatsapp';
 import dotenv from 'dotenv';
@@ -126,6 +132,20 @@ export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
     }
   }
 
+  // Web Push (PWA) — evento `pedido_nuevo`: se notifica a los admins.
+  try {
+    await enviarPushAAdmins(
+      {
+        titulo: '🛒 Nuevo pedido',
+        cuerpo: `Pedido Nro ${pedido.numero} · ${cliente?.empresa || 'cliente'} · Total ${pedido.total}`,
+        url: '#/pedidos',
+      },
+      EventoNotificacionEnum.PEDIDO_NUEVO,
+    );
+  } catch (error) {
+    console.error('No se pudo enviar push de nuevo pedido:', error);
+  }
+
   return pedido;
 };
 
@@ -133,11 +153,34 @@ export const updatePedidosService = async (
   id: string,
   pedidoData: Partial<Pedido>,
 ) => {
+  const anterior = await AppDataSource.getRepository(Pedido).findOneBy({ id });
   const pedidoActualizado = await updatePedido(id, pedidoData);
+
+  // Web Push — evento `pedido_aprobado`: cuando un pedido pasa a "procesado"
+  // (confirmado), se notifica al vendedor que lo creó.
+  if (pedidoActualizado && anterior && pedidoData.estado === 'procesado' && anterior.estado !== 'procesado') {
+    try {
+      const cliente = await getClientesByIdAuxiliar(pedidoActualizado.cliente_id);
+      await enviarPushAUsuario(
+        pedidoActualizado.vendedor_id,
+        {
+          titulo: '✅ Pedido aprobado',
+          cuerpo: `Tu pedido Nro ${pedidoActualizado.numero} de ${cliente?.empresa || 'el cliente'} fue confirmado.`,
+          url: '#/pedidos',
+        },
+        EventoNotificacionEnum.PEDIDO_APROBADO,
+      );
+    } catch (error) {
+      console.error('No se pudo enviar push de pedido aprobado:', error);
+    }
+  }
+
   return pedidoActualizado;
 };
 
 export const deletePedidosService = async (id: string) => {
+  const pedido = await AppDataSource.getRepository(Pedido).findOneBy({ id });
+
   const productPedido = await getProductosPedidosByVendedorService(id);
   await Promise.all(
     productPedido.map(async (producto) => {
@@ -145,5 +188,26 @@ export const deletePedidosService = async (id: string) => {
     }),
   );
   const pedidoBorrado = await deletePedido(id);
+
+  // Web Push — evento `pedido_cancelado`: el pedido se elimina (cancelación) y
+  // se notifica al vendedor dueño y a los admins.
+  if (pedido) {
+    try {
+      const cliente = await getClientesByIdAuxiliar(pedido.cliente_id);
+      const cuerpo = `El pedido Nro ${pedido.numero} de ${cliente?.empresa || 'el cliente'} fue cancelado.`;
+      await enviarPushAUsuario(
+        pedido.vendedor_id,
+        { titulo: '❌ Pedido cancelado', cuerpo, url: '#/pedidos' },
+        EventoNotificacionEnum.PEDIDO_CANCELADO,
+      );
+      await enviarPushAAdmins(
+        { titulo: '❌ Pedido cancelado', cuerpo, url: '#/pedidos' },
+        EventoNotificacionEnum.PEDIDO_CANCELADO,
+      );
+    } catch (error) {
+      console.error('No se pudo enviar push de pedido cancelado:', error);
+    }
+  }
+
   return pedidoBorrado;
 };

@@ -7,6 +7,7 @@ import {
   createUsuario,
   deleteUsuario,
   updateUsuario,
+  updateUsuarioBySupabaseId,
 } from '../repositories/usuariosRepository';
 import { ApiError } from '../utils/ApiError';
 
@@ -47,6 +48,47 @@ export const updateUsuariosService = async (
 export const deleteUsuariosService = async (id: string) => {
   const borrado = await deleteUsuario(id);
   return { message: 'Usuario borrado', data: borrado };
+};
+
+/**
+ * Actualizar el perfil del usuario AUTENTICADO desde "Configuración → Perfil".
+ * Solo acepta nombre, apellido y telefono (el email vive en Supabase Auth y
+ * NO se toca; rol/activo/supabase_id tampoco). Cualquier otro campo del body
+ * se ignora por seguridad.
+ */
+export const actualizarMiPerfilService = async (
+  supabaseId: string,
+  data: Partial<Vendedor>,
+) => {
+  const perfil: Partial<Vendedor> = {};
+
+  if (data.nombre !== undefined) {
+    if (typeof data.nombre !== 'string' || !data.nombre.trim()) {
+      throw new ApiError('El nombre es obligatorio', 400);
+    }
+    perfil.nombre = data.nombre.trim();
+  }
+
+  if (data.apellido !== undefined) {
+    if (typeof data.apellido !== 'string' || !data.apellido.trim()) {
+      throw new ApiError('El apellido es obligatorio', 400);
+    }
+    perfil.apellido = data.apellido.trim();
+  }
+
+  if (data.telefono !== undefined) {
+    perfil.telefono = typeof data.telefono === 'string' ? data.telefono.trim() || null : null;
+  }
+
+  if (Object.keys(perfil).length === 0) {
+    throw new ApiError('No hay campos válidos para actualizar', 400);
+  }
+
+  const actualizado = await updateUsuarioBySupabaseId(supabaseId, perfil);
+  if (!actualizado) {
+    throw new ApiError('No se pudo actualizar el perfil', 400);
+  }
+  return { message: 'Perfil actualizado', data: actualizado };
 };
 
 /**

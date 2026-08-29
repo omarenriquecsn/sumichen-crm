@@ -23,8 +23,10 @@ export class Vendedor {
   @Column()
   apellido: string;
 
-  @Column({ nullable: true })
-  telefono?: string;
+  // type explícito: `string | null` reflejaría design:type Object y rompería
+  // TypeORM ("Data type Object not supported"). varchar coincide con el baseline.
+  @Column({ type: 'varchar', nullable: true })
+  telefono?: string | null;
 
   @Column({ type: 'enum', enum: RolesEnum, default: RolesEnum.VENDEDOR })
   rol: RolesEnum;

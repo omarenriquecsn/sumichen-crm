@@ -86,6 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
     { to: '/leads', icon: Users, label: 'Todos los Leads' },
     { to: '/chat', icon: MessageSquare, label: 'Chats' },
     { to: '/marketing', icon: BarChart2, label: 'Marketing' },
+    { to: '/configuracion', icon: Settings, label: 'Configuración' },
   ];
 
   // Enlace exclusivo del admin PRINCIPAL (Omar Contreras)

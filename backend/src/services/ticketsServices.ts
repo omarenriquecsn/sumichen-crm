@@ -17,6 +17,8 @@ import {
   updateActividadesService,
 } from './actividadesServices';
 import sendWhatsAppMessage from '../utils/sendWhatsapp';
+import { enviarPushAAdmins } from './pushServices';
+import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 
 
 export const getTicketsService = async () => {
@@ -62,6 +64,21 @@ export const createTicketsService = async (ticketData: Partial<Ticket>) => {
     id_tipo_actividad: newTicket.id
   };
   await createActividadesService(newActividad);
+
+  // Web Push — evento `ticket_nuevo`: se notifica a los admins.
+  try {
+    const vendedorNombre = vendedor ? `${vendedor.nombre} ${vendedor.apellido || ''}`.trim() : '';
+    await enviarPushAAdmins(
+      {
+        titulo: '🎫 Nuevo ticket',
+        cuerpo: `Ticket Nro ${newTicket.numero}: ${newTicket.titulo}${vendedorNombre ? ` (${vendedorNombre})` : ''}`,
+        url: '#/tickets',
+      },
+      EventoNotificacionEnum.TICKET_NUEVO,
+    );
+  } catch (error) {
+    console.error('No se pudo enviar push de ticket nuevo:', error);
+  }
 
   //  await sendWhatsAppMessage('ticket')
   return {
