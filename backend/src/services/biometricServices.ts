@@ -136,8 +136,8 @@ export const crearDesafioLoginService = async () => {
   return options;
 };
 
-export const verificarLoginService = async (response: any) => {
-  const desafio = consumirDesafio(`login:${response?.challenge}`);
+export const verificarLoginService = async (response: any, challenge?: string) => {
+  const desafio = consumirDesafio(`login:${challenge ?? response?.challenge}`);
   if (!desafio) throw new ApiError('Desafío de inicio de sesión expirado o inválido. Intenta de nuevo.', 400);
 
   const credencial = await obtenerCredencialPorCredentialIdRepository(response?.id);

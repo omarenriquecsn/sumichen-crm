@@ -48,10 +48,10 @@ export const iniciarLoginBiometrico = async (req: Request, res: Response) => {
 };
 
 export const completarLoginBiometrico = async (req: Request, res: Response) => {
-  const { response } = req.body || {};
+  const { response, challenge } = req.body || {};
   if (!response) return res.status(400).json({ error: 'Respuesta WebAuthn requerida' });
 
-  const resultado = await verificarLoginService(response);
+  const resultado = await verificarLoginService(response, challenge);
   res.json(resultado);
 };
 

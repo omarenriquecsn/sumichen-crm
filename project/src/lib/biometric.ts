@@ -213,7 +213,10 @@ export async function iniciarSesionBiometrica(): Promise<{ email?: string }> {
   const completarRes = await fetch(`${URL}/auth/biometric/login/completar`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ response: serializarCredencial(credencial) }),
+    body: JSON.stringify({
+      response: serializarCredencial(credencial),
+      challenge: opcionesJson.challenge,
+    }),
   });
   if (!completarRes.ok) {
     const err = (await completarRes.json().catch(() => ({}))) as Record<string, string>;
