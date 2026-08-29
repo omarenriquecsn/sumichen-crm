@@ -10,6 +10,23 @@ const supabase = createClient(
 const normalizar = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+/**
+ * Devuelve el texto visible de una celda de ExcelJS, manejando celdas que
+ * contienen fórmulas, rich text u objetos. `String(cell.value)` falla con
+ * `[object Object]` cuando el valor es un objeto (ej. celdas con fórmula).
+ */
+const textoCelda = (cell: any): string => {
+  const v = cell?.value;
+  if (v == null) return '';
+  if (typeof v === 'object') {
+    if (typeof v.text === 'string') return v.text;
+    if (typeof v.result === 'string' || typeof v.result === 'number') return String(v.result);
+    if (Array.isArray(v.richText)) return v.richText.map((r: any) => r?.text ?? '').join('');
+    return '';
+  }
+  return String(v);
+};
+
 interface ProductoCatalogo {
   nombre: string;
   descripcion: string;
@@ -57,8 +74,12 @@ const generarPdf = (productos: ProductoCatalogo[]): Promise<Buffer> => {
  * `inventario.xlsx` del bucket `inventario` de Supabase Storage.
  *
  * Detecta la fila de encabezado (primera) y la columna "Descripción" por
- * nombre (la lista de productos disponibles). Cada fila con descripción no
- * vacía se convierte en un producto del catálogo. Devuelve el Buffer del PDF.
+ * nombre (la lista de productos disponibles). Si el archivo no tiene fila de
+ * encabezado (el inventario real empieza directo con productos), usa la
+ * columna 2 como fallback (formato CODIGO | DESCRIPCION | GLOBALCA | WMS |
+ * TOTAL | LOTE). Cada fila con descripción no vacía se convierte en un
+ * producto del catálogo (se deduplican los nombres repetidos por lotes).
+ * Devuelve el Buffer del PDF.
  */
 export const generarCatalogoPDF = async (): Promise<Buffer> => {
   const { data, error } = await supabase.storage
@@ -79,26 +100,28 @@ export const generarCatalogoPDF = async (): Promise<Buffer> => {
   }
 
   let descripcionIndex = -1;
-  const headersDetectados: string[] = [];
 
   worksheet.getRow(1).eachCell((cell, colNumber) => {
-    const header = normalizar(String(cell.value ?? ''));
+    const header = normalizar(textoCelda(cell));
     if (descripcionIndex === -1 && header.includes('descripc')) descripcionIndex = colNumber;
-    headersDetectados.push(String(cell.value ?? ''));
   });
 
   if (descripcionIndex === -1) {
-    throw new Error(
-      `No se encontró la columna "Descripción" en el inventario. Columnas detectadas: ${headersDetectados.join(' | ') || '(sin encabezados)'}`
-    );
+    // El inventario real no tiene fila de encabezado: la primera fila ya es un
+    // producto. La descripción siempre vive en la columna 2.
+    descripcionIndex = 2;
   }
 
   const productos: ProductoCatalogo[] = [];
+  const vistos = new Set<string>();
 
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return;
-    const descripcion = String(row.getCell(descripcionIndex).value ?? '').trim();
+    const descripcion = textoCelda(row.getCell(descripcionIndex)).trim();
     if (!descripcion) return;
+    const clave = normalizar(descripcion);
+    if (vistos.has(clave)) return;
+    vistos.add(clave);
     productos.push({ nombre: descripcion, descripcion: '' });
   });
 
