@@ -1,5 +1,6 @@
 import {
   getZonas,
+  getZonasParaExport,
   getZonaById,
   createZona,
   updateZona,
@@ -12,6 +13,10 @@ import { ApiError } from '../utils/ApiError';
 
 export const getZonasService = async () => {
   return await getZonas();
+};
+
+export const getZonasParaExportService = async () => {
+  return await getZonasParaExport();
 };
 
 export const getZonaByIdService = async (id: string) => {

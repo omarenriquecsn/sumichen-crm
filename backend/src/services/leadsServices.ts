@@ -1,6 +1,7 @@
 import {
   getLeads,
   getLeadById,
+  getLeadsParaExport,
   createLead,
   updateLead,
   asignarLeadAutomatico,
@@ -22,6 +23,10 @@ export const getLeadsService = async (filtros: any, reqUser?: any) => {
     filtros.vendedor_id = reqUser.vendedor_db_id;
   }
   return await getLeads(filtros);
+};
+
+export const getLeadsParaExportService = async () => {
+  return await getLeadsParaExport();
 };
 
 export const getLeadByIdService = async (id: string, reqUser?: any) => {

@@ -1,5 +1,6 @@
 import {
   getConversaciones,
+  getConversacionesParaExport,
   getConversacionById,
   getConversacionByLeadId,
   createConversacion,
@@ -17,6 +18,10 @@ export const getConversacionesService = async (filtros: { vendedor_id?: string; 
     filtros.vendedor_id = reqUser.vendedor_db_id;
   }
   return await getConversaciones(filtros);
+};
+
+export const getConversacionesParaExportService = async () => {
+  return await getConversacionesParaExport();
 };
 
 export const getConversacionByIdService = async (id: string, reqUser?: any) => {

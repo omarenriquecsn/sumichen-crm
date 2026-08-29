@@ -44,6 +44,14 @@ export const getLeadById = async (id: string) => {
   });
 };
 
+export const getLeadsParaExport = async () => {
+  const repo = AppDataSource.getRepository(Lead);
+  return await repo.find({
+    relations: ['vendedor_asignado', 'zona', 'cliente'],
+    order: { fecha_creacion: 'DESC' },
+  });
+};
+
 /**
  * Busca un lead por número de teléfono (sin el "+", sin espacios, normalizado
  * a dígitos). Se compara contra datos_contacto->>'telefono' normalizado también

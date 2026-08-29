@@ -182,10 +182,11 @@ No hay script de test funcional ni de typecheck dedicado (el typecheck real es `
 20. **Asistente de Bienvenida WhatsApp (22/08)** ✅: al llegar un lead de WhatsApp **sin vendedor**, el bot pregunta el **estado** (lista desde `zonas.estados`), mapea estado→zona, **auto-asigna** el vendedor con menor carga (`asignarLeadAutomatico`) y captura la **intención** en `tipo_web`. Config editable en `/marketing` (sección "Menú de Bienvenida"). Migración `1750000000003-MenuBienvenidaSchema.ts`. Ver "Feature — Asistente de Bienvenida WhatsApp".
 21. **Reactivación de leads perdidos + resultado de conversación (22/08)** ✅: un lead `perdido` que vuelve a escribir se reactiva (con vendedor → `contactado`; sin vendedor → `nuevo` + reinicia asistente). En `/leads` y `/chat` hay acciones "Cliente" (registro manual con datos → `PUT /leads/:id/convertir` con `datos_cliente`) y "Perder". Botones Convertir/Reasignar ahora visibles también con estado `reasignado`. Ver "Feature — Resultados de conversación".
 22. **Transporte externo en pedidos + precio_base/% negociación (24/08)** ✅: ver "Feature — Transporte y negociación en pedidos". Incluye la relación `Pedido.transporte_detalle → Transporte` (OneToOne eager, corregida la que estaba rota por `@JoinColumn` sin relación), el módulo `/transporte` (GET/PUT `/transporte/pedido/:pedidoId`, JWT) y el cálculo de `precio_unitario` en el frontend.
+23. **PWA instalable + Web Push + Acceso biométrico (28/08)** ✅: ver "Feature — PWA instalable + Notificaciones push + Acceso biométrico". App instalable en Android/iOS/Windows con notificaciones push por dispositivo y login con huella/rostro (WebAuthn). ⚠ Los eventos de negocio que disparan push (pedidos/mensajes/leads/SLA) NO están cableados aún: usar `enviarPushAUsuario`/`enviarPushAAdmins` (`backend/src/services/pushServices.ts`).
 
 ## 8. Progreso de la actualización (bitácora)
 
-Sesión de mantenimiento: **Punto 1 (Seguridad)** ✅, **Punto 2 (Migraciones)** ✅, **Punto 3 (Refactor de hooks)** ✅, **Punto 4 (Typos)** ✅, **Punto 5 (Rol consistente)** ✅, **Punto 6 (Rutas)** ✅, **Punto 7 (Lint/typecheck/test)** ✅, **Punto 8 (Google Calendar)** ✅, **Punto 9 (Imports)** ✅, **Punto 10 (SQL alineado)** ✅ y **Punto 11 (Fixes WhatsApp + UX, 22/08)** ✅. Plus: **Feature "Registrar Usuarios"** ✅, **Feature "Marketing / Leads (Fase 1)"** ⚠ (compila; fallos críticos corregidos — ver sección del feature), **Feature "Transporte y negociación en pedidos" (24/08)** ✅ (ver Punto 12) y **Punto 13 (Próximas Actividades + modal detalle + persistencia de listas, 27/08)** ✅.
+Sesión de mantenimiento: **Punto 1 (Seguridad)** ✅, **Punto 2 (Migraciones)** ✅, **Punto 3 (Refactor de hooks)** ✅, **Punto 4 (Typos)** ✅, **Punto 5 (Rol consistente)** ✅, **Punto 6 (Rutas)** ✅, **Punto 7 (Lint/typecheck/test)** ✅, **Punto 8 (Google Calendar)** ✅, **Punto 9 (Imports)** ✅, **Punto 10 (SQL alineado)** ✅ y **Punto 11 (Fixes WhatsApp + UX, 22/08)** ✅. Plus: **Feature "Registrar Usuarios"** ✅, **Feature "Marketing / Leads (Fase 1)"** ⚠ (compila; fallos críticos corregidos — ver sección del feature), **Feature "Transporte y negociación en pedidos" (24/08)** ✅ (ver Punto 12), **Punto 13 (Próximas Actividades + modal detalle + persistencia de listas, 27/08)** ✅, **Punto 14 (Descargas DB: fix reuniones + columnas nuevas + descargas de marketing, 28/08)** ✅ y **Punto 15 (PWA instalable + Web Push + Acceso biométrico, 28/08)** ✅ (ver "Feature — PWA instalable + Notificaciones push + Acceso biométrico").
 
 ### Punto 1 — Seguridad ✅ (fase 1A, 1B y 1C completadas; build backend + build/lint frontend OK)
 
@@ -578,11 +579,97 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 - La persistencia es por **sesión** (sessionStorage), no permanente entre pestañas/sesiones.
 - `vistaListas` usa `document.querySelector('main')` (único Layout activo en las rutas principales); en contextos sin Layout (ej. `VendedorPanel` embebido) el fallback es `window`, así que el scroll se restaura sobre la ventana.
 
+### Punto 14 — Descargas DB: fix reuniones + columnas nuevas + descargas de marketing (28/08) ✅ (build/lint/typecheck OK backend y frontend)
+
+> **Resumen**: (1) las **reuniones ya NO aparecen** en la descarga de **actividades**. (2) El export de **pedidos** ahora incluye **Precio Base** y **% Negociación** de `productos_pedido`. (3) El export de **clientes** ahora incluye **Sector**, **Dirección de Entrega**, **Google Maps**, **Estado Anterior** y **Fecha de Cambio de Estado**. (4) Nuevas descargas de marketing: **Zonas**, **Leads** y **Chats** (historial completo, una fila por mensaje). (5) Cuando una tabla está vacía, el backend responde `404 { message: "No hay ... para exportar" }` y el frontend muestra ese mensaje en un toast (antes daba 500 + "Error al descargar el archivo").
+
+#### Backend
+- **`utils/exportActividades.ts`**: filtra `actividades.filter(a => a.tipo !== 'reunion')` — el backend crea una `Actividad` tipo `reunion` con `id_tipo_actividad` automáticamente al registrar cada reunión, y esa duplicación hacía que las reuniones aparecieran en actividades y en reuniones.
+- **`utils/exportPedidos.ts`**: columnas `Precio Base` (`pp.precio_base`) y `% Negociación` (`pp.porcentaje_negociacion`) entre "Precio Unitario" y "Total por Producto".
+- **`utils/exportClientes.ts`**: columnas `Sector` (`cliente.sector`), `Dirección de Entrega` (`direccion_entrega`), `Google Maps` (`google_maps`), `Estado Anterior` (`estado_anterior`) y `Fecha de Cambio de Estado` (`fecha_estado`, formateada `es-VE`).
+- **Repos**: `zonasRepository.getZonasParaExport()` (TODAS las zonas, activas e inactivas, con `vendedores.vendedor`), `leadsRepository.getLeadsParaExport()` (todos con `vendedor_asignado`/`zona`/`cliente`, sin paginación) y `conversacionesRepository.getConversacionesParaExport()` (todas con `lead`/`vendedor`/`mensajes`). Services wrappers en `zonasServices`/`leadsServices`/`conversacionesServices`.
+- **Utils nuevos** (guardan en `backend/exports/`):
+  - `exportZonas.ts` → Nombre, Descripción, Estados (jsonb unidos por "; "), Vendedores asignados, Activa (Sí/No), fechas.
+  - `exportLeads.ts` → Origen, Tipo de Solicitud (`tipo_web`), Canal de Entrada, Estado, Zona, Vendedor Asignado, Nombre, Teléfono, Email, Instagram, Mensaje Inicial, Cliente Convertido, Asignado En, Última Actividad En, fechas.
+  - `exportChats.ts` → **historial completo** (una fila por mensaje): Conversación ID, Lead, Teléfono, Vendedor, Canal, Estado Conversación, Remitente (Lead/Vendedor/Sistema + nombre), Contenido, Tipo Mensaje, Sin Stock, Fecha. Conversaciones sin mensajes agregan una fila "Sin mensajes".
+- **Controllers `descargasControllers.ts`**: helpers `esErrorSinDatos` (mensajes que empiezan con "No hay") y `manejarError` → responde **404** con el mensaje específico ("No hay X para exportar") cuando la tabla está vacía; en otros errores sigue con 500 genérico. Aplica a los 8 endpoints.
+- **Rutas nuevas** (JWT, en `descargasRoutes.ts`): `GET /descargas/zonas`, `GET /descargas/leads`, `GET /descargas/chats`.
+
+#### Frontend
+- **`pages/descargas/DescargasDB.tsx`**: 3 tarjetas nuevas (Zonas `MapPin`, Leads `Target`, Chats `MessageSquare`). `handleDescargar` ahora lee el JSON de error y muestra `data.message` en el toast (ej. "No hay leads para exportar") cuando el backend responde 404/500 con mensaje.
+
+#### Cómo probar
+- Con la DB dev (metas/leads/chats vacíos): pulsar "Descargar" en Metas/Leads/Chats → toast informativo "No hay metas/leads/conversaciones para exportar" (ya no 500).
+- Crear datos y descargar → el XLSX baja con las columnas nuevas.
+
+#### ⚠ Notas / deuda
+- Los endpoints `/descargas/*` solo exigen JWT (no rol admin en el backend); el gate admin sigue siendo solo del frontend (`session.user.user_metadata.rol`). No se tocó en esta sesión.
+- `getLeadsParaExport`/`getConversacionesParaExport`/`getZonasParaExport` cargan TODOS los registros sin paginación: con volumenes muy grandes convendría revisar el tamaño del XLSX generado.
+
+### Punto 15 — PWA instalable + Web Push + Acceso biométrico (28/08) ✅ (build/lint/typecheck OK backend y frontend)
+
+> **Resumen**: (1) el CRM ahora es una **PWA instalable** en Android, iOS y Windows (manifest + service worker + iconos). (2) **Notificaciones push por dispositivo** (Web Push con VAPID): cada usuario instala la app y activa el permiso desde Configuración → "Notificaciones en este dispositivo"; el backend guarda la suscripción (`push_suscripciones`) y expone `enviarPushAUsuario`/`enviarPushAAdmins` listos para cablear eventos. (3) **Acceso biométrico (WebAuthn/passkey)**: el usuario registra su huella/rostro en Configuración → Seguridad y luego entra con "Entrar con huella" desde el Login (sin email/contraseña).
+
+#### Feature — PWA instalable (manifest + service worker + iconos)
+- **`project/public/`** (Vite lo copia a `dist/`):
+  - `manifest.webmanifest`: name **Sumichem CRM**, short_name **Sumichem**, `start_url: "./"`, `scope: "./"`, `display: "standalone"`, `theme_color #2563eb`, `background_color #f3f4f6`, `lang: es`, iconos 192/512/maskable.
+  - `sw.js`: service worker con `push` (muestra notificación), `notificationclick` (abre/enfoca la app en la ruta de `data.url`), y `fetch` **network-first** solo para recursos estáticos same-origin (app-shell). NO cachea la API.
+  - `icons/`: `icon-192.png`, `icon-512.png`, `maskable-512.png`, `apple-touch-icon.png` (180) generados desde `icon-source.svg` (editable). Script: `backend/scripts/generarIconosPwa.js` (usa `sharp`). Para cambiar el logo: reemplazar el SVG y re-ejecutar.
+- **`index.html`**: `<link rel="manifest">`, `theme-color`, metatags iOS (`apple-mobile-web-app-capable`, status-bar, title), `apple-touch-icon`, favicon PNG.
+- **`src/lib/registrarServiceWorker.ts`**: registra `/sw.js` solo en `import.meta.env.PROD` (no interfiere con el dev/HMR). Llamado desde `main.tsx`.
+- **Botón "Instalar app"** (hook `src/hooks/useInstalarApp.ts`): aparece **solo si la app NO está instalada** y es instalable:
+  - Captura `beforeinstallprompt` (Chrome/Edge/Android/Windows: solo dispara si es instalable y no instalada) y `appinstalled`.
+  - Se oculta si ya corre en modo `standalone` (`matchMedia('(display-mode: standalone)')` o `navigator.standalone`).
+  - En **iOS** no hay `beforeinstallprompt`: el botón se muestra mientras no esté instalada y abre `InstalarAppModal` con los pasos de "Añadir a pantalla de inicio" (requiere iOS 16.4+ para push).
+  - Ubicación: **`Sidebar.tsx`** (encima de "Cerrar Sesión", visible en todas las páginas tras el login) y en **Configuración → Notificaciones**.
+
+#### Feature — Notificaciones push por dispositivo (Web Push)
+- **Backend**:
+  - Dep: `web-push` + `@types/web-push`. Llaves VAPID generadas con `backend/scripts/generarVapid.js` → `backend/.env` (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) y `project/.env` (`VITE_VAPID_PUBLIC_KEY`). Documentadas en ambos `.env.example`.
+  - Entidad `PushSuscripcion` (tabla `push_suscripciones`): `vendedor_id` (FK `vendedores.id` = **id de tabla**), `endpoint` UNIQUE, `p256dh`, `auth`, `dispositivo`, fechas. Registrada en `dataBaseConfig.ts`.
+  - Migración `1787524209200-PushSuscripcionSchema.ts` (idempotente). **Aplicada en dev** (tabla verificada en DB).
+  - Módulo `/push` (JWT, patrón routes→controllers→services→repository):
+    - `POST /push/suscripcion` (upsert por endpoint + `req.user.vendedor_db_id`), `DELETE /push/suscripcion` (body `{endpoint}`), `GET /push/suscripciones`, `POST /push/test`.
+    - `services/pushServices.ts`: inicializa VAPID al arrancar; **`enviarPushAUsuario(vendedorDbId, {titulo, cuerpo, url, tag})`** y **`enviarPushAAdmins({...})`** quedan listos para los eventos de negocio (pedidos, mensajes de lead, asignación/SLA, etc.) — **aún no cableados**. Limpieza automática de suscripciones 404/410.
+- **Frontend**:
+  - `src/lib/push.ts`: `urlBase64ToUint8Array`, `soportaPush()`, `tipoEstadoPermiso()`, `suscribirPush()` (SW → `Notification.requestPermission()` → `pushManager.subscribe({applicationServerKey})` → `POST /push/suscripcion`), `desuscribirPush(endpoint)`, `listarSuscripciones()`, `enviarPushDePruebaFront()`.
+  - `src/hooks/useNotificacionesPush.ts`: estado del permiso (`no_soportado`/`denegado`/`pendiente`/`activado`), `activar`, `desactivar(endpoint)`, `enviarPrueba`, y query `["push","suscripciones"]` (React Query).
+  - UI en **Configuración → Notificaciones**: botón "Activar notificaciones", estado, botón "Enviar notificación de prueba", lista de dispositivos suscritos (con eliminar) y botón "Instalar app".
+
+#### Feature — Acceso biométrico (WebAuthn / passkey)
+- **Backend**:
+  - Dep: `@simplewebauthn/server` (v13). Env: `RP_ID` (prod: `crmsumichen.com` | dev: `localhost`), `RP_ORIGIN` (origen del **frontend**), `RP_NAME`.
+  - Entidad `CredencialBiometrica` (tabla `credenciales_biometricas`): `supabase_id`, `credential_id` UNIQUE, `public_key` (COSE base64url), `counter`, `dispositivo`. Migración `1787524209300-CredencialBiometricaSchema.ts` (idempotente, **aplicada en dev**).
+  - Módulo `/auth/biometric`:
+    - JWT: `POST /registrar/inicio`, `POST /registrar/completar`, `GET /credenciales`, `DELETE /credenciales/:id`.
+    - Públicos: `POST /login/inicio`, `POST /login/completar`.
+  - `services/biometricServices.ts`: challenges **en memoria** (TTL 5 min, un solo uso); `residentKey: 'required'` (passkeys descubribles → login sin email); verificación de registro/autenticación y actualización de `counter`.
+  - **Emisión de sesión sin contraseña**: `verifyLogin` usa la service role → `supabase.auth.admin.getUserById(supabase_id)` → `supabase.auth.admin.generateLink({type:'magiclink'})` → devuelve `token_hash`; el frontend hace `supabase.auth.verifyOtp({type:'magiclink', token_hash, email})` → sesión normal (el resto de la app funciona sin cambios).
+- **Frontend**:
+  - `src/lib/biometric.ts`: `soportaBiometria()`, `registrarBiometrico()` (crea passkey en el dispositivo), `iniciarSesionBiometrica()` (get + verifyOtp), `listarCredenciales()`, `eliminarCredencial(id)`. Usa la API nativa `navigator.credentials` (sin librería del lado cliente).
+  - **Login.tsx**: botón "Entrar con huella" (Fingerprint) bajo el formulario.
+  - **Configuración → Seguridad**: sección "Acceso Biométrico" con botón "Registrar este dispositivo", lista de dispositivos registrados y eliminar.
+
+#### Cómo probar
+- **Instalación**: desplegar/probar sobre HTTPS (o `vite preview` en localhost) → en el Sidebar aparece "Instalar app" → instalar → el botón desaparece (ya instalada). En iOS: el botón muestra las instrucciones de "Añadir a pantalla de inicio".
+- **Push**: instalar → Configuración → Notificaciones → "Activar notificaciones" (permiso del navegador) → "Enviar notificación de prueba" → debe llegar la notificación al dispositivo (incluso con la pestaña cerrada). Verificar la tabla `push_suscripciones`.
+- **Biometría**: Configuración → Seguridad → "Registrar este dispositivo" (Windows Hello/Touch ID/Face ID/PIN) → cerrar sesión → en Login "Entrar con huella" → sesión iniciada.
+
+#### ⚠ Notas / deuda
+- **Eventos de negocio NO cableados aún**: `enviarPushAUsuario`/`enviarPushAAdmins` están listos; falta decidir qué eventos disparan push (nuevo pedido → admin, mensaje de lead → vendedor, lead asignado → vendedor, SLA → admin). Pendiente de la próxima sesión.
+- **Deploy producción**: 1) copiar las llaves VAPID y `RP_ID`/`RP_ORIGIN` reales a los `.env` del VPS; 2) desplegar el frontend `dist/` completo (incluye `manifest.webmanifest`, `sw.js`, `icons/`); 3) el servidor web debe servir esos archivos desde la raíz con HTTPS y **no cachear `sw.js`**; 4) arrancar el backend una vez para aplicar las 2 migraciones nuevas.
+- Los challenges de WebAuthn viven en memoria (única instancia del backend en el VPS): si hay varios procesos, hay que moverlos a Redis/DB.
+- iOS: push requiere iOS 16.4+; instalación manual desde Safari.
+- `useInstalarApp` usa `navigator.platform` (deprecado pero funcional) para detectar iPadOS.
+- Las llaves VAPID generadas están en los `.env` locales (NUNCA comitear). Si se rotan, las suscripciones existentes siguen funcionando (el par de llaves se usa para firmar, no para identificar la suscripción).
+
 ## 9. Punto de partida sugerido para la próxima actualización
 
 - Los 10 puntos de esta sesión + el **feature "Registrar Usuarios"** están completos y verificados (build/lint/tsc en frontend y backend). En producción (18/08) ya se verificó que los 4 admins tienen `rol='admin'` y `supabase_id` poblado en el Postgres del VPS → **no requiere acciones manuales de SQL**. Supabase se usa solo para auth + storage, así que los SQL de migración no se aplican a producción (legacy).
 - **Punto 12 / Feature "Transporte y negociación en pedidos"** ✅ (24/08): transporte externo con datos de conductor/vehículo capturados en el `POST /pedidos` y editables desde el detalle (`GET/PUT /transporte/pedido/:pedidoId`, JWT), más `precio_base`/`porcentaje_negociacion` en `productos_pedido` con cálculo de `precio_unitario` en el frontend. Ver Punto 12 en §8. ⚠ **Para aplicar la migración en dev**: compilar el backend (`npm run build`) y arrancar una vez (crea la tabla `transporte` y `pedidos.transporte_id`; no toca las columnas ya migradas).
 - **Punto 13 / Features del dashboard + persistencia de listas** ✅ (27/08): cuadro "Próximas Actividades" (mezcla reuniones + actividades de los próximos 2 días con íconos por tipo), modal de detalle `ActividadDetalleModal` clicable desde "Próximas Actividades" y "Actividades Recientes" de `DashboardVendedor`/`DashboarVendedorModal`, fix de duplicación de reuniones (el backend crea una Actividad vinculada por `id_tipo_actividad`, ahora excluida), persistencia del estado de vista de listas en `sessionStorage` (`utils/vistaListas.ts`: clientes conserva página+búsqueda+filtros, pedidos conserva scroll+búsqueda+filtro, incluidas las variantes modal), **filtros avanzados de clientes** (búsqueda por RIF/empresa/contacto/ciudad, select de sector y check "buscar solo en notas") y **catálogo de productos en el asistente WhatsApp** (opción Catálogo → PDF con el inventario diario, migración `1750000000004`, `utils/catalogoProductos.ts`, `sendWhatsAppDocument`). Ver Punto 13 en §8.
+- **Punto 14 / Descargas DB** ✅ (28/08): fix de reuniones duplicadas en el export de actividades, columnas nuevas en pedidos (Precio Base, % Negociación) y clientes (Sector, Dirección de Entrega, Google Maps, Estado Anterior, Fecha de Cambio de Estado), 3 descargas nuevas de marketing (Zonas, Leads, Chats) y aviso "No hay X para exportar" en toast cuando la tabla está vacía (404 con mensaje) en vez de error genérico. Ver Punto 14 en §8.
+- **Punto 15 / PWA + Web Push + Biometría** ✅ (28/08): el CRM es ahora una **PWA instalable** (Android/iOS/Windows) con botón "Instalar app" en el Sidebar (visible solo si no está instalada), **notificaciones push por dispositivo** (Web Push con VAPID; suscripciones en `push_suscripciones`; UI en Configuración → Notificaciones con prueba de punta a punta) y **acceso biométrico** (WebAuthn/passkey: registro en Configuración → Seguridad y "Entrar con huella" en el Login). Migraciones `1787524209200` y `1787524209300` **aplicadas en dev**. ⚠ **Eventos de negocio NO cableados aún** (usar `enviarPushAUsuario`/`enviarPushAAdmins` en `backend/src/services/pushServices.ts`). Ver Punto 15 en §8.
 - **Feature "Marketing / Leads (Fase 1)"**: backend + frontend **compilan** (build/lint/typecheck OK) y los **5 fallos críticos + 4 menores ya están corregidos** (migración `1750000000001-MarketingLeadsSchema.ts`, ids `vendedor_db_id`, HMAC raw body, rate limiting, SLA con `reasignado`, ownership de `enviarMensaje`, el filtro de fechas del dashboard con `useLeads` tipado a `LeadsResponse`, los selects de zonas/vendedores conectados en `Leads.tsx`/`Zonas.tsx`, y el array-en-where de TypeORM corregido con `In()`). Queda **1 menor 🟡** (import dinámico en `procesarSLAVencidos`). ⚠ **Para probar en dev**: compilar backend (`npm run build`) y reiniciar (aplica la migración nueva creando las tablas). En producción habrá que desplegar y arrancar una vez.
 - **Feature "Webhook WhatsApp entrante + envío saliente (Fase 2)"** ✅ backend implementado y probado en dev (build/lint/typecheck OK): verificación `GET /webhook/whatsapp`, recepción `POST /webhook/whatsapp` con HMAC, creación/actualización de lead por teléfono, dedupe por wamid, acumulación de pendientes en `metadata.mensajes_pendientes` y siembra al abrir conversación. El vendedor responde desde `/chat` y el backend envía por la API de Meta (`sendWhatsAppText`) dentro de la ventana de 24h. Migración `1750000000002-WhatsappInboundSchema.ts` aplicada en dev (enums `whatsapp`/`whatsapp_mensaje` verificados en DB). Zonas y asignación de vendedores sembradas en DB dev (12 zonas, 5 vendedores; ver sección del feature). ⚠ Para producción: configurar `META_VERIFY_TOKEN`, `META_APP_SECRET` y un `META_TOKEN` permanente en el `.env` del VPS, desplegar y arrancar una vez para que corra la migración, y registrar el webhook en Meta Dashboard (ver sección del feature).
 - **Punto 11 (22/08)** ✅: flujo WhatsApp verificado de punta a punta con túnel Cloudflare (rate limiter arreglado, verificación de suscripción + recepción + envío OK), cache de React Query del feature Marketing invalidada tras mutaciones (chat aparece sin recargar), filtro de fechas del dashboard marketing corregido (off-by-one UTC → fecha local + `hasta` inclusivo), y botón "Perder" de leads implementado end-to-end. ⚠ Pendiente: quitar el `console.log('[WEBHOOK] payload recibido:')` temporal, `META_APP_SECRET` vacío (HMAC omitido), `META_PHONE_ID` apuntando al número de prueba `964389213422160` y WABA `PENDING` (modo prueba; los teléfonos reales solo podrán escribirle al número real `114880014860322` tras aprobar la verificación de negocio). Ver Punto 11 en §8.

@@ -21,9 +21,12 @@ import {
   MapPin,
   MessageSquare,
   BarChart2,
+  Smartphone,
 } from 'lucide-react';
 import { UserData } from '../../context/types';
 import { esAdminPrincipal } from '../../constants/adminPrincipal';
+import { useInstalarApp } from '../../hooks/useInstalarApp';
+import { InstalarAppModal } from '../ui/InstalarAppModal';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -33,6 +36,8 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp }) => {
   const { userData: userDataContex, currentUser, signOut } = useAuth();
+  const { disponible, instalar } = useInstalarApp();
+  const [mostrarInstrucciones, setMostrarInstrucciones] = React.useState(false);
 
   const userData = userDataProp || userDataContex;
   const navigate = useNavigate();
@@ -43,6 +48,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const handleInstalar = async () => {
+    const res = await instalar();
+    if (res.resultado === 'instrucciones') {
+      setMostrarInstrucciones(true);
     }
   };
 
@@ -166,6 +178,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
         ))}
       </nav>
 
+      {/* Botón de instalar app (solo si la app no está instalada) */}
+      <div className="px-4 pb-2 border-t border-gray-200">
+        {disponible && (
+          <button
+            onClick={handleInstalar}
+            className="flex items-center space-x-3 px-4 py-3 w-full text-left text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
+          >
+            <Smartphone className="h-5 w-5" />
+            <span className="font-medium">Instalar app</span>
+          </button>
+        )}
+      </div>
+
       {/* Botón de cerrar sesión */}
       <div className="p-4 border-t border-gray-200">
         <button
@@ -177,6 +202,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
         </button>
       </div>
       </div>
+
+      <InstalarAppModal
+        open={mostrarInstrucciones}
+        onClose={() => setMostrarInstrucciones(false)}
+      />
     </>
   );
 };

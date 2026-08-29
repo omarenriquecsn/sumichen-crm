@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
-import { Building2, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Building2, Mail, Lock, Eye, EyeOff, AlertCircle, Fingerprint, Loader2 } from "lucide-react";
+import { iniciarSesionBiometrica, soportaBiometria } from "../../lib/biometric";
+import { toast } from "react-toastify";
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -9,6 +11,7 @@ export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [cargandoBiometria, setCargandoBiometria] = useState(false);
   const navigate = useNavigate();
   const { signIn } = useAuth();
 
@@ -35,6 +38,20 @@ export const Login: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBiometria = async () => {
+    setCargandoBiometria(true);
+    setError("");
+    try {
+      await iniciarSesionBiometrica();
+      toast.success("Sesión iniciada con huella.");
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error en el acceso biométrico.");
+    } finally {
+      setCargandoBiometria(false);
     }
   };
 
@@ -130,6 +147,34 @@ export const Login: React.FC = () => {
               )}
             </button>
           </form>
+
+          {soportaBiometria() && (
+            <div className="mt-4">
+              <div className="flex items-center gap-3 my-4">
+                <div className="flex-1 border-t border-gray-200"></div>
+                <span className="text-xs text-gray-400 uppercase tracking-wide">
+                  o
+                </span>
+                <div className="flex-1 border-t border-gray-200"></div>
+              </div>
+              <button
+                type="button"
+                onClick={handleBiometria}
+                disabled={cargandoBiometria}
+                className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-all duration-200 font-medium"
+              >
+                {cargandoBiometria ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Fingerprint className="h-5 w-5" />
+                )}
+                Entrar con huella
+              </button>
+              <p className="text-center text-xs text-gray-400 mt-2">
+                Usa tu huella, rostro o PIN del dispositivo (Windows Hello, Android, iOS/macOS)
+              </p>
+            </div>
+          )}
 
           {/* <div className="mt-6 text-center">
             <p className="text-gray-600">

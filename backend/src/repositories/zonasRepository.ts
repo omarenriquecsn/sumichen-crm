@@ -10,6 +10,14 @@ export const getZonas = async () => {
   });
 };
 
+export const getZonasParaExport = async () => {
+  const repo = AppDataSource.getRepository(Zona);
+  return await repo.find({
+    order: { nombre: 'ASC' },
+    relations: ['vendedores', 'vendedores.vendedor'],
+  });
+};
+
 export const getZonaById = async (id: string) => {
   const repo = AppDataSource.getRepository(Zona);
   return await repo.findOne({ where: { id }, relations: ['vendedores', 'vendedores.vendedor'] });

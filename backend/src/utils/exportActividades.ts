@@ -18,7 +18,9 @@ async function exportActividadesToExcel() {
   if (clientes.length === 0) {
     throw new Error('No hay clientes para exportar');
   }
-  const actividades = Array.isArray(queryActividades) ? queryActividades : [] ;
+  const actividades = (Array.isArray(queryActividades) ? queryActividades : []).filter(
+    (actividad) => actividad.tipo !== 'reunion',
+  );
   if (actividades.length === 0) {
     throw new Error('No hay actividades para exportar');
   }

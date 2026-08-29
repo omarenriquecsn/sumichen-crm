@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Layout } from "../../components/layout/Layout";
 import { useAuth } from "../../context/useAuth";
 
@@ -12,14 +12,74 @@ import {
   Save,
   Eye,
   EyeOff,
+  Smartphone,
+  Send,
+  Loader2,
+  Trash2,
+  Download,
+  Fingerprint,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-toastify";
+import { useNotificacionesPush } from "../../hooks/useNotificacionesPush";
+import { useInstalarApp } from "../../hooks/useInstalarApp";
+import { InstalarAppModal } from "../../components/ui/InstalarAppModal";
+import {
+  registrarBiometrico,
+  listarCredenciales,
+  eliminarCredencial,
+  soportaBiometria,
+} from "../../lib/biometric";
 
 export const Configuracion: React.FC = () => {
   const { userData, session } = useAuth();
   const [activeTab, setActiveTab] = useState("perfil");
   const [showPassword, setShowPassword] = useState(false);
+  const push = useNotificacionesPush();
+  const { disponible: instalable, instalar: instalarApp } = useInstalarApp();
+  const [mostrarInstrucciones, setMostrarInstrucciones] = useState(false);
+  const [credencialesBiometricas, setCredencialesBiometricas] = useState<
+    { id: string; dispositivo: string | null; fecha_creacion: string }[]
+  >([]);
+  const [registrandoBiometrico, setRegistrandoBiometrico] = useState(false);
+
+  const cargarCredenciales = async () => {
+    try {
+      const credenciales = await listarCredenciales();
+      setCredencialesBiometricas(credenciales);
+    } catch (err) {
+      console.error("Error cargando credenciales:", err);
+    }
+  };
+
+  const handleRegistrarBiometrico = async () => {
+    setRegistrandoBiometrico(true);
+    try {
+      await registrarBiometrico();
+      await cargarCredenciales();
+      toast.success("Huella registrada. Ya puedes iniciar sesión con ella.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error registrando la huella.");
+    } finally {
+      setRegistrandoBiometrico(false);
+    }
+  };
+
+  const handleEliminarBiometrico = async (id: string) => {
+    try {
+      await eliminarCredencial(id);
+      await cargarCredenciales();
+      toast.info("Huella eliminada.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error eliminando la huella.");
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "seguridad" && soportaBiometria()) {
+      cargarCredenciales();
+    }
+  }, [activeTab]);
 
   const [perfilData, setPerfilData] = useState({
     nombre: userData?.nombre || "",
@@ -341,8 +401,145 @@ export const Configuracion: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Notificaciones push del dispositivo (PWA) */}
+                  <div className="mt-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Notificaciones en este dispositivo
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Instala la app y activa las notificaciones para recibir
+                      alertas del CRM en tu celular o PC, incluso con la app
+                      cerrada.
+                    </p>
+
+                    {push.estado === "no_soportado" && (
+                      <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-lg text-sm">
+                        Este navegador no soporta notificaciones push. Usa
+                        Chrome, Edge, Safari (iOS 16.4+) o un navegador moderno
+                        en tu dispositivo.
+                      </div>
+                    )}
+
+                    {push.estado === "denegado" && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                        El permiso de notificaciones está bloqueado en este
+                        dispositivo. Habilítalo desde la configuración del
+                        navegador (sitio: permisos → notificaciones → permitir)
+                        y vuelve a intentarlo.
+                      </div>
+                    )}
+
+                    {push.estado === "pendiente" && (
+                      <button
+                        onClick={async () => {
+                          const res = await push.activar();
+                          if (res.ok) {
+                            toast.success("Notificaciones activadas en este dispositivo.");
+                          } else {
+                            toast.error(res.error || "No se pudieron activar las notificaciones.");
+                          }
+                        }}
+                        disabled={push.accionando}
+                        className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium px-4 py-2.5 rounded-lg transition-colors"
+                      >
+                        {push.accionando ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Bell className="h-4 w-4" />
+                        )}
+                        Activar notificaciones
+                      </button>
+                    )}
+
+                    {push.estado === "activado" && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                          <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                          Notificaciones activas en este dispositivo
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const res = await push.enviarPrueba();
+                            if (res.ok) {
+                              toast.success("Notificación de prueba enviada. Revisa tu dispositivo.");
+                            } else {
+                              toast.error(res.error || "No se pudo enviar la prueba.");
+                            }
+                          }}
+                          disabled={push.suscripcionDePrueba}
+                          className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-900 disabled:opacity-50 text-white font-medium px-4 py-2.5 rounded-lg transition-colors"
+                        >
+                          {push.suscripcionDePrueba ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                          Enviar notificación de prueba
+                        </button>
+
+                        {push.suscripciones.length > 0 && (
+                          <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
+                            {push.suscripciones.map((s) => (
+                              <div
+                                key={s.endpoint}
+                                className="flex items-center justify-between px-4 py-3"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <Smartphone className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="text-sm text-gray-800 truncate">
+                                      {s.dispositivo || "Dispositivo"}
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                      {new Date(s.fecha_creacion).toLocaleDateString("es-VE")}
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() =>
+                                    push.desactivar(s.endpoint).then(() =>
+                                      toast.info("Dispositivo desvinculado.")
+                                    )
+                                  }
+                                  disabled={push.accionando}
+                                  className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+                                  title="Desactivar notificaciones en este dispositivo"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Instalar la app (solo si aún no está instalada) */}
+                    {instalable && (
+                      <div className="mt-6 border-t border-gray-200 pt-4">
+                        <button
+                          onClick={async () => {
+                            const res = await instalarApp();
+                            if (res.resultado === "instrucciones") {
+                              setMostrarInstrucciones(true);
+                            }
+                          }}
+                          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                          Instalar app en este dispositivo
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+
+              <InstalarAppModal
+                open={mostrarInstrucciones}
+                onClose={() => setMostrarInstrucciones(false)}
+              />
 
               {/* Seguridad */}
               {activeTab === "seguridad" && (
@@ -417,6 +614,70 @@ export const Configuracion: React.FC = () => {
                             Actualizar Contraseña
                           </button>
                         </form>
+                      </div>
+
+                      <div className="border-t border-gray-200 pt-6">
+                        <h4 className="font-medium text-gray-900 mb-3">
+                          Acceso Biométrico (huella / rostro)
+                        </h4>
+                        <p className="text-sm text-gray-500 mb-4">
+                          Registra este dispositivo para iniciar sesión en el CRM
+                          con tu huella, rostro o PIN (Windows Hello, Android,
+                          iPhone/iPad, Mac).
+                        </p>
+
+                        {!soportaBiometria() ? (
+                          <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-lg text-sm">
+                            Este navegador no soporta autenticación biométrica
+                            (WebAuthn). Usa un navegador moderno con HTTPS.
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <button
+                              onClick={handleRegistrarBiometrico}
+                              disabled={registrandoBiometrico}
+                              className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-900 disabled:opacity-50 text-white font-medium px-4 py-2.5 rounded-lg transition-colors"
+                            >
+                              {registrandoBiometrico ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Fingerprint className="h-4 w-4" />
+                              )}
+                              Registrar este dispositivo
+                            </button>
+
+                            {credencialesBiometricas.length > 0 && (
+                              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
+                                {credencialesBiometricas.map((c) => (
+                                  <div
+                                    key={c.id}
+                                    className="flex items-center justify-between px-4 py-3"
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <Fingerprint className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                                      <div className="min-w-0">
+                                        <p className="text-sm text-gray-800 truncate">
+                                          {c.dispositivo || "Dispositivo"}
+                                        </p>
+                                        <p className="text-xs text-gray-400">
+                                          Registrado:{" "}
+                                          {new Date(c.fecha_creacion).toLocaleDateString("es-VE")}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => handleEliminarBiometrico(c.id)}
+                                      className="text-gray-400 hover:text-red-600"
+                                      title="Eliminar esta huella"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="border-t border-gray-200 pt-6">

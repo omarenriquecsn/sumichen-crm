@@ -20,6 +20,8 @@ import { Conversacion } from '../entities/Conversacion';
 import { Mensaje } from '../entities/Mensaje';
 import { MenuBienvenida } from '../entities/MenuBienvenida';
 import { Transporte } from '../entities/Transporte';
+import { PushSuscripcion } from '../entities/PushSuscripcion';
+import { CredencialBiometrica } from '../entities/CredencialBiometrica';
 dotenv.config();
 
 export const AppDataSource = new DataSource({
@@ -48,6 +50,8 @@ export const AppDataSource = new DataSource({
     Mensaje,
     MenuBienvenida,
     Transporte,
+    PushSuscripcion,
+    CredencialBiometrica,
   ],
   migrations: ['build/database/migrations/**/*.js'],
   dropSchema: false,

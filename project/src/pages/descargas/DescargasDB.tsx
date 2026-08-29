@@ -6,6 +6,9 @@ import {
   Users,
   ShoppingCart,
   ListChecks,
+  MapPin,
+  Target,
+  MessageSquare,
 } from "lucide-react";
 import Button from "../../components/ui/Button";
 import { toast } from "react-toastify";
@@ -17,6 +20,9 @@ const descargas = [
   { label: "Pedidos", icon: ShoppingCart, key: "pedidos" },
   { label: "Clientes", icon: Users, key: "clientes" },
   { label: "Metas", icon: Users, key: "metas" },
+  { label: "Zonas", icon: MapPin, key: "zonas" },
+  { label: "Leads", icon: Target, key: "leads" },
+  { label: "Chats", icon: MessageSquare, key: "chats" },
 ];
 
 const DescargasDB: React.FC = () => {
@@ -43,7 +49,16 @@ const handleDescargar = async (tipo: string) => {
       });
 
       if (!response.ok) {
-        toast.error("Error al descargar el archivo.");
+        let mensaje = "Error al descargar el archivo.";
+        try {
+          const data = await response.json();
+          if (data && data.message) {
+            mensaje = data.message;
+          }
+        } catch {
+          // El cuerpo no es JSON: mantener el mensaje genérico
+        }
+        toast.error(mensaje);
         return;
       }
 

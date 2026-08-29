@@ -20,6 +20,14 @@ export const getConversaciones = async (filtros: {
   return await qb.getMany();
 };
 
+export const getConversacionesParaExport = async () => {
+  const repo = AppDataSource.getRepository(Conversacion);
+  return await repo.find({
+    relations: ['lead', 'vendedor', 'mensajes'],
+    order: { ultimo_mensaje_en: 'DESC' },
+  });
+};
+
 export const getConversacionById = async (id: string) => {
   const repo = AppDataSource.getRepository(Conversacion);
   return await repo.findOne({

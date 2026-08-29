@@ -3,6 +3,9 @@ import exportClientesToExcel from '../utils/exportClientes';
 import { exportMetasToExcel } from '../utils/exportMetas';
 import { exportPedidosToExcel } from '../utils/exportPedidos';
 import  exportReunionesToExcel  from '../utils/exportReuniones';
+import exportZonasToExcel from '../utils/exportZonas';
+import exportLeadsToExcel from '../utils/exportLeads';
+import exportChatsToExcel from '../utils/exportChats';
 
 export const getDescargasPedidosService = async () => {
  
@@ -26,4 +29,16 @@ export const getDescargasActividadesService = async () => {
 export const getDescargasMetasService = async () => {
  
   return await exportMetasToExcel();
+};
+
+export const getDescargasZonasService = async () => {
+  return await exportZonasToExcel();
+};
+
+export const getDescargasLeadsService = async () => {
+  return await exportLeadsToExcel();
+};
+
+export const getDescargasChatsService = async () => {
+  return await exportChatsToExcel();
 };

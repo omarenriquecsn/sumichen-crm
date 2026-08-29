@@ -17,6 +17,8 @@ import conversacionesRoutes from './conversacionesRoutes';
 import whatsappWebhookRoutes from './whatsappWebhookRoutes';
 import menuBienvenidaRoutes from './menuBienvenidaRoutes';
 import transporteRoutes from './transporteRoutes';
+import pushRoutes from './pushRoutes';
+import biometricRoutes from './biometricRoutes';
 
 // import turnRoutes from "./turnRoutes"
 const router: Router = Router();
@@ -39,5 +41,7 @@ router.use('/', conversacionesRoutes);
 router.use('/', whatsappWebhookRoutes);
 router.use('/', menuBienvenidaRoutes);
 router.use('/', transporteRoutes);
+router.use('/', pushRoutes);
+router.use('/', biometricRoutes);
 
 export default router;

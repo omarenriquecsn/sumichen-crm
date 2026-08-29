@@ -50,6 +50,8 @@ async function exportPedidosToExcel() {
     { header: 'Productos', key: 'producto', width: 30 },
     { header: 'Cantidad', key: 'cantidad', width: 15 },
     { header: 'Precio Unitario', key: 'precio_unitario', width: 15 },
+    { header: 'Precio Base', key: 'precio_base', width: 15 },
+    { header: '% Negociación', key: 'porcentaje_negociacion', width: 15 },
     { header: 'Total por Producto', key: 'total_producto', width: 15 },
     { header: 'Impuestos', key: 'impuestos', width: 15 },
     { header: 'IVA', key: 'iva', width: 15 },
@@ -86,6 +88,8 @@ async function exportPedidosToExcel() {
         producto: pp.producto?.nombre, 
         cantidad: Number(pp.cantidad),
         precio_unitario: Number(pp.precio_unitario),
+        precio_base: Number(pp.precio_base),
+        porcentaje_negociacion: Number(pp.porcentaje_negociacion),
         total_producto: Number(pp.precio_unitario) * Number(pp.cantidad)
       });
     });
