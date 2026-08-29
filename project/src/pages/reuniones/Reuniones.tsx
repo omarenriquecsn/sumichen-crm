@@ -34,6 +34,7 @@ import Select from "react-select";
 import { ConfirmarAccionToast } from "../../components/ui/ConfirmarAccionToast";
 import generarGoogleCalendarLink from "../../utils/googleCalendarLink";
 import Calendario from "./Calendario";
+import { ReunionTarjeta } from "../../components/ui/ReunionTarjeta";
 
 export const Reuniones: React.FC = () => {
   const supabase = useSupabase();
@@ -231,27 +232,27 @@ export const Reuniones: React.FC = () => {
     >
       <div className="space-y-6">
         {/* Barra de herramientas */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-          <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
             {/* Búsqueda */}
-            <div className="relative">
+            <div className="relative w-full sm:w-64">
               <Search className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Buscar reuniones..."
                 value={terminoBusqueda}
                 onChange={(e) => setTerminoBusqueda(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             {/* Filtros */}
-            <div className="flex items-center space-x-2">
-              <Filter className="h-5 w-5 text-gray-400" />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Filter className="h-5 w-5 text-gray-400 hidden sm:inline shrink-0" />
               <select
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="todas">Todas las reuniones</option>
                 <option value="programada">Programadas</option>
@@ -261,7 +262,7 @@ export const Reuniones: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto justify-between sm:justify-start">
             {/* Selector de vista */}
             <div className="flex bg-gray-100 rounded-lg p-1">
               <button
@@ -358,9 +359,38 @@ export const Reuniones: React.FC = () => {
 
         {/* Lista de reuniones */}
         {vistaActual === "lista" && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+          <>
+            {reunionesFiltradas.length === 0 ? (
+              <div className="text-center text-gray-500 mt-10">
+                <p>No se encontraron reuniones.</p>
+              </div>
+            ) : (
+              <>
+                {/* Lista de reuniones (móvil/tablet: tarjetas) */}
+                <div className="grid grid-cols-1 gap-3 lg:hidden">
+                  {reunionesFiltradas.map((reunion) => (
+                    <ReunionTarjeta
+                      key={reunion.id}
+                      reunion={reunion}
+                      clienteEmpresa={
+                        clientesMap.get(reunion.cliente_id)?.empresa
+                      }
+                      clienteTelefono={
+                        clientesMap.get(reunion.cliente_id)?.telefono
+                      }
+                      onEditar={() => {
+                        setReunionSeleccionada(reunion);
+                        setModalReunion(true);
+                      }}
+                      onCancelar={() => prepararCancelacion(reunion.id)}
+                    />
+                  ))}
+                </div>
+
+                {/* Lista de reuniones (desktop: tabla) */}
+                <div className="hidden lg:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="text-left py-4 px-6 font-medium text-gray-900">
@@ -486,7 +516,10 @@ export const Reuniones: React.FC = () => {
               </table>
             </div>
           </div>
+          </>
         )}
+      </>
+    )}
 
         {/* Vista de calendario */}
         {vistaActual === "calendario" && (
