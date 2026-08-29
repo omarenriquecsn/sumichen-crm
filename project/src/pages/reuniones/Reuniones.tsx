@@ -61,6 +61,10 @@ export const Reuniones: React.FC = () => {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<string | null>(
     null
   );
+  const [slotInicial, setSlotInicial] = useState<{
+    fecha_inicio: Date;
+    fecha_fin: Date;
+  } | null>(null);
 
   //Reuniones
   const { data: reuniones } = supabase.useReuniones();
@@ -523,19 +527,20 @@ export const Reuniones: React.FC = () => {
 
         {/* Vista de calendario */}
         {vistaActual === "calendario" && (
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 h-[80vh]">
-            <div className="h-[70vh] flex items-center justify-center bg-gray-50 rounded-lg">
-              <div className="text-center">
-                <div>   
-                <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Calendario
-                </h3>
-                </div>
-
-                <Calendario />
-              </div>
-            </div>
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <Calendario
+              onSlotSelect={(start) => {
+                setSlotInicial({
+                  fecha_inicio: start,
+                  fecha_fin: new Date(start.getTime() + 60 * 60 * 1000),
+                });
+                setModalClienteVisible(true);
+              }}
+              onEditarReunion={(reunion) => {
+                setReunionSeleccionada(reunion);
+                setModalReunion(true);
+              }}
+            />
           </div>
         )}
       </div>
@@ -559,11 +564,13 @@ export const Reuniones: React.FC = () => {
         isOpen={modalReunionVisible}
         onClose={() => {
           setModalCopen(false);
+          setSlotInicial(null);
         }}
       >
         <CrearReunion
           accion={!pendingCrearReunion ? "Crear Reunion" : "Creando..."}
           onSubmit={handleCrearReunion}
+          initialData={slotInicial}
         />
       </Modal>
 

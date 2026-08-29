@@ -8,6 +8,7 @@ import {
   XCircle,
   User,
   Calendar,
+  Pencil,
 } from "lucide-react";
 import { ConfirmarAccionToast } from "../../components/ui/ConfirmarAccionToast";
 import dayjs from "dayjs";
@@ -18,6 +19,7 @@ interface ReunionProps {
   reunion: ReunionCalendario;
   isOpen: boolean;
   onClose: () => void;
+  onEditar?: (reunion: ReunionCalendario) => void;
 }
 
 export const ReunionesDetailModal = ({
@@ -25,6 +27,7 @@ export const ReunionesDetailModal = ({
   reunion,
   isOpen,
   onClose,
+  onEditar,
 }: ReunionProps) => {
   const supabase = useSupabase();
   const currentUser = vendedor;
@@ -266,6 +269,15 @@ export const ReunionesDetailModal = ({
                   Acciones
                 </h3>
                 <div className="space-y-3">
+                  {onEditar && reunion.estado !== "cancelada" && (
+                    <button
+                      onClick={() => onEditar(reunion)}
+                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      <span>Editar / Reprogramar</span>
+                    </button>
+                  )}
                   {reunion.estado !== "completada" && (
                     <button
                       onClick={prepararResolverReunion}

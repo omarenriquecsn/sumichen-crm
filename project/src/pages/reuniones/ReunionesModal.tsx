@@ -33,8 +33,7 @@ import { ConfirmarAccionToast } from "../../components/ui/ConfirmarAccionToast";
 import { User as UserSupabase } from "@supabase/supabase-js";
 import { ReunionesDetailModal } from "./ReunionesDetailModal";
 import generarGoogleCalendarLink from "../../utils/googleCalendarLink";
-import CalendarioModal from "./CalendarioModal";
-import { UUID } from "crypto";
+import Calendario from "./Calendario";
 import { ReunionTarjeta } from "../../components/ui/ReunionTarjeta";
 
 interface ReunionesModalProps {
@@ -73,6 +72,10 @@ export const ReunionesModal: React.FC<ReunionesModalProps> = ({
     null
   );
   const [isOpenReunionDetail, setIsOpenReunionDetail] = useState(false);
+  const [slotInicial, setSlotInicial] = useState<{
+    fecha_inicio: Date;
+    fecha_fin: Date;
+  } | null>(null);
 
   //Reuniones
   const { data: reunionesDB } = supabase.useReuniones();
@@ -581,21 +584,21 @@ export const ReunionesModal: React.FC<ReunionesModalProps> = ({
 
           {/* Vista de calendario */}
           {vistaActual === "calendario" && (
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 h-[80vh]">
-              <div className="h-[70vh] flex items-center justify-center bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <div>
-                    <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      Calendario
-                    </h3>
-                  </div>
-
-                  <CalendarioModal 
-                  Userid = {vendedor.id as UUID}
-                  />
-                </div>
-              </div>
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <Calendario
+                vendedorId={vendedor.id}
+                onSlotSelect={(start) => {
+                  setSlotInicial({
+                    fecha_inicio: start,
+                    fecha_fin: new Date(start.getTime() + 60 * 60 * 1000),
+                  });
+                  setModalClienteVisible(true);
+                }}
+                onEditarReunion={(reunion) => {
+                  setReunionSeleccionada(reunion);
+                  setModalReunion(true);
+                }}
+              />
             </div>
           )}
 
@@ -618,11 +621,13 @@ export const ReunionesModal: React.FC<ReunionesModalProps> = ({
             isOpen={modalReunionVisible}
             onClose={() => {
               setModalCopen(false);
+              setSlotInicial(null);
             }}
           >
             <CrearReunion
               accion={!pendingCrearReunion ? "Crear Reunion" : "Creando..."}
               onSubmit={handleCrearReunion}
+              initialData={slotInicial}
             />
           </Modal>
 
