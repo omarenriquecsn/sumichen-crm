@@ -18,6 +18,7 @@ import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import { ConfirmarAccionToast } from "../../components/ui/ConfirmarAccionToast";
+import { TicketTarjeta } from "../../components/ui/TicketTarjeta";
 import { Cliente, Ticket } from "../../types";
 import CrearTicket from "../../components/forms/CrearTicket";
 import Modal from "../../components/ui/Modal";
@@ -222,7 +223,7 @@ export const Tickets: React.FC<TicketsProps> = ({ ticketsProp, clientesProp }) =
                 placeholder="Buscar tickets..."
                 value={terminoBusqueda}
                 onChange={(e) => setTerminoBusqueda(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-64"
               />
             </div>
 
@@ -266,8 +267,25 @@ export const Tickets: React.FC<TicketsProps> = ({ ticketsProp, clientesProp }) =
 
         {/* Lista de tickets */}
         {ticketsFiltrados ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="space-y-4">
+            {/* Tarjetas (móvil/tablet) */}
+            <div className="grid grid-cols-1 gap-3 lg:hidden">
+              {ticketsFiltrados.map((ticket) => (
+                <TicketTarjeta
+                  key={ticket.id}
+                  ticket={ticket}
+                  clienteEmpresa={clientesMap(ticket.cliente_id)?.empresa ?? "Cliente"}
+                  clienteEmail={clientesMap(ticket.cliente_id)?.email}
+                  clienteTelefono={clientesMap(ticket.cliente_id)?.telefono}
+                  onVer={() => navigate(`/tickets/${ticket.id}`)}
+                  onResolver={() => prepararCancelacion(ticket.id)}
+                />
+              ))}
+            </div>
+
+            {/* Tabla (desktop) */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hidden lg:block">
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -399,6 +417,7 @@ export const Tickets: React.FC<TicketsProps> = ({ ticketsProp, clientesProp }) =
                   ))}
                 </tbody>
               </table>
+            </div>
             </div>
           </div>
         ) : (
