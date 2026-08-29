@@ -218,8 +218,149 @@ const Leads: React.FC = () => {
           </div>
         </div>
 
-        {/* Tabla */}
-        <div className="overflow-x-auto">
+        {/* Lista de leads (móvil/tablet: tarjetas) */}
+        <div className="grid grid-cols-1 gap-3 lg:hidden">
+          {data?.data?.map((lead) => (
+            <div
+              key={lead.id}
+              className="bg-white rounded-xl border border-gray-200 p-4 space-y-3"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold shrink-0">
+                    {lead.datos_contacto?.nombre?.charAt(0).toUpperCase() || "?"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 truncate">
+                      {lead.datos_contacto?.nombre || "Sin nombre"}
+                    </p>
+                    <p className="text-sm text-gray-500 truncate">
+                      {lead.datos_contacto?.telefono || "Sin teléfono"}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium shrink-0 ${
+                    estadoColors[lead.estado] || "bg-gray-100 text-gray-800"
+                  }`}
+                >
+                  {lead.estado === 'nuevo' && <AlertCircle className="h-3 w-3 mr-1" />}
+                  {lead.estado === 'asignado' && <Users className="h-3 w-3 mr-1" />}
+                  {lead.estado === 'contactado' && <RotateCcw className="h-3 w-3 mr-1" />}
+                  {lead.estado === 'calificado' && <CheckCircle className="h-3 w-3 mr-1" />}
+                  {lead.estado === 'convertido' && <CheckCircle className="h-3 w-3 mr-1 text-green-600" />}
+                  {lead.estado === 'perdido' && <X className="h-3 w-3 mr-1" />}
+                  {lead.estado === 'reasignado' && <RotateCcw className="h-3 w-3 mr-1" />}
+                  {lead.estado.charAt(0).toUpperCase() + lead.estado.slice(1)}
+                </span>
+              </div>
+
+              {lead.datos_contacto?.email && (
+                <p className="text-sm text-gray-500 truncate">
+                  {lead.datos_contacto.email}
+                </p>
+              )}
+              {lead.datos_contacto?.mensaje_inicial && (
+                <p className="text-sm text-gray-500 line-clamp-2">
+                  {lead.datos_contacto.mensaje_inicial}
+                </p>
+              )}
+
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                <span className="inline-flex items-center px-2 py-1 rounded font-medium bg-purple-100 text-purple-800">
+                  {origenLabels[lead.origen] || lead.origen}
+                </span>
+                {lead.tipo_web && (
+                  <span className="inline-flex items-center px-2 py-1 rounded font-medium bg-gray-100 text-gray-700">
+                    {tipoWebLabels[lead.tipo_web] || lead.tipo_web}
+                  </span>
+                )}
+                {lead.zona?.nombre && (
+                  <span className="inline-flex items-center px-2 py-1 rounded font-medium bg-green-100 text-green-800">
+                    <MapPin className="h-3 w-3 mr-1" /> {lead.zona.nombre}
+                  </span>
+                )}
+                {lead.vendedor_asignado && (
+                  <span className="inline-flex items-center px-2 py-1 rounded font-medium bg-blue-100 text-blue-800">
+                    <Users className="h-3 w-3 mr-1" /> {lead.vendedor_asignado.nombre} {lead.vendedor_asignado.apellido}
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-gray-400">
+                Creado:{" "}
+                {new Date(lead.fecha_creacion).toLocaleDateString("es-VE", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+
+              <div className="flex items-center gap-2 flex-wrap border-t border-gray-100 pt-3">
+                {lead.estado === 'nuevo' && (
+                  <div className="w-full flex items-center gap-2">
+                    <select
+                      value={zonaParaLead[lead.id] || ""}
+                      onChange={(e) =>
+                        setZonaParaLead((prev) => ({
+                          ...prev,
+                          [lead.id]: e.target.value,
+                        }))
+                      }
+                      className="flex-1 min-w-[140px] border border-gray-300 rounded px-2 py-1.5 text-sm"
+                    >
+                      <option value="">Zona...</option>
+                      {zonas?.map((z: Zona) => (
+                        <option key={z.id} value={z.id}>
+                          {z.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() =>
+                        handleAsignar(lead.id, zonaParaLead[lead.id] || "")
+                      }
+                      disabled={asignarLead.isPending || !zonaParaLead[lead.id]}
+                      className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    >
+                      <ArrowRight className="h-3 w-3" /> Asignar
+                    </button>
+                  </div>
+                )}
+                {['asignado', 'contactado', 'calificado', 'reasignado'].includes(lead.estado) && lead.vendedor_asignado_id && (
+                  <button
+                    onClick={() => openReasignar(lead)}
+                    className="flex items-center gap-1 text-orange-600 hover:text-orange-800 text-xs font-medium"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Reasignar
+                  </button>
+                )}
+                {['asignado', 'contactado', 'calificado', 'reasignado'].includes(lead.estado) && lead.vendedor_asignado_id && (
+                  <button
+                    onClick={() => handleConvertir(lead)}
+                    className="flex items-center gap-1 text-green-600 hover:text-green-800 text-xs font-medium"
+                  >
+                    <CheckCircle className="h-3 w-3" /> Convertir
+                  </button>
+                )}
+                {lead.estado !== 'convertido' && lead.estado !== 'perdido' && (
+                  <button
+                    onClick={() => handlePerder(lead.id)}
+                    disabled={perderLead.isPending}
+                    className="flex items-center gap-1 text-red-600 hover:text-red-800 text-xs font-medium ml-auto"
+                  >
+                    <X className="h-3 w-3" /> Perder
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabla (desktop) */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
