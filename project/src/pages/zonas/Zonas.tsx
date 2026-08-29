@@ -139,134 +139,283 @@ const Zonas: React.FC = () => {
         {isLoading ? (
           <div className="flex items-center justify-center py-12">Cargando...</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Zona</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estados cubiertos</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendedores</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {zonas?.map((zona) => (
-                  <tr key={zona.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{zona.nombre}</div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 max-w-xs truncate">
-                      {zona.descripcion || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {zona.estados?.length ? (
-                        <div className="flex flex-wrap gap-1">
-                          {zona.estados.map((estado) => (
-                            <span key={estado} className="bg-purple-50 text-purple-700 px-2 py-0.5 text-xs rounded">
-                              {estado}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-sm">Sin estados</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          zona.activa
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {zona.activa ? "Activa" : "Inactiva"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {zona.vendedores?.length ? (
-                        <div className="flex flex-wrap gap-1">
-                          {zona.vendedores.map((vz) => (
-                            <span
-                              key={vz.id}
-                              className="bg-blue-50 text-blue-700 px-2 py-1 text-xs rounded flex items-center gap-1"
-                            >
-                              {vz.vendedor?.nombre} {vz.vendedor?.apellido}
-                              <button
-                                onClick={() => vz.vendedor?.id && handleDesasignar(zona.id, vz.vendedor.id)}
-                                className="hover:text-red-600"
-                                title="Desasignar vendedor"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-sm">Sin vendedores</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {asignandoZona === zona.id ? (
-                          <>
-                            <select
-                              value={vendedorId}
-                              onChange={(e) => setVendedorId(e.target.value)}
-                              className="border border-gray-300 rounded px-2 py-1 text-sm"
-                              disabled={loadingVendedores}
-                            >
-                              <option value="">{loadingVendedores ? "Cargando vendedores..." : "Seleccionar vendedor"}</option>
-                              {vendedores?.map((v: Vendedor) => (
-                                <option key={v.id} value={v.id}>
-                                  {v.nombre} {v.apellido}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              onClick={() => handleAsignar(zona.id)}
-                              disabled={crearZona.isPending || actualizarZona.isPending}
-                              className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                            >
-                              <Check className="h-4 w-4" /> Asignar
-                            </button>
-                            <button
-                              onClick={() => setAsignandoZona(null)}
-                              className="text-gray-500 hover:text-gray-700"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => openAsignar(zona.id)}
-                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                            >
-                              <Users className="h-4 w-4 inline mr-1" /> Asignar
-                            </button>
-                            <button
-                              onClick={() => handleEdit(zona)}
-                              className="text-gray-600 hover:text-gray-800 text-sm font-medium"
-                            >
-                              <Edit className="h-4 w-4 inline mr-1" /> Editar
-                            </button>
-                            <button
-                              onClick={() => handleDelete(zona.id)}
-                              className="text-red-600 hover:text-red-800 text-sm font-medium"
-                            >
-                              <Trash2 className="h-4 w-4 inline mr-1" /> Eliminar
-                            </button>
-                          </>
-                        )}
+          <>
+            {/* Lista de zonas (móvil/tablet: tarjetas) */}
+            <div className="grid grid-cols-1 gap-3 lg:hidden">
+              {zonas?.map((zona) => (
+                <div
+                  key={zona.id}
+                  className="bg-white rounded-xl border border-gray-200 p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
+                        <MapPin className="h-5 w-5 text-blue-600" />
                       </div>
-                    </td>
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">
+                          {zona.nombre}
+                        </p>
+                        <p className="text-sm text-gray-500 truncate">
+                          {zona.descripcion || "Sin descripción"}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full shrink-0 ${
+                        zona.activa
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {zona.activa ? "Activa" : "Inactiva"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">
+                      Estados cubiertos
+                    </p>
+                    {zona.estados?.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {zona.estados.map((estado) => (
+                          <span
+                            key={estado}
+                            className="bg-purple-50 text-purple-700 px-2 py-0.5 text-xs rounded"
+                          >
+                            {estado}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-sm">Sin estados</span>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">
+                      Vendedores asignados
+                    </p>
+                    {zona.vendedores?.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {zona.vendedores.map((vz) => (
+                          <span
+                            key={vz.id}
+                            className="bg-blue-50 text-blue-700 px-2 py-1 text-xs rounded flex items-center gap-1"
+                          >
+                            {vz.vendedor?.nombre} {vz.vendedor?.apellido}
+                            <button
+                              onClick={() =>
+                                vz.vendedor?.id &&
+                                handleDesasignar(zona.id, vz.vendedor.id)
+                              }
+                              className="hover:text-red-600"
+                              title="Desasignar vendedor"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-sm">
+                        Sin vendedores
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap border-t border-gray-100 pt-3">
+                    {asignandoZona === zona.id ? (
+                      <>
+                        <select
+                          value={vendedorId}
+                          onChange={(e) => setVendedorId(e.target.value)}
+                          className="flex-1 min-w-[140px] border border-gray-300 rounded px-2 py-1.5 text-sm"
+                          disabled={loadingVendedores}
+                        >
+                          <option value="">
+                            {loadingVendedores
+                              ? "Cargando vendedores..."
+                              : "Seleccionar vendedor"}
+                          </option>
+                          {vendedores?.map((v: Vendedor) => (
+                            <option key={v.id} value={v.id}>
+                              {v.nombre} {v.apellido}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => handleAsignar(zona.id)}
+                          disabled={
+                            crearZona.isPending || actualizarZona.isPending
+                          }
+                          className="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700"
+                        >
+                          <Check className="h-4 w-4" /> Asignar
+                        </button>
+                        <button
+                          onClick={() => setAsignandoZona(null)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => openAsignar(zona.id)}
+                          className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                          <Users className="h-4 w-4" /> Asignar
+                        </button>
+                        <button
+                          onClick={() => handleEdit(zona)}
+                          className="flex items-center gap-1 text-gray-600 hover:text-gray-800 text-sm font-medium"
+                        >
+                          <Edit className="h-4 w-4" /> Editar
+                        </button>
+                        <button
+                          onClick={() => handleDelete(zona.id)}
+                          className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-medium ml-auto"
+                        >
+                          <Trash2 className="h-4 w-4" /> Eliminar
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Lista de zonas (desktop: tabla) */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Zona</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estados cubiertos</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendedores</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {zonas?.map((zona) => (
+                    <tr key={zona.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900">{zona.nombre}</div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 max-w-xs truncate">
+                        {zona.descripcion || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {zona.estados?.length ? (
+                          <div className="flex flex-wrap gap-1">
+                            {zona.estados.map((estado) => (
+                              <span key={estado} className="bg-purple-50 text-purple-700 px-2 py-0.5 text-xs rounded">
+                                {estado}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">Sin estados</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            zona.activa
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {zona.activa ? "Activa" : "Inactiva"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {zona.vendedores?.length ? (
+                          <div className="flex flex-wrap gap-1">
+                            {zona.vendedores.map((vz) => (
+                              <span
+                                key={vz.id}
+                                className="bg-blue-50 text-blue-700 px-2 py-1 text-xs rounded flex items-center gap-1"
+                              >
+                                {vz.vendedor?.nombre} {vz.vendedor?.apellido}
+                                <button
+                                  onClick={() => vz.vendedor?.id && handleDesasignar(zona.id, vz.vendedor.id)}
+                                  className="hover:text-red-600"
+                                  title="Desasignar vendedor"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">Sin vendedores</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {asignandoZona === zona.id ? (
+                            <>
+                              <select
+                                value={vendedorId}
+                                onChange={(e) => setVendedorId(e.target.value)}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                disabled={loadingVendedores}
+                              >
+                                <option value="">{loadingVendedores ? "Cargando vendedores..." : "Seleccionar vendedor"}</option>
+                                {vendedores?.map((v: Vendedor) => (
+                                  <option key={v.id} value={v.id}>
+                                    {v.nombre} {v.apellido}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => handleAsignar(zona.id)}
+                                disabled={crearZona.isPending || actualizarZona.isPending}
+                                className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                              >
+                                <Check className="h-4 w-4" /> Asignar
+                              </button>
+                              <button
+                                onClick={() => setAsignandoZona(null)}
+                                className="text-gray-500 hover:text-gray-700"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => openAsignar(zona.id)}
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              >
+                                <Users className="h-4 w-4 inline mr-1" /> Asignar
+                              </button>
+                              <button
+                                onClick={() => handleEdit(zona)}
+                                className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+                              >
+                                <Edit className="h-4 w-4 inline mr-1" /> Editar
+                              </button>
+                              <button
+                                onClick={() => handleDelete(zona.id)}
+                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              >
+                                <Trash2 className="h-4 w-4 inline mr-1" /> Eliminar
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {/* Modal */}
