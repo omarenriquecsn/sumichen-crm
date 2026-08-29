@@ -8,7 +8,6 @@ import {
   Shield,
   // Database,
   // Palette,
-  Globe,
   Save,
   Eye,
   EyeOff,
@@ -114,18 +113,10 @@ export const Configuracion: React.FC = () => {
     }));
   }, [userData, session]);
 
-  const [configuracionGeneral, setConfiguracionGeneral] = useState({
-    idioma: "es",
-    zona_horaria: "America/Mexico_City",
-    formato_fecha: "DD/MM/YYYY",
-    moneda: "MXN",
-  });
-
   const tabs = [
     { id: "perfil", label: "Perfil", icon: User },
     { id: "notificaciones", label: "Notificaciones", icon: Bell },
     { id: "seguridad", label: "Seguridad", icon: Shield },
-    { id: "general", label: "General", icon: Globe },
   ];
 
   const handlePerfilChange = (field: string, value: string) => {
@@ -175,13 +166,6 @@ export const Configuracion: React.FC = () => {
     } else {
       toast.success("Preferencias de notificación actualizadas.");
     }
-  };
-
-  const handleGeneralChange = (field: string, value: string) => {
-    setConfiguracionGeneral((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
   };
 
   const handleSave = async () => {
@@ -713,90 +697,6 @@ export const Configuracion: React.FC = () => {
                             </span>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* General */}
-              {activeTab === "general" && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      Configuración General
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Idioma
-                        </label>
-                        <select
-                          value={configuracionGeneral.idioma}
-                          onChange={(e) =>
-                            handleGeneralChange("idioma", e.target.value)
-                          }
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="es">Español</option>
-                          <option value="en">English</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Zona Horaria
-                        </label>
-                        <select
-                          value={configuracionGeneral.zona_horaria}
-                          onChange={(e) =>
-                            handleGeneralChange("zona_horaria", e.target.value)
-                          }
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="America/Mexico_City">
-                            Ciudad de México (GMT-6)
-                          </option>
-                          <option value="America/New_York">
-                            Nueva York (GMT-5)
-                          </option>
-                          <option value="Europe/Madrid">Madrid (GMT+1)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Formato de Fecha
-                        </label>
-                        <select
-                          value={configuracionGeneral.formato_fecha}
-                          onChange={(e) =>
-                            handleGeneralChange("formato_fecha", e.target.value)
-                          }
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                          <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                          <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Moneda
-                        </label>
-                        <select
-                          value={configuracionGeneral.moneda}
-                          onChange={(e) =>
-                            handleGeneralChange("moneda", e.target.value)
-                          }
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="MXN">Peso Mexicano (MXN)</option>
-                          <option value="USD">Dólar Americano (USD)</option>
-                          <option value="EUR">Euro (EUR)</option>
-                        </select>
                       </div>
                     </div>
                   </div>
