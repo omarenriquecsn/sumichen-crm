@@ -14,140 +14,179 @@ const estadoColors: Record<string, string> = {
   transferida: "bg-orange-100 text-orange-800",
 };
 
-const ConversacionItem: React.FC<{ conv: Conversacion; onRegistrar: (lead: Lead) => void; onPerder: (lead: Lead) => void }> = ({ conv, onRegistrar, onPerder }) => (
-  <div className="flex items-center gap-2">
-    <NavLink
-      to={`/chat/${conv.id}`}
-      className={({ isActive }) =>
-        `flex-1 flex items-center gap-4 px-4 py-4 rounded-lg transition-all duration-200 border ${
-          isActive
-            ? "border-blue-300 bg-blue-50"
-            : "border-transparent hover:border-gray-200 hover:bg-gray-50"
-        }`
-      }
-    >
-      {({ isActive }) => (
-        <>
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">
-            {conv.lead?.datos_contacto?.nombre?.charAt(0).toUpperCase() || "?"}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900 truncate">{conv.lead?.datos_contacto?.nombre}</span>
-              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${estadoColors[conv.estado] || "bg-gray-100 text-gray-700"}`}>
-                {conv.estado}
-              </span>
-            </div>
-            <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
-              <span className="flex items-center gap-1">
-                <MessageSquare className="h-3 w-3" />
-                {conv.canal}
-              </span>
-              {conv.lead?.zona && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {conv.lead.zona.nombre}
-                </span>
-              )}
-              {conv.vendedor && (
-                <span className="flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {conv.vendedor.nombre} {conv.vendedor.apellido}
-                </span>
-              )}
-              {conv.ultimo_mensaje_en && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {new Date(conv.ultimo_mensaje_en).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              )}
-            </div>
-          </div>
-          {isActive && <Check className="h-6 w-6 text-blue-600" />}
-        </>
-      )}
-    </NavLink>
-    <div className="flex flex-col gap-1 shrink-0">
-      <button
-        onClick={() => conv.lead && onRegistrar(conv.lead)}
-        disabled={conv.lead?.estado === "convertido" || conv.lead?.estado === "perdido"}
-        className="flex items-center gap-1 text-green-600 hover:text-green-800 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-        title="Registrar como cliente"
-      >
-        <UserPlus className="h-4 w-4" /> Cliente
-      </button>
-      <button
-        onClick={() => conv.lead && onPerder(conv.lead)}
-        disabled={conv.lead?.estado === "convertido" || conv.lead?.estado === "perdido"}
-        className="flex items-center gap-1 text-red-600 hover:text-red-800 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-        title="Marcar como perdido"
-      >
-        <XCircle className="h-4 w-4" /> Perder
-      </button>
-    </div>
-  </div>
-);
+const formatearHora = (fecha: string | null | undefined) =>
+  fecha
+    ? new Date(fecha).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })
+    : "";
 
-const LeadSinConversacion: React.FC<{ lead: Lead; onAbrir: (leadId: string) => void; onRegistrar: (lead: Lead) => void; onPerder: (lead: Lead) => void }> = ({ lead, onAbrir, onRegistrar, onPerder }) => (
-  <div className="flex items-center gap-4 px-4 py-4 rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 transition-all">
-    <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold">
-      {lead.datos_contacto?.nombre?.charAt(0).toUpperCase() || "?"}
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2">
-        <span className="font-medium text-gray-900 truncate">{lead.datos_contacto?.nombre}</span>
-        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
-          Sin chat abierto
-        </span>
+const ConversacionItem: React.FC<{ conv: Conversacion; onRegistrar: (lead: Lead) => void; onPerder: (lead: Lead) => void }> = ({ conv, onRegistrar, onPerder }) => {
+  const ultimoMensaje = React.useMemo(() => {
+    if (!conv.mensajes || conv.mensajes.length === 0) return null;
+    return [...conv.mensajes]
+      .sort((a, b) => new Date(a.fecha_creacion).getTime() - new Date(b.fecha_creacion).getTime())
+      .pop();
+  }, [conv.mensajes]);
+
+  const preview = ultimoMensaje
+    ? `${ultimoMensaje.remitente_tipo === "vendedor" ? "Tú: " : ""}${ultimoMensaje.contenido}`
+    : "Sin mensajes aún";
+
+  return (
+    <div className="flex items-center gap-1 sm:gap-2">
+      <NavLink
+        to={`/chat/${conv.id}`}
+        className={({ isActive }) =>
+          `flex-1 flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 sm:py-4 rounded-lg transition-all duration-200 border ${
+            isActive
+              ? "border-blue-300 bg-blue-50"
+              : "border-transparent hover:border-gray-200 hover:bg-gray-50"
+          }`
+        }
+      >
+        {({ isActive }) => (
+          <>
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold shrink-0">
+              {conv.lead?.datos_contacto?.nombre?.charAt(0).toUpperCase() || "?"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-gray-900 truncate">
+                  {conv.lead?.datos_contacto?.nombre || "Sin nombre"}
+                </span>
+                {conv.ultimo_mensaje_en && (
+                  <span className="text-xs text-gray-400 shrink-0 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatearHora(conv.ultimo_mensaje_en)}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5 min-w-0">
+                <span className="truncate">{preview}</span>
+                <span className={`px-2 py-0.5 text-xs font-medium rounded-full shrink-0 ${estadoColors[conv.estado] || "bg-gray-100 text-gray-700"}`}>
+                  {conv.estado}
+                </span>
+              </div>
+              <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400 mt-1">
+                <span className="flex items-center gap-1">
+                  <MessageSquare className="h-3 w-3" />
+                  {conv.canal}
+                </span>
+                {conv.lead?.zona && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {conv.lead.zona.nombre}
+                  </span>
+                )}
+                {conv.vendedor && (
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    {conv.vendedor.nombre} {conv.vendedor.apellido}
+                  </span>
+                )}
+              </div>
+            </div>
+            {isActive && <Check className="h-6 w-6 text-blue-600 shrink-0" />}
+          </>
+        )}
+      </NavLink>
+      <div className="flex flex-col items-center gap-1 shrink-0 sm:items-start">
+        <button
+          onClick={() => conv.lead && onRegistrar(conv.lead)}
+          disabled={conv.lead?.estado === "convertido" || conv.lead?.estado === "perdido"}
+          className="flex items-center gap-1 text-green-600 hover:text-green-800 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Registrar como cliente"
+        >
+          <UserPlus className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Cliente</span>
+        </button>
+        <button
+          onClick={() => conv.lead && onPerder(conv.lead)}
+          disabled={conv.lead?.estado === "convertido" || conv.lead?.estado === "perdido"}
+          className="flex items-center gap-1 text-red-600 hover:text-red-800 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Marcar como perdido"
+        >
+          <XCircle className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Perder</span>
+        </button>
       </div>
-      <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
-        <span className="flex items-center gap-1">
-          <MessageSquare className="h-3 w-3" />
-          {lead.origen}
-        </span>
-        {lead.zona && (
+    </div>
+  );
+};
+
+const LeadSinConversacion: React.FC<{ lead: Lead; onAbrir: (leadId: string) => void; onRegistrar: (lead: Lead) => void; onPerder: (lead: Lead) => void }> = ({ lead, onAbrir, onRegistrar, onPerder }) => {
+  const pendientes = Array.isArray(lead.metadata?.mensajes_pendientes)
+    ? (lead.metadata.mensajes_pendientes as string[]).length
+    : 0;
+
+  return (
+    <div className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 transition-all">
+      <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold shrink-0">
+        {lead.datos_contacto?.nombre?.charAt(0).toUpperCase() || "?"}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium text-gray-900 truncate">
+            {lead.datos_contacto?.nombre || "Sin nombre"}
+          </span>
+          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 shrink-0">
+            Sin chat
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5 min-w-0">
+          <span className="truncate">
+            {pendientes > 0 ? `${pendientes} msjs pendientes` : "Sin chat abierto"}
+          </span>
+        </div>
+        <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400 mt-1">
           <span className="flex items-center gap-1">
-            <MapPin className="h-3 w-3" />
-            {lead.zona.nombre}
+            <MessageSquare className="h-3 w-3" />
+            {lead.origen}
           </span>
-        )}
-        {lead.vendedor_asignado && (
-          <span className="flex items-center gap-1">
-            <Users className="h-3 w-3" />
-            {lead.vendedor_asignado.nombre} {lead.vendedor_asignado.apellido}
-          </span>
-        )}
-        {lead.metadata?.mensajes_pendientes && (
-          <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
-            {(lead.metadata.mensajes_pendientes as string[]).length} msjs pendientes
-          </span>
-        )}
+          {lead.zona && (
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {lead.zona.nombre}
+            </span>
+          )}
+          {lead.vendedor_asignado && (
+            <span className="flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              {lead.vendedor_asignado.nombre} {lead.vendedor_asignado.apellido}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <button
+          onClick={() => onRegistrar(lead)}
+          disabled={lead.estado === "convertido" || lead.estado === "perdido"}
+          className="flex items-center gap-1 text-green-600 hover:text-green-800 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Registrar como cliente"
+        >
+          <UserPlus className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Cliente</span>
+        </button>
+        <button
+          onClick={() => onPerder(lead)}
+          disabled={lead.estado === "convertido" || lead.estado === "perdido"}
+          className="flex items-center gap-1 text-red-600 hover:text-red-800 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Marcar como perdido"
+        >
+          <XCircle className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Perder</span>
+        </button>
+        <button
+          onClick={() => onAbrir(lead.id)}
+          className="flex items-center gap-2 bg-blue-600 text-white px-2 sm:px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+          title="Iniciar chat"
+        >
+          <MessageCircle className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Iniciar chat</span>
+        </button>
       </div>
     </div>
-    <div className="flex items-center gap-2 shrink-0">
-      <button
-        onClick={() => onRegistrar(lead)}
-        disabled={lead.estado === "convertido" || lead.estado === "perdido"}
-        className="flex items-center gap-1 text-green-600 hover:text-green-800 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        <UserPlus className="h-4 w-4" /> Cliente
-      </button>
-      <button
-        onClick={() => onPerder(lead)}
-        disabled={lead.estado === "convertido" || lead.estado === "perdido"}
-        className="flex items-center gap-1 text-red-600 hover:text-red-800 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        <XCircle className="h-4 w-4" /> Perder
-      </button>
-      <button
-        onClick={() => onAbrir(lead.id)}
-        className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-      >
-        <MessageCircle className="h-4 w-4" /> Iniciar chat
-      </button>
-    </div>
-  </div>
-);
+  );
+};
 
 const ChatLista: React.FC = () => {
   const { userData } = useAuth();
@@ -218,8 +257,8 @@ const ChatLista: React.FC = () => {
 
   return (
     <Layout title="Chats" subtitle="Conversaciones con leads asignados">
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="bg-white rounded-none sm:rounded-xl shadow-none sm:shadow-lg -m-6 sm:m-0">
+        <div className="flex flex-col sm:flex-row gap-4 px-4 pt-4 pb-2 sm:px-6 sm:pt-6 sm:pb-0 mb-2 sm:mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <input
@@ -238,75 +277,77 @@ const ChatLista: React.FC = () => {
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">Cargando conversaciones...</div>
-        ) : (
-          <>
-            {/* Leads asignados sin conversación abierta */}
-            {leadsSinConversacion.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-amber-500" />
-                  Leads asignados esperando chat
-                </h3>
+        <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">Cargando conversaciones...</div>
+          ) : (
+            <>
+              {/* Leads asignados sin conversación abierta */}
+              {leadsSinConversacion.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-amber-500" />
+                    Leads asignados esperando chat
+                  </h3>
+                  <div className="space-y-2">
+                    {leadsSinConversacion.map((lead) => (
+                      <LeadSinConversacion
+                        key={lead.id}
+                        lead={lead}
+                        onAbrir={handleAbrir}
+                        onRegistrar={handleRegistrarCliente}
+                        onPerder={handlePerder}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {conversacionesFiltradas.length === 0 && leadsSinConversacion.length === 0 ? (
+                <div className="text-center py-12">
+                  <MessageSquare className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No hay conversaciones</h3>
+                  <p className="text-gray-500">Los leads asignados aparecerán aquí cuando inicies una conversación</p>
+                </div>
+              ) : esAdmin && gruposPorVendedor ? (
+                <div className="space-y-6">
+                  {gruposPorVendedor.map((grupo) => (
+                    <div key={grupo.vendedor}>
+                      <div className="flex items-center gap-2 px-2 py-2">
+                        <Users className="h-4 w-4 text-blue-600" />
+                        <span className="font-semibold text-gray-800">{grupo.vendedor}</span>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                          {grupo.conversaciones.length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {grupo.conversaciones.map((conv) => (
+                          <ConversacionItem
+                            key={conv.id}
+                            conv={conv}
+                            onRegistrar={handleRegistrarCliente}
+                            onPerder={handlePerder}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
                 <div className="space-y-2">
-                  {leadsSinConversacion.map((lead) => (
-                    <LeadSinConversacion
-                      key={lead.id}
-                      lead={lead}
-                      onAbrir={handleAbrir}
+                  {conversacionesFiltradas.map((conv) => (
+                    <ConversacionItem
+                      key={conv.id}
+                      conv={conv}
                       onRegistrar={handleRegistrarCliente}
                       onPerder={handlePerder}
                     />
                   ))}
                 </div>
-              </div>
-            )}
-
-            {conversacionesFiltradas.length === 0 && leadsSinConversacion.length === 0 ? (
-              <div className="text-center py-12">
-                <MessageSquare className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No hay conversaciones</h3>
-                <p className="text-gray-500">Los leads asignados aparecerán aquí cuando inicies una conversación</p>
-              </div>
-            ) : esAdmin && gruposPorVendedor ? (
-              <div className="space-y-6">
-                {gruposPorVendedor.map((grupo) => (
-                  <div key={grupo.vendedor}>
-                    <div className="flex items-center gap-2 px-2 py-2">
-                      <Users className="h-4 w-4 text-blue-600" />
-                      <span className="font-semibold text-gray-800">{grupo.vendedor}</span>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                        {grupo.conversaciones.length}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {grupo.conversaciones.map((conv) => (
-                        <ConversacionItem
-                          key={conv.id}
-                          conv={conv}
-                          onRegistrar={handleRegistrarCliente}
-                          onPerder={handlePerder}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {conversacionesFiltradas.map((conv) => (
-                  <ConversacionItem
-                    key={conv.id}
-                    conv={conv}
-                    onRegistrar={handleRegistrarCliente}
-                    onPerder={handlePerder}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Modal Registrar Cliente */}

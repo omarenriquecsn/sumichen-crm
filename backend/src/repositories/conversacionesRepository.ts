@@ -10,6 +10,7 @@ export const getConversaciones = async (filtros: {
   const qb = repo.createQueryBuilder('conv')
     .leftJoinAndSelect('conv.lead', 'lead')
     .leftJoinAndSelect('conv.vendedor', 'vendedor')
+    .leftJoinAndSelect('conv.mensajes', 'mensajes')
     .orderBy('conv.ultimo_mensaje_en', 'DESC')
     .addOrderBy('conv.fecha_creacion', 'DESC');
 
