@@ -40,6 +40,11 @@ import {
   recuperarEstadoVista,
   getContenedorScroll,
 } from "../../utils/vistaListas";
+import {
+  formatCurrency,
+  formatCurrencyCompacto,
+} from "../../utils/formato";
+import { ValorConDetalle } from "../../components/ui/ValorConDetalle";
 
 type PedidosProps = {
   pedidosProp?: Pedido[];
@@ -351,9 +356,11 @@ export const Pedidos: React.FC<PedidosProps> = ({
                 Valor Total
               </span>
             </div>
-            <p className="text-2xl font-bold text-green-600 mt-2">
-              ${estadisticas.valorTotal.toFixed(2)}
-            </p>
+            <ValorConDetalle
+              visible={formatCurrencyCompacto(estadisticas.valorTotal)}
+              exacto={formatCurrency(estadisticas.valorTotal)}
+              className="text-2xl font-bold text-green-600 mt-2"
+            />
           </div>
         </div>
 

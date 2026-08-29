@@ -29,6 +29,11 @@ import {
 import { clientesActivos } from "../../utils/clientes";
 import { typeChange } from "../../constants/typeChange";
 import { formatearActividades, obtenerProximasActividades } from "../../utils/actividades";
+import {
+  formatCurrency,
+  formatCurrencyCompacto,
+} from "../../utils/formato";
+import { ValorConDetalle } from "../../components/ui/ValorConDetalle";
 import { ActividadDetalleModal } from "../../components/forms/ActividadDetalleModal";
 import { useGetMetas } from "../../hooks/useMetas";
 import useVendedores from "../../hooks/useVendedores";
@@ -141,7 +146,8 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
     },
     {
       title: "Ventas del Mes",
-      value: `$${cifraVentasMes(new Date().getMonth()).toFixed(2)}`,
+      value: formatCurrencyCompacto(cifraVentasMes(new Date().getMonth())),
+      exacto: formatCurrency(cifraVentasMes(new Date().getMonth())),
       change: `${incrementoVentas.toFixed(2)}%`,
       changeType: `${typeChange(incrementoVentas)}` as const,
       icon: DollarSign,
@@ -149,7 +155,8 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
     },
     {
       title: "Pipeline",
-      value: `$${valorPipeline(_oportunidades).toFixed(2)}`,
+      value: formatCurrencyCompacto(valorPipeline(_oportunidades)),
+      exacto: formatCurrency(valorPipeline(_oportunidades)),
       change: `${incrementoPipeline.toFixed(2)}%`,
       changeType: `${typeChange(incrementoPipeline)}` as const,
       icon: TrendingUp,
@@ -222,13 +229,21 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
                 className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
               >
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-600">
                       {stat.title}
                     </p>
-                    <p className="text-2xl font-bold text-gray-900 mt-2">
-                      {stat.value}
-                    </p>
+                    {stat.exacto ? (
+                      <ValorConDetalle
+                        visible={String(stat.value)}
+                        exacto={stat.exacto}
+                        className="text-2xl font-bold text-gray-900 mt-2"
+                      />
+                    ) : (
+                      <p className="text-2xl font-bold text-gray-900 mt-2 break-words">
+                        {stat.value}
+                      </p>
+                    )}
                     <p
                       className={`text-sm mt-2 ${
                         stat.changeType === "positive" ||

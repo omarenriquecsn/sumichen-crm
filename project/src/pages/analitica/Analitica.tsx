@@ -32,6 +32,12 @@ import { getColorClasses } from "../../utils/analitica";
 import { clientePorEtapaAnalitica } from "../../utils/oportunidades";
 import { useGetMetas } from "../../hooks/useMetas";
 import { useAuth } from "../../context/useAuth";
+import {
+  formatCurrency,
+  formatCurrencyCompacto,
+  formatNumero,
+} from "../../utils/formato";
+import { ValorConDetalle } from "../../components/ui/ValorConDetalle";
 
 export const Analitica: React.FC = () => {
   const supabase = useSupabase();
@@ -82,6 +88,7 @@ export const Analitica: React.FC = () => {
     {
       titulo: "Ventas del Mes",
       valor: Number(cifraVentasMes(new Date().getMonth())) || 0,
+      esDinero: true,
       cambio: Number(incrementoVentas),
       tipo: typeChange(incrementoVentas),
       icon: DollarSign,
@@ -172,17 +179,23 @@ export const Analitica: React.FC = () => {
               className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
             >
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-600">
                     {metrica.titulo}
                   </p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">
-                    {typeof metrica.valor === "number"
-                      ? metrica.valor.toLocaleString(undefined, {
-                          maximumFractionDigits: 2,
-                        })
-                      : metrica.valor}
-                  </p>
+                  {metrica.esDinero ? (
+                    <ValorConDetalle
+                      visible={formatCurrencyCompacto(metrica.valor)}
+                      exacto={formatCurrency(metrica.valor)}
+                      className="text-2xl font-bold text-gray-900 mt-2"
+                    />
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-900 mt-2 break-words">
+                      {typeof metrica.valor === "number"
+                        ? formatNumero(metrica.valor)
+                        : metrica.valor}
+                    </p>
+                  )}
                   <p
                     className={`text-sm mt-2 ${
                       metrica.tipo === "positive" || metrica.tipo === "neutral"
@@ -426,8 +439,8 @@ export const Analitica: React.FC = () => {
                   ></div>
                 </div>
                 <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>${cifraVentasMes(new Date().getMonth())}</span>
-                  <span>${metasMes?.objetivo_ventas || 0}</span>
+                  <span>{formatCurrency(cifraVentasMes(new Date().getMonth()))}</span>
+                  <span>{formatCurrency(metasMes?.objetivo_ventas || 0)}</span>
                 </div>
               </div>
 

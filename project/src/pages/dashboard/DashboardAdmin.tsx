@@ -26,6 +26,11 @@ import { useSupabase } from "../../hooks/useSupabase";
 import { Meta } from "../../types";
 import useVendedores from "../../hooks/useVendedores";
 import { ventasPorMes as ventasCadaMes } from "../../utils/ventas";
+import {
+  formatCurrency,
+  formatCurrencyCompacto,
+} from "../../utils/formato";
+import { ValorConDetalle } from "../../components/ui/ValorConDetalle";
 
 export const DashboardAdmin: React.FC = () => {
   const {
@@ -219,7 +224,8 @@ export const DashboardAdmin: React.FC = () => {
     },
     {
       title: "Ventas Totales",
-      value: ventasCerradas,
+      value: formatCurrencyCompacto(ventasCerradas),
+      exacto: formatCurrency(ventasCerradas),
       subtitle: "",
       change: ``,
       changeType: `${typeChange(incrementoVentas)}`,
@@ -228,8 +234,9 @@ export const DashboardAdmin: React.FC = () => {
     },
     {
       title: "Ventas del Mes (Precio Base)",
-      value: `$${totalVentasMesPrecioBase.toFixed(2)}`,
-      subtitle: `Total del mes: $${totalVentasMesConfirmadas.toFixed(2)}`,
+      value: formatCurrencyCompacto(totalVentasMesPrecioBase),
+      exacto: formatCurrency(totalVentasMesPrecioBase),
+      subtitle: `Total del mes: ${formatCurrency(totalVentasMesConfirmadas)}`,
       change: "",
       changeType: "",
       icon: DollarSign,
@@ -346,13 +353,27 @@ export const DashboardAdmin: React.FC = () => {
               className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
             >
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-600">
                     {stat.title}
                   </p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">
-                    {Array.isArray(stat.value) ? stat.value.length : stat.value}
-                  </p>
+                  {stat.exacto ? (
+                    <ValorConDetalle
+                      visible={String(
+                        Array.isArray(stat.value)
+                          ? stat.value.length
+                          : stat.value
+                      )}
+                      exacto={stat.exacto}
+                      className="text-2xl font-bold text-gray-900 mt-2"
+                    />
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-900 mt-2 break-words">
+                      {Array.isArray(stat.value)
+                        ? stat.value.length
+                        : stat.value}
+                    </p>
+                  )}
                   {stat.subtitle ? (
                     <p className="text-sm text-gray-500 mt-1">
                       {stat.subtitle}
