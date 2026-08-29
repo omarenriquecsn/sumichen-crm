@@ -228,12 +228,12 @@ export const Tickets: React.FC<TicketsProps> = ({ ticketsProp, clientesProp }) =
 
             {/* Filtros */}
 
-            <div className="flex items-center space-x-2">
-              <Filter className="h-5 w-5 text-gray-400" />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 sm:space-x-2">
+              <Filter className="h-5 w-5 text-gray-400 hidden sm:inline" />
               <select
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full sm:w-auto sm:min-w-0 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="todos">Todos los estados</option>
                 <option value="abierto">Abiertos</option>
@@ -243,7 +243,7 @@ export const Tickets: React.FC<TicketsProps> = ({ ticketsProp, clientesProp }) =
               <select
                 value={filtroPrioridad}
                 onChange={(e) => setFiltroPrioridad(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full sm:w-auto sm:min-w-0 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="todas">Todas las prioridades</option>
                 <option value="urgente">Urgente</option>

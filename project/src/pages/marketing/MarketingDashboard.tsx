@@ -152,29 +152,29 @@ const MarketingDashboard: React.FC = () => {
       <div className="space-y-6">
         {/* Filtros de fecha */}
         <div className="bg-white rounded-xl shadow-lg p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex gap-4">
-            <div>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-stretch sm:items-end w-full sm:w-auto">
+            <div className="w-full sm:w-auto">
               <label className="block text-xs font-medium text-gray-500 mb-1">Desde</label>
               <input
                 type="date"
                 value={fechaDesde}
                 onChange={(e) => setFechaDesde(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full sm:w-auto border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div>
+            <div className="w-full sm:w-auto">
               <label className="block text-xs font-medium text-gray-500 mb-1">Hasta</label>
               <input
                 type="date"
                 value={fechaHasta}
                 onChange={(e) => setFechaHasta(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full sm:w-auto border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <button
               onClick={() => refetch()}
               disabled={isLoading}
-              className="mt-6 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 sm:mb-0.5"
             >
               <RefreshCw className="h-4 w-4 inline mr-1" /> Actualizar
             </button>
