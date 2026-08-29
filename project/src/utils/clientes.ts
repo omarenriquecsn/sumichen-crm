@@ -43,6 +43,23 @@ export const clientesProspectosMes = (
   return prospectosMes.length;
 };
 
+// Retorna clientes prospectos creados en un mes/año específicos (para comparar mes a mes)
+export const clientesProspectosMesAnio = (
+  clientes: Cliente[] | undefined,
+  mes: number,
+  anio: number
+) => {
+  if (!Array.isArray(clientes)) return 0;
+  return clientes.filter((c) => {
+    const fecha = new Date(c.fecha_creacion);
+    return (
+      c.estado === "prospecto" &&
+      fecha.getMonth() === mes &&
+      fecha.getFullYear() === anio
+    );
+  }).length;
+};
+
 // Retorna clientes activos creados en un mes específico (0-11)
 export const clientesNuevos = (clientes: Cliente[] | undefined) => {
   return Array.isArray(clientes)
@@ -108,20 +125,15 @@ export const clientesActualizadosMes = (
             c.estado_anterior === "inactivo")
       )
     : [];
-  const clientesAño = Array.isArray(clientesActivos)
-    ? clientesActivos.filter(
-        (c) =>
-          new Date(c.fecha_actualizacion).getFullYear() ===
-          new Date().getFullYear()
-      )
-    : [];
+  const anioActual = new Date().getFullYear();
 
-  return Array.isArray(clientesAño)
-    ? clientesAño.filter((c) => {
-        if (c.fecha_estado && esFechaValida(c.fecha_estado))
-          return new Date(c.fecha_estado).getMonth() === mes;
-      }).length
-    : 0;
+  return clientesActivos.filter((c) => {
+    if (!c.fecha_estado || !esFechaValida(c.fecha_estado)) return false;
+    const fechaEstado = new Date(c.fecha_estado);
+    return (
+      fechaEstado.getFullYear() === anioActual && fechaEstado.getMonth() === mes
+    );
+  }).length;
 };
 
 export const objetivoClientesConvertidos = (clientes: Cliente[]) => {

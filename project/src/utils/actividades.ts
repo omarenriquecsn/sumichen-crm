@@ -46,21 +46,26 @@ export const actividadesPoCategoria = (
   actividades: Actividad[] | undefined,
   tipo: string,
   metas: Meta[]
-) => {
-const meses = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre'
-]
+): {
+  tipo: string;
+  cantidad: number;
+  porcentaje: number | null;
+  meta: number;
+} => {
+  const meses = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre'
+  ]
   const metasMesActual = Array.isArray(metas) ? metas.find((meta) => {
     return meta.mes === meses[new Date().getMonth()]
   }) : undefined;
@@ -72,11 +77,12 @@ const meses = [
     return ;
   }
   const tipoMeta = tipoParaMetas();
-  
-  const porcentaje =
+
+  const metaValor =
     metasMesActual && typeof tipoMeta === "string" && tipoMeta in metasMesActual
-      ? 50 / (metasMesActual[tipoMeta as keyof Meta] as number)
+      ? Number(metasMesActual[tipoMeta as keyof Meta]) || 0
       : 0;
+
   const tipoFormateado =
     tipo === "reunion"
       ? "Reuniones"
@@ -86,15 +92,30 @@ const meses = [
       tipo: tipoFormateado,
       cantidad: 0,
       porcentaje: 0,
+      meta: metaValor,
     };
+
+  const ahora = new Date();
   const actividadesFiltradas = (
     Array.isArray(actividades) ? actividades : []
-  ).filter((actividad) => actividad.tipo === tipo);
+  ).filter((actividad) => {
+    const fecha = new Date(actividad.fecha);
+    return (
+      actividad.tipo === tipo &&
+      actividad.completado &&
+      fecha.getMonth() === ahora.getMonth() &&
+      fecha.getFullYear() === ahora.getFullYear()
+    );
+  });
+
+  const cantidad = actividadesFiltradas.length;
+  const porcentaje = metaValor > 0 ? (cantidad / metaValor) * 100 : null;
 
   return {
     tipo: tipoFormateado,
-    cantidad: actividadesFiltradas?.length,
-    porcentaje: actividadesFiltradas.length === 0 ? 0 : porcentaje,
+    cantidad,
+    porcentaje,
+    meta: metaValor,
   };
 };
 

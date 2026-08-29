@@ -74,16 +74,21 @@ export const clientePorEtapaAnalitica = (
       etapa: etapaFormateada,
       cantidad: 0,
       porcentaje: 0,
+      probabilidadPromedio: 0,
+      total: 0,
     };
   const oportunidadesFiltradas = Array.isArray(oportunidades) ? oportunidades.filter(
     (oportunidad) => oportunidad.etapa === etapa
   ) : [];
+  const total = Array.isArray(oportunidades) ? oportunidades.length : 0;
+  const share = total > 0 ? (oportunidadesFiltradas.length / total) * 100 : 0;
 
-  
   return {
     etapa: etapaFormateada,
     cantidad: oportunidadesFiltradas.length,
-    porcentaje: probabilidadPipeline(oportunidadesFiltradas, etapa),
+    porcentaje: share,
+    probabilidadPromedio: probabilidadPipeline(oportunidadesFiltradas, etapa),
+    total,
   };
 };
 
