@@ -328,6 +328,34 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 - Los envíos de Meta dependen de `META_PHONE_ID`/`META_TOKEN` y de la ventana de 24h; el asistente no bloquea por eso.
 - El estado del lead `nuevo` mientras no elige estado NO lo monitorea el SLA (solo asignado/contactado/reasignado).
 
+### Feature — Tipo de contacto en el asistente (Cliente/Proveedor/Busca trabajo) ✅ (30/08; build/lint/typecheck OK backend y frontend)
+
+> **Resumen**: el asistente de bienvenida ahora arranca con una **primera pregunta de tipo de contacto** de 3 opciones antes del flujo de ventas: **1. Cliente**, **2. Proveedor**, **3. Busco trabajo**. Si elige **Cliente**, continúa con el flujo existente (estado → zona → intención). Si elige **Proveedor** o **Busco trabajo**, el lead se **asigna directamente al usuario configurado** (puede ser un **vendedor O un admin**) sin pregunta de estado ni zona, se abre la conversación y se le avisa por push. La máquina de estados pasa a `tipo` → `estado` → `intencion` → `completado`.
+
+#### Backend
+- **Migración** `1750000000005-TipoContactoSchema.ts` (idempotente): agrega `'proveedor'` y `'trabajo'` a `leads_tipo_web_enum` (patrón `DO $$ ADD VALUE IF NOT EXISTS`) y a `menu_bienvenida` las columnas `mensaje_tipo_contacto`, `vendedor_proveedores_id` (uuid FK `vendedores.id` ON DELETE SET NULL), `vendedor_trabajo_id`, `mensaje_proveedor`, `mensaje_trabajo`.
+- **Entidad** `MenuBienvenida.ts`: 5 campos nuevos. `Lead.ts` `TipoWebEnum`: `PROVEEDOR`/`TRABAJO`.
+- **`asistenteMenuServices.ts`**: nuevo paso `tipo` → `enviarMenuTipoContacto` (bienvenida + 3 opciones fijas vía `{opciones}`) y `procesarRespuestaTipoContacto` → opción 1 deriva a `enviarMenuEstados`; opciones 2/3 llaman `asignarTipoEspecial` (asignación directa + `abrirConversacionParaLead` + push `lead_asignado` al usuario configurado + confirmación con `{nombre}`/`{vendedor}`). `OPCIONES_TIPO` (fijas: Cliente/Proveedor/Busco trabajo).
+- **`leadsRepository.ts`**: nuevo `asignarLeadAVendedor(leadId, vendedorId)` (asigna sin zona, estado `asignado`). `getLeadsSLAVencido` excluye `tipo_web IN ('proveedor','trabajo')` → el SLA por zona NO aplica a estos leads.
+- **`menuBienvenidaServices.ts`**: valida los 5 campos nuevos (textos no vacíos, ids uuid o null).
+- **`whatsappWebhookServices.ts`**: al reactivar un lead `perdido` sin vendedor también limpia `metadata.tipo_contacto`.
+- ⚠ **`GET /usuarios?incluirAdmins=true`** (JWT): `getUsuariosService({ incluirAdmins })` devuelve **vendedores + admins** (el default sigue filtrando solo vendedores para no alterar el resto de la app). Se usa en el select del menú porque los proveedores/postulantes pueden atenderlos un admin.
+
+#### Frontend
+- `types/index.ts`: `TipoWeb` agrega `'proveedor' | 'trabajo'`; `MenuBienvenida` con los 5 campos.
+- **`MarketingDashboard.tsx`**: sección "Primera pregunta — tipo de contacto" con textarea `mensaje_tipo_contacto` (`{opciones}`), 2 selects ("Usuario que recibe proveedores" / "postulantes de trabajo") poblados con **`useUsuariosTodos()`** (admins + vendedores, etiqueta `Admin`), y mensajes de confirmación `mensaje_proveedor`/`mensaje_trabajo`. Sección "Tipos de Solicitud" muestra conteos de cotización/proveedor/trabajo/catálogo.
+- **Nuevo `hooks/useUsuariosTodos.ts`**: query `["usuarios-todos"]` → `GET /usuarios?incluirAdmins=true` (no contamina la caché de `["vendedores"]`).
+- `Leads.tsx`: labels `proveedor`/`trabajo` ("Proveedor" / "Busca trabajo").
+
+#### Cómo probar
+- Simular webhook `POST /webhook/whatsapp` con teléfono nuevo: msg1 "hola" → menú de 3 opciones (`paso_menu='tipo'`). msg2 "2" → lead `tipo_web='proveedor'` asignado al usuario configurado + conversación + push + confirmación (`paso_menu='completado'`). msg2 "1" → deriva a `paso_menu='estado'` (flujo de ventas existente).
+- En `/marketing` configurar los usuarios que reciben proveedores/postulantes (pueden ser admins) y probar el flujo completo.
+
+#### ⚠ Notas / deuda
+- Las 3 opciones del paso `tipo` son **fijas** (Cliente/Proveedor/Busco trabajo); el texto del mensaje sí es configurable. Si algún día se quieren etiquetas/acciones dinámicas, convertir `OPCIONES_TIPO` en un jsonb de `menu_bienvenida`.
+- El SLA por zona no aplica a leads proveedor/trabajo (asignados a un usuario específico sin zona).
+- Los leads proveedor/trabajo conservan el botón "Convertir a Cliente" (convierte igual; `tipo_web` no cambia).
+
 ### Feature — Resultados de conversación (22/08) ✅ (build/lint/tsc OK; reactivación verificada end-to-end)
 
 > **Resumen**: cierra el ciclo del lead. (1) Un lead **perdido que vuelve a escribir se reactiva** automáticamente. (2) Desde la lista de chats y la página de leads, el vendedor/admin puede registrar el **resultado** de la conversación: **"Cliente"** (abre formulario manual que registra al cliente en DB con datos completos → luego puede crear un pedido) o **"Perder"** (lead `perdido`).
@@ -335,7 +363,7 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 #### Reactivación de lead perdido (webhook)
 - En `whatsappWebhookServices.procesarMensajeWhatsApp`: si el lead está `perdido` y vuelve a escribir:
   - Con vendedor → estado a `contactado`, el mensaje cae en su conversación.
-  - Sin vendedor → estado a `nuevo`, se borra `metadata.paso_menu`/`estados_disponibles`/`intencion_seleccionada` para que el asistente de bienvenida pregunte de nuevo el estado.
+  - Sin vendedor → estado a `nuevo`, se borra `metadata.paso_menu`/`estados_disponibles`/`intencion_seleccionada` para que el asistente de bienvenida pregunte de nuevo el tipo de contacto (Punto 30/08).
 
 #### Conversión manual a cliente (formulario)
 - Backend: `PUT /leads/:id/convertir` ahora acepta `{ datos_cliente: {...} }` (nombre, apellido, rif, email, telefono, empresa, direccion, ciudad, direccion_entrega, google_maps, sector, notas). `convertirLeadACliente(leadId, datos)` usa los datos manuales con fallback al lead. Si el lead no tiene vendedor, se asigna al vendedor del body o al admin (requiere vendedor → 400 si no).
@@ -870,6 +898,31 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 - El tile "WhatsApp" usa `wa.me` (enlace externo); el **chat vía API de Meta desde el detalle del cliente** (conversación ligada a `clientes`, `sendWhatsAppText` dentro de la ventana de 24h y webhook enrutando respuestas) queda anotado como feature futuro para otra sesión.
 - iOS: la llamada necesita el gesto del botón "Llamar ahora"; push requiere iOS 16.4+.
 
+### Punto 25 — Menú de tipo de contacto en el asistente de WhatsApp (30/08) ✅ (build/lint/typecheck OK backend y frontend)
+
+> **Resumen**: el asistente de bienvenida arranca ahora con una **primera pregunta de tipo de contacto**: **1. Cliente**, **2. Proveedor**, **3. Busco trabajo**. Cliente → continúa el flujo de ventas existente (estado → zona → intención). Proveedor / Busco trabajo → asignación **directa al usuario configurado** (vendedor **o admin**) sin pregunta de estado/zona, abriendo conversación y avisando por push. Ver "Feature — Tipo de contacto en el asistente (Cliente/Proveedor/Busca trabajo)" en §8.
+
+#### Backend
+- **Migración** `1750000000005-TipoContactoSchema.ts` (idempotente): agrega `proveedor`/`trabajo` a `leads_tipo_web_enum` + columnas nuevas en `menu_bienvenida` (`mensaje_tipo_contacto`, `vendedor_proveedores_id`, `vendedor_trabajo_id`, `mensaje_proveedor`, `mensaje_trabajo`).
+- **Entidades**: `MenuBienvenida.ts` (5 campos) y `Lead.ts` (`TipoWebEnum.PROVEEDOR`/`TRABAJO`).
+- **`asistenteMenuServices.ts`**: paso `tipo` con `OPCIONES_TIPO` fijas; `enviarMenuTipoContacto` y `procesarRespuestaTipoContacto`; opciones 2/3 → `asignarTipoEspecial` (asignación directa + conversación + push `lead_asignado` + confirmación).
+- **`leadsRepository.ts`**: `asignarLeadAVendedor` (sin zona) y `getLeadsSLAVencido` excluye proveedor/trabajo.
+- **`usuariosServices.ts`/`usuariosControllers.ts`**: `GET /usuarios?incluirAdmins=true` devuelve admins + vendedores (default intacto).
+- **`whatsappWebhookServices.ts`**: limpia `tipo_contacto` al reactivar lead perdido sin vendedor.
+
+#### Frontend
+- **`MarketingDashboard.tsx`**: sección "Primera pregunta — tipo de contacto" (textarea + 2 selects con **`useUsuariosTodos()`** que incluye admins + confirmaciones proveedor/trabajo). Sección "Tipos de Solicitud" con conteos de cotización/proveedor/trabajo/catálogo.
+- **Nuevo `hooks/useUsuariosTodos.ts`** (`GET /usuarios?incluirAdmins=true`, queryKey `["usuarios-todos"]`).
+- **`types/index.ts`**: `TipoWeb` y `MenuBienvenida` ampliados. `Leads.tsx`: labels proveedor/trabajo.
+
+#### Cómo probar
+- Webhook simulado: msg1 "hola" → menú de 3 opciones (`paso_menu='tipo'`); msg2 "2" → lead `proveedor` asignado al usuario configurado + conversación + push; msg2 "1" → deriva a `paso_menu='estado'`. En `/marketing` se configuran los usuarios receptores (pueden ser admins).
+
+#### ⚠ Notas / deuda
+- Opciones fijas (no configurables); solo el texto del mensaje es editable.
+- SLA por zona no aplica a proveedor/trabajo.
+- Requiere recompilar/desplegar el backend para aplicar la migración y el cambio del endpoint `?incluirAdmins=true`.
+
 ## 9. Punto de partida sugerido para la próxima actualización
 
 - Los 10 puntos de esta sesión + el **feature "Registrar Usuarios"** están completos y verificados (build/lint/tsc en frontend y backend). En producción (18/08) ya se verificó que los 4 admins tienen `rol='admin'` y `supabase_id` poblado en el Postgres del VPS → **no requiere acciones manuales de SQL**. Supabase se usa solo para auth + storage, así que los SQL de migración no se aplican a producción (legacy).
@@ -886,6 +939,7 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 - **Punto 22 / Modernización del calendario de reuniones** ✅ (29/08): `Calendario.tsx` rediseñado (toolbar personalizado, chips con color por estado + icono por tipo, leyenda, filtros por estado/tipo, `calendario.css` con overrides de `.rbc-*`), **crear desde slot** (clic en día/hora abre "Nueva Reunión" con fecha/hora precargadas), **drag & drop en PC** (`withDragAndDrop` → `useActualizarReunion`) y **reprogramar por toques en móvil** (drag HTML5 no soportado en táctil → botón "Editar / Reprogramar" en `ReunionesDetailModal`, prop opcional `onEditar`). Se eliminó `CalendarioModal.tsx` (unificado con prop `vendedorId`) y se corrigió el id NaN de los eventos (ahora uuid real). Ver Punto 22 en §8.
 - **Punto 23 / Vista móvil de Tickets** ✅ (29/08): en `/tickets` y `TicketsModal` la lista era una tabla ancha con scroll horizontal en móvil. Fix: **nuevo `components/ui/TicketTarjeta.tsx`** (patrón `ReunionTarjeta`, con acciones Ver/Resolver) y la lista ahora usa **tarjetas en móvil/tablet (`lg:hidden`) + tabla en desktop (`hidden lg:block`)**, mismo patrón que Clientes/Zonas/Leads/Reuniones. El buscador pasa a `w-full sm:w-64`. En `Tickets.tsx` el "Ver" navega a `/tickets/:id`; en `TicketsModal` abre el `TicketDetailModal` anidado. Sin cambios de lógica ni estado. Ver Punto 23 en §8.
 - **Punto 24 / Acciones Rápidas del cliente + "Llamar" desde PC al móvil** ✅ (29/08): la sección "Acciones Rápidas" del detalle de cliente (`ClienteDetalle.tsx` y `ClienteDetalleModal.tsx`) se extrajo a **`components/ui/AccionesRapidasCliente.tsx`** con **rejilla 2×2 de tarjetas** (Llamar azul, Email verde, **WhatsApp nuevo** esmeralda `wa.me/58...`, Reunión morado, Pedido naranja) y zona de **Administración** separada por divisor (Asignar Vendedor / Eliminar Definitivamente). Se corrigió el bug visual de "Llamar"/"Enviar Email" en móvil (eran `<a>` con `<button>` anidado que no llenaban el ancho). El botón "Llamar" en PC abre un **popover** con "Copiar número" y **"Enviar a mi móvil"**: este envía un **Web Push** al teléfono del usuario (`POST /push/enviar-llamada`, excluye el dispositivo que dispara) y al tocar la notificación la app abre `?accion=llamar` → `components/ui/LlamarDesdePush.tsx` (montado en `App.tsx`) muestra "Llamar ahora" que lanza `tel:` (gesto requerido por iOS). Se eliminó `navigator.share` (panel de Windows vacío). Ver Punto 24 en §8.
+- **Punto 25 / Menú de tipo de contacto en el asistente de WhatsApp** ✅ (30/08): el asistente de bienvenida ahora arranca preguntando **"¿Cliente, Proveedor o Busco trabajo?"**. Cliente → flujo existente (estado → zona → intención). Proveedor/Trabajo → asignación **directa al usuario configurado** (vendedor **o admin**) con conversación + push + confirmación. Config en `/marketing` (sección "Primera pregunta — tipo de contacto": texto + 2 selects poblados con **`useUsuariosTodos()`** que incluye admins). Migración `1750000000005-TipoContactoSchema.ts` (enums `proveedor`/`trabajo` + 5 columnas en `menu_bienvenida`), `asignarLeadAVendedor` en `leadsRepository`, SLA por zona excluye proveedor/trabajo, y `GET /usuarios?incluirAdmins=true`. Ver Punto 25 en §8.
 - **Feature "Marketing / Leads (Fase 1)"**: backend + frontend **compilan** (build/lint/typecheck OK) y los **5 fallos críticos + 4 menores ya están corregidos** (migración `1750000000001-MarketingLeadsSchema.ts`, ids `vendedor_db_id`, HMAC raw body, rate limiting, SLA con `reasignado`, ownership de `enviarMensaje`, el filtro de fechas del dashboard con `useLeads` tipado a `LeadsResponse`, los selects de zonas/vendedores conectados en `Leads.tsx`/`Zonas.tsx`, y el array-en-where de TypeORM corregido con `In()`). Queda **1 menor 🟡** (import dinámico en `procesarSLAVencidos`). ⚠ **Para probar en dev**: compilar backend (`npm run build`) y reiniciar (aplica la migración nueva creando las tablas). En producción habrá que desplegar y arrancar una vez.
 - **Feature "Webhook WhatsApp entrante + envío saliente (Fase 2)"** ✅ backend implementado y probado en dev (build/lint/typecheck OK): verificación `GET /webhook/whatsapp`, recepción `POST /webhook/whatsapp` con HMAC, creación/actualización de lead por teléfono, dedupe por wamid, acumulación de pendientes en `metadata.mensajes_pendientes` y siembra al abrir conversación. El vendedor responde desde `/chat` y el backend envía por la API de Meta (`sendWhatsAppText`) dentro de la ventana de 24h. Migración `1750000000002-WhatsappInboundSchema.ts` aplicada en dev (enums `whatsapp`/`whatsapp_mensaje` verificados en DB). Zonas y asignación de vendedores sembradas en DB dev (12 zonas, 5 vendedores; ver sección del feature). ⚠ Para producción: configurar `META_VERIFY_TOKEN`, `META_APP_SECRET` y un `META_TOKEN` permanente en el `.env` del VPS, desplegar y arrancar una vez para que corra la migración, y registrar el webhook en Meta Dashboard (ver sección del feature).
 - **Punto 11 (22/08)** ✅: flujo WhatsApp verificado de punta a punta con túnel Cloudflare (rate limiter arreglado, verificación de suscripción + recepción + envío OK), cache de React Query del feature Marketing invalidada tras mutaciones (chat aparece sin recargar), filtro de fechas del dashboard marketing corregido (off-by-one UTC → fecha local + `hasta` inclusivo), y botón "Perder" de leads implementado end-to-end. ⚠ Pendiente: quitar el `console.log('[WEBHOOK] payload recibido:')` temporal, `META_APP_SECRET` vacío (HMAC omitido), `META_PHONE_ID` apuntando al número de prueba `964389213422160` y WABA `PENDING` (modo prueba; los teléfonos reales solo podrán escribirle al número real `114880014860322` tras aprobar la verificación de negocio). Ver Punto 11 en §8.

@@ -30,7 +30,10 @@ export const getUsuarios = async (req: Request, res: Response) => {
   // (vendedores y admin) para mostrar el nombre del vendedor asignado a cada
   // cliente/pedido. La restricción admin-only del Punto 1 rompía las páginas
   // de vendedor, así que se relajó a "cualquier usuario autenticado".
-  const usuarios = await getUsuariosService();
+  // `?incluirAdmins=true` devuelve también los admins (p. ej. para configurar
+  // quién recibe proveedores/postulantes en el menú de bienvenida de WhatsApp).
+  const incluirAdmins = req.query.incluirAdmins === 'true';
+  const usuarios = await getUsuariosService({ incluirAdmins });
   if (usuarios.length === 0) throw new ApiError('No hay usuarios disponibles');
   res.json(usuarios);
 };

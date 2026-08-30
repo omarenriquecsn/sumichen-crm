@@ -11,9 +11,11 @@ import {
 } from '../repositories/usuariosRepository';
 import { ApiError } from '../utils/ApiError';
 
-export const getUsuariosService = async () => {
+export const getUsuariosService = async (opts?: { incluirAdmins?: boolean }) => {
   const usuariosDb = await getUsuarios();
-  const usuarios = usuariosDb.filter((u) => u.rol === 'vendedor');
+  const usuarios = opts?.incluirAdmins
+    ? usuariosDb
+    : usuariosDb.filter((u) => u.rol === 'vendedor');
   if (usuarios.length === 0) {
     return [];
   }

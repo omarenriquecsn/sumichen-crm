@@ -1,7 +1,7 @@
 import React from "react";
 import { Layout } from "../../components/layout/Layout";
 import { useSupabase } from "../../hooks/useSupabase";
-import useVendedores from "../../hooks/useVendedores";
+import useUsuariosTodos from "../../hooks/useUsuariosTodos";
 import { toast } from "react-toastify";
 import {
   BarChart,
@@ -33,7 +33,7 @@ interface PieLabelProps {
 
 const MarketingDashboard: React.FC = () => {
   const { useLeads, useMenuBienvenida, useActualizarMenuBienvenida } = useSupabase();
-  const { data: vendedores } = useVendedores();
+  const { data: vendedores } = useUsuariosTodos();
   const { data: menuConfig, isLoading: menuLoading } = useMenuBienvenida();
   const actualizarMenu = useActualizarMenuBienvenida();
   const [fechaDesde, setFechaDesde] = React.useState(() => {
