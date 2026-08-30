@@ -35,6 +35,21 @@ export class MenuBienvenida {
   @Column({ type: 'text', default: '¡Listo, {nombre}! {vendedor} ({telefono_vendedor}) te contactará por este medio.' })
   mensaje_confirmacion: string;
 
+  @Column({ type: 'text', default: '¡Hola {nombre}! ¿Cómo podemos ayudarte?\n{opciones}' })
+  mensaje_tipo_contacto: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  vendedor_proveedores_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  vendedor_trabajo_id: string | null;
+
+  @Column({ type: 'text', default: 'Gracias {nombre}. {vendedor} se comunicará contigo por este medio.' })
+  mensaje_proveedor: string;
+
+  @Column({ type: 'text', default: 'Gracias {nombre}. {vendedor} se comunicará contigo por este medio.' })
+  mensaje_trabajo: string;
+
   @Column({ type: 'jsonb', default: () => `'[{"numero":1,"etiqueta":"Cotización","tipo_web":"cotizacion"},{"numero":2,"etiqueta":"Catálogo","tipo_web":"catalogo"}]'` })
   opciones_intencion: OpcionIntencion[];
 

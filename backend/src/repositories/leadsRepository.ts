@@ -1,6 +1,6 @@
 import { AppDataSource } from '../config/dataBaseConfig';
 import { In } from 'typeorm';
-import { Lead, EstadoLeadEnum } from '../entities/Lead';
+import { Lead, EstadoLeadEnum, TipoWebEnum } from '../entities/Lead';
 import { Vendedor } from '../entities/Vendedores';
 import { Zona } from '../entities/Zona';
 
@@ -121,6 +121,25 @@ export const asignarLeadAutomatico = async (leadId: string, zonaId: string) => {
   return await leadRepo.save(lead);
 };
 
+/**
+ * Asigna un lead a un vendedor/admin específico (sin zona). Se usa para los
+ * leads de tipo proveedor o trabajo, que el asistente dirige directamente al
+ * usuario configurado (vendedor_proveedores_id / vendedor_trabajo_id).
+ */
+export const asignarLeadAVendedor = async (leadId: string, vendedorId: string) => {
+  const leadRepo = AppDataSource.getRepository(Lead);
+  const lead = await leadRepo.findOne({ where: { id: leadId } });
+  if (!lead) return null;
+
+  lead.vendedor_asignado_id = vendedorId;
+  lead.zona_id = null;
+  lead.estado = EstadoLeadEnum.ASIGNADO;
+  lead.asignado_en = new Date();
+  lead.ultima_actividad_en = new Date();
+
+  return await leadRepo.save(lead);
+};
+
 export const reasignarLead = async (leadId: string, nuevoVendedorId: string | null, motivo: string, adminId?: string) => {
   const leadRepo = AppDataSource.getRepository(Lead);
   const reasigRepo = AppDataSource.getRepository('reasignaciones');
@@ -215,6 +234,11 @@ export const getLeadsSLAVencido = async (horas: number) => {
     .where('lead.estado IN (:...estados)', { estados: ['asignado', 'contactado', 'reasignado'] })
     .andWhere('lead.asignado_en < :limite', { limite })
     .andWhere('lead.ultima_actividad_en < :limite', { limite })
+    // Los leads de proveedor/trabajo se asignan a un usuario específico y NO
+    // aplican reasignación por zona (no tienen zona).
+    .andWhere('(lead.tipo_web IS NULL OR lead.tipo_web NOT IN (:...sinSLA))', {
+      sinSLA: [TipoWebEnum.PROVEEDOR, TipoWebEnum.TRABAJO],
+    })
     .leftJoinAndSelect('lead.vendedor_asignado', 'vendedor')
     .leftJoinAndSelect('lead.zona', 'zona')
     .getMany();

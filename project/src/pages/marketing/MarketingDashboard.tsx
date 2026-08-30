@@ -1,6 +1,7 @@
 import React from "react";
 import { Layout } from "../../components/layout/Layout";
 import { useSupabase } from "../../hooks/useSupabase";
+import useVendedores from "../../hooks/useVendedores";
 import { toast } from "react-toastify";
 import {
   BarChart,
@@ -17,7 +18,7 @@ import {
   Line,
 } from "recharts";
 import { Users, TrendingUp, Target, Clock, RefreshCw, Globe, Check, AlertCircle, MessageSquare, Bot, Plus, Trash2, Save } from "lucide-react";
-import { Lead, OpcionIntencion } from "../../types";
+import { Lead, OpcionIntencion, Vendedor } from "../../types";
 
 const COLORS = ["#16A34A", "#2563EB", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"];
 
@@ -32,6 +33,7 @@ interface PieLabelProps {
 
 const MarketingDashboard: React.FC = () => {
   const { useLeads, useMenuBienvenida, useActualizarMenuBienvenida } = useSupabase();
+  const { data: vendedores } = useVendedores();
   const { data: menuConfig, isLoading: menuLoading } = useMenuBienvenida();
   const actualizarMenu = useActualizarMenuBienvenida();
   const [fechaDesde, setFechaDesde] = React.useState(() => {
@@ -48,6 +50,11 @@ const MarketingDashboard: React.FC = () => {
     mensaje_sin_vendedor: "",
     pregunta_intencion: "",
     mensaje_confirmacion: "",
+    mensaje_tipo_contacto: "",
+    vendedor_proveedores_id: "",
+    vendedor_trabajo_id: "",
+    mensaje_proveedor: "",
+    mensaje_trabajo: "",
     opciones_intencion: [] as OpcionIntencion[],
   });
 
@@ -60,6 +67,11 @@ const MarketingDashboard: React.FC = () => {
         mensaje_sin_vendedor: menuConfig.mensaje_sin_vendedor || "",
         pregunta_intencion: menuConfig.pregunta_intencion || "",
         mensaje_confirmacion: menuConfig.mensaje_confirmacion || "",
+        mensaje_tipo_contacto: menuConfig.mensaje_tipo_contacto || "",
+        vendedor_proveedores_id: menuConfig.vendedor_proveedores_id || "",
+        vendedor_trabajo_id: menuConfig.vendedor_trabajo_id || "",
+        mensaje_proveedor: menuConfig.mensaje_proveedor || "",
+        mensaje_trabajo: menuConfig.mensaje_trabajo || "",
         opciones_intencion: menuConfig.opciones_intencion || [],
       });
     }
@@ -77,6 +89,11 @@ const MarketingDashboard: React.FC = () => {
         mensaje_sin_vendedor: menuForm.mensaje_sin_vendedor,
         pregunta_intencion: menuForm.pregunta_intencion,
         mensaje_confirmacion: menuForm.mensaje_confirmacion,
+        mensaje_tipo_contacto: menuForm.mensaje_tipo_contacto,
+        vendedor_proveedores_id: menuForm.vendedor_proveedores_id || null,
+        vendedor_trabajo_id: menuForm.vendedor_trabajo_id || null,
+        mensaje_proveedor: menuForm.mensaje_proveedor,
+        mensaje_trabajo: menuForm.mensaje_trabajo,
         opciones_intencion: opciones,
       },
       {
@@ -243,6 +260,83 @@ const MarketingDashboard: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {/* Tipo de contacto (primera pregunta del asistente) */}
+              <div className="md:col-span-2 border-t border-gray-100 pt-4">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Primera pregunta — tipo de contacto</label>
+                <p className="text-xs text-gray-400 mb-2">
+                  Al recibir el primer mensaje de WhatsApp sin vendedor, el bot pregunta si es <b>Cliente</b>,{" "}
+                  <b>Proveedor</b> o <b>Busca trabajo</b>. Cliente sigue el flujo de ventas por zona; proveedor y
+                  trabajo se asignan directamente al usuario configurado abajo.
+                </p>
+                <textarea
+                  value={menuForm.mensaje_tipo_contacto}
+                  onChange={(e) => setMenuForm((prev) => ({ ...prev, mensaje_tipo_contacto: e.target.value }))}
+                  rows={2}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder='¡Hola {nombre}! ¿Cómo podemos ayudarte?\n{opciones}'
+                />
+                <p className="text-xs text-gray-400 mt-1">Variable: {"{opciones}"} se reemplaza con 1. Cliente · 2. Proveedor · 3. Busco trabajo.</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Usuario que recibe proveedores</label>
+                    <select
+                      value={menuForm.vendedor_proveedores_id}
+                      onChange={(e) => setMenuForm((prev) => ({ ...prev, vendedor_proveedores_id: e.target.value }))}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Sin asignar</option>
+                      {(vendedores || []).map((v: Vendedor) => (
+                        <option key={v.id} value={v.id}>
+                          {v.nombre} {v.apellido} · {v.rol === "admin" ? "Admin" : "Vendedor"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Usuario que recibe postulantes de trabajo</label>
+                    <select
+                      value={menuForm.vendedor_trabajo_id}
+                      onChange={(e) => setMenuForm((prev) => ({ ...prev, vendedor_trabajo_id: e.target.value }))}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Sin asignar</option>
+                      {(vendedores || []).map((v: Vendedor) => (
+                        <option key={v.id} value={v.id}>
+                          {v.nombre} {v.apellido} · {v.rol === "admin" ? "Admin" : "Vendedor"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Mensaje de confirmación — Proveedor</label>
+                    <textarea
+                      value={menuForm.mensaje_proveedor}
+                      onChange={(e) => setMenuForm((prev) => ({ ...prev, mensaje_proveedor: e.target.value }))}
+                      rows={2}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Gracias {nombre}. {vendedor} se comunicará contigo por este medio."
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Variables: {"{nombre}"}, {"{vendedor}"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Mensaje de confirmación — Busco trabajo</label>
+                    <textarea
+                      value={menuForm.mensaje_trabajo}
+                      onChange={(e) => setMenuForm((prev) => ({ ...prev, mensaje_trabajo: e.target.value }))}
+                      rows={2}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Gracias {nombre}. {vendedor} se comunicará contigo por este medio."
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Variables: {"{nombre}"}, {"{vendedor}"}</p>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Pregunta de intención</label>
                 <textarea
@@ -515,14 +609,19 @@ const MarketingDashboard: React.FC = () => {
 
         {/* Top tipo web */}
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Tipos de Solicitud Web</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Tipos de Solicitud</h3>
           <div className="flex flex-wrap gap-4">
-            {["cotizacion", "informacion", "soporte"].map((tipo) => {
-              const count = leads.filter((l) => l.tipo_web === tipo).length;
+            {[
+              { key: "cotizacion", label: "Cotización" },
+              { key: "proveedor", label: "Proveedor" },
+              { key: "trabajo", label: "Busca trabajo" },
+              { key: "catalogo", label: "Catálogo" },
+            ].map((tipo) => {
+              const count = leads.filter((l) => l.tipo_web === tipo.key).length;
               return (
-                <div key={tipo} className="flex-1 min-w-[150px] bg-gray-50 p-4 rounded-lg text-center">
+                <div key={tipo.key} className="flex-1 min-w-[150px] bg-gray-50 p-4 rounded-lg text-center">
                   <p className="text-2xl font-bold text-gray-900">{count}</p>
-                  <p className="text-sm text-gray-500 capitalize">{tipo}</p>
+                  <p className="text-sm text-gray-500">{tipo.label}</p>
                 </div>
               );
             })}

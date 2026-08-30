@@ -26,6 +26,8 @@ export enum TipoWebEnum {
   INFORMACION = 'informacion',
   SOPORTE = 'soporte',
   CATALOGO = 'catalogo',
+  PROVEEDOR = 'proveedor',
+  TRABAJO = 'trabajo',
 }
 
 export enum CanalEntradaEnum {

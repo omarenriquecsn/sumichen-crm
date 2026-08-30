@@ -362,7 +362,7 @@ export type Mes = {
 // ===== MARKETING / LEADS / CHAT =====
 
 export type OrigenLead = 'instagram' | 'web' | 'whatsapp';
-export type TipoWeb = 'cotizacion' | 'informacion' | 'soporte' | 'catalogo';
+export type TipoWeb = 'cotizacion' | 'informacion' | 'soporte' | 'catalogo' | 'proveedor' | 'trabajo';
 export type CanalEntrada = 'instagram_boton' | 'web_formulario' | 'whatsapp_mensaje';
 export type EstadoLead =
   | 'nuevo'
@@ -477,6 +477,11 @@ export interface MenuBienvenida {
   mensaje_sin_vendedor: string;
   pregunta_intencion: string;
   mensaje_confirmacion: string;
+  mensaje_tipo_contacto: string;
+  vendedor_proveedores_id: string | null;
+  vendedor_trabajo_id: string | null;
+  mensaje_proveedor: string;
+  mensaje_trabajo: string;
   opciones_intencion: OpcionIntencion[];
   fecha_creacion: string;
   fecha_actualizacion: string;

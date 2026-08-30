@@ -1,8 +1,9 @@
 import { getMenuBienvenida } from '../repositories/menuBienvenidaRepository';
 import { getZonas } from '../repositories/zonasRepository';
-import { asignarLeadAutomatico, updateLead, getLeadById } from '../repositories/leadsRepository';
+import { asignarLeadAutomatico, asignarLeadAVendedor, updateLead, getLeadById } from '../repositories/leadsRepository';
 import { abrirConversacionParaLead } from './conversacionesServices';
 import { OpcionIntencion } from '../entities/MenuBienvenida';
+import { TipoWebEnum } from '../entities/Lead';
 import { enviarPushAUsuario } from './pushServices';
 import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 
@@ -10,13 +11,14 @@ import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
  * Asistente de bienvenida (WhatsApp).
  *
  * Cuando llega un lead de WhatsApp SIN vendedor asignado, el bot:
- *   1. Pregunta de qué estado escribe el cliente (lista de estados disponibles).
- *   2. Mapea el estado → zona → auto-asigna el vendedor con menor carga.
- *   3. Pregunta la intención (cotización/información/soporte) y la guarda en
- *      `lead.tipo_web`.
+ *   0. Pregunta qué tipo de contacto es (cliente / proveedor / busca trabajo).
+ *      - Cliente → continúa con el flujo de ventas (estado → zona → intención).
+ *      - Proveedor / Busco trabajo → se asigna directamente al usuario
+ *        configurado (vendedor_proveedores_id / vendedor_trabajo_id).
  *
  * El estado del asistente vive en `lead.metadata.paso_menu`:
- *   undefined → primer contacto (se envía el menú de estados)
+ *   undefined → primer contacto (se envía el menú de tipo de contacto)
+ *   'tipo'     → esperando selección de tipo (cliente/proveedor/trabajo)
  *   'estado'   → esperando selección de estado
  *   'intencion'→ esperando selección de intención
  *   'completado' → asistente terminado (no vuelve a intervenir)
@@ -27,6 +29,29 @@ const normalizar = (s: string) =>
 
 const formatearOpciones = (items: string[]) =>
   items.map((x, i) => `${i + 1}. ${x}`).join('\n');
+
+// Opciones del paso "tipo de contacto" (fijas por ahora; el texto del mensaje
+// es configurable en /marketing). La clave `tipo` no es el enum tipo_web: sirve
+// para enrutar la respuesta dentro del asistente.
+const OPCIONES_TIPO: Array<{ etiqueta: string; tipo: 'cliente' | 'proveedor' | 'trabajo' }> = [
+  { etiqueta: 'Cliente', tipo: 'cliente' },
+  { etiqueta: 'Proveedor', tipo: 'proveedor' },
+  { etiqueta: 'Busco trabajo', tipo: 'trabajo' },
+];
+
+const matchTipoContacto = (cuerpo: string) => {
+  const c = normalizar(cuerpo.trim());
+  if (/^\d+$/.test(c)) {
+    const idx = parseInt(c, 10) - 1;
+    return OPCIONES_TIPO[idx]?.tipo || null;
+  }
+  const cn = normalizar(cuerpo.trim());
+  const opcion = OPCIONES_TIPO.find((o) => {
+    const ne = normalizar(o.etiqueta);
+    return ne === cn || ne.includes(cn) || cn.includes(ne);
+  });
+  return opcion?.tipo || null;
+};
 
 interface ZonaConEstados {
   id: string;
@@ -106,6 +131,121 @@ const matchOpcion = (cuerpo: string, opciones: OpcionIntencion[]) => {
       (o) => normalizar(o.etiqueta) === cn || normalizar(o.etiqueta).includes(cn) || normalizar(o.tipo_web) === cn
     ) || null
   );
+};
+
+/** Paso 0: envía bienvenida + las 3 opciones de tipo de contacto. */
+export const enviarMenuTipoContacto = async (lead: any) => {
+  const config = await getMenuBienvenida();
+  if (!config || !config.activo) return;
+  const { telefono, phoneNumberId } = getTelefono(lead);
+  const nombre = lead?.datos_contacto?.nombre || '';
+  if (!telefono) return;
+
+  const texto = `${config.mensaje_tipo_contacto.replace(/\{nombre\}/g, nombre).replace(
+    '{opciones}',
+    formatearOpciones(OPCIONES_TIPO.map((o) => o.etiqueta))
+  )}`;
+  await enviarSeguro(telefono, texto, phoneNumberId);
+  await updateLead(lead.id, { metadata: { ...lead.metadata, paso_menu: 'tipo', menu_enviado: true } });
+};
+
+/**
+ * Asigna el lead al usuario configurado para proveedores/trabajo, abre la
+ * conversación, avisa por push y envía la confirmación al contacto.
+ */
+const asignarTipoEspecial = async (lead: any, config: any, tipo: 'proveedor' | 'trabajo') => {
+  const { telefono, phoneNumberId } = getTelefono(lead);
+  const nombre = lead?.datos_contacto?.nombre || '';
+  if (!telefono) return;
+
+  const vendedorId =
+    tipo === 'proveedor' ? config.vendedor_proveedores_id : config.vendedor_trabajo_id;
+  const mensajeConfirmacion =
+    tipo === 'proveedor' ? config.mensaje_proveedor : config.mensaje_trabajo;
+
+  if (!vendedorId) {
+    await enviarSeguro(
+      telefono,
+      config.mensaje_sin_vendedor.replace(/\{nombre\}/g, nombre),
+      phoneNumberId
+    );
+    await updateLead(lead.id, { metadata: { ...lead.metadata, paso_menu: 'completado', tipo_contacto: tipo } });
+    return;
+  }
+
+  const asignado = await asignarLeadAVendedor(lead.id, vendedorId);
+  if (!asignado) {
+    await enviarSeguro(
+      telefono,
+      config.mensaje_sin_vendedor.replace(/\{nombre\}/g, nombre),
+      phoneNumberId
+    );
+    return;
+  }
+
+  // Abrir la conversación (y sembrar los mensajes pendientes del contacto).
+  await abrirConversacionParaLead(lead.id, vendedorId, 'whatsapp');
+
+  // Web Push — evento `lead_asignado`: se avisa al usuario configurado.
+  try {
+    await enviarPushAUsuario(
+      vendedorId,
+      {
+        titulo: tipo === 'proveedor' ? '🤝 Nuevo proveedor' : '💼 Nuevo postulante',
+        cuerpo: `${nombre} se identificó como ${tipo === 'proveedor' ? 'proveedor' : 'postulante a trabajo'} por WhatsApp.`,
+        url: '#/chat',
+      },
+      EventoNotificacionEnum.LEAD_ASIGNADO
+    );
+  } catch (err) {
+    console.error('[Asistente] No se pudo enviar push de lead tipo especial:', err instanceof Error ? err.message : err);
+  }
+
+  // Enviar la confirmación al contacto (con el nombre del vendedor/admin).
+  const leadActual = await getLeadById(lead.id);
+  const vendedor = getVendedorNombre(leadActual);
+  const texto = mensajeConfirmacion
+    .replace(/\{nombre\}/g, nombre)
+    .replace('{vendedor}', vendedor);
+  await enviarSeguro(telefono, texto, phoneNumberId);
+
+  await updateLead(lead.id, {
+    tipo_web: (tipo === 'proveedor' ? TipoWebEnum.PROVEEDOR : TipoWebEnum.TRABAJO) as any,
+    metadata: {
+      ...(leadActual?.metadata || lead.metadata),
+      mensajes_pendientes: [],
+      paso_menu: 'completado',
+      tipo_contacto: tipo,
+    },
+  });
+};
+
+/** Paso 0-b: procesa la selección de tipo de contacto. */
+export const procesarRespuestaTipoContacto = async (lead: any, cuerpo: string) => {
+  const config = await getMenuBienvenida();
+  if (!config || !config.activo) return;
+  const { telefono, phoneNumberId } = getTelefono(lead);
+  const nombre = lead?.datos_contacto?.nombre || '';
+  if (!telefono) return;
+
+  const tipo = matchTipoContacto(cuerpo);
+
+  if (!tipo) {
+    const texto = config.mensaje_tipo_contacto
+      .replace(/\{nombre\}/g, nombre)
+      .replace('{opciones}', formatearOpciones(OPCIONES_TIPO.map((o) => o.etiqueta)));
+    await enviarSeguro(telefono, texto, phoneNumberId);
+    return;
+  }
+
+  // Opción "Cliente": continúa con el flujo de ventas existente (estado → zona).
+  if (tipo === 'cliente') {
+    await enviarMenuEstados(lead);
+    return;
+  }
+
+  // Opciones "Proveedor" / "Trabajo": asignación directa al usuario configurado.
+  await asignarTipoEspecial(lead, config, tipo);
 };
 
 /** Paso 1: envía bienvenida + lista de estados. */
@@ -280,8 +420,12 @@ export const procesarAsistente = async (leadId: string, cuerpo: string) => {
   const paso = lead.metadata?.paso_menu;
 
   if (paso === undefined) {
-    // Primer contacto (sin vendedor): bienvenida + lista de estados.
-    if (!lead.vendedor_asignado_id) await enviarMenuEstados(lead);
+    // Primer contacto (sin vendedor): bienvenida + menú de tipo de contacto.
+    if (!lead.vendedor_asignado_id) await enviarMenuTipoContacto(lead);
+    return;
+  }
+  if (paso === 'tipo') {
+    await procesarRespuestaTipoContacto(lead, cuerpo);
     return;
   }
   if (paso === 'estado') {

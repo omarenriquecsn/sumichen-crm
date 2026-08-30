@@ -15,12 +15,27 @@ export const updateMenuBienvenidaService = async (data: any) => {
     campos.activo = data.activo;
   }
 
-  for (const texto of ['mensaje_bienvenida', 'pregunta_estado', 'mensaje_sin_vendedor', 'pregunta_intencion', 'mensaje_confirmacion']) {
+  for (const texto of ['mensaje_bienvenida', 'pregunta_estado', 'mensaje_sin_vendedor', 'pregunta_intencion', 'mensaje_confirmacion', 'mensaje_tipo_contacto', 'mensaje_proveedor', 'mensaje_trabajo']) {
     if (data[texto] !== undefined) {
       if (typeof data[texto] !== 'string' || !data[texto].trim()) {
         throw new ApiError(`${texto} debe ser un texto no vacío`, 400);
       }
       campos[texto] = data[texto].trim();
+    }
+  }
+
+  // Vendedores/admins que reciben proveedores y postulantes de trabajo.
+  for (const campo of ['vendedor_proveedores_id', 'vendedor_trabajo_id']) {
+    if (data[campo] !== undefined) {
+      const v = data[campo];
+      if (v === null || v === '') {
+        campos[campo] = null;
+        continue;
+      }
+      if (typeof v !== 'string' || !/^[0-9a-fA-F-]{36}$/.test(v)) {
+        throw new ApiError(`${campo} debe ser un uuid válido o null`, 400);
+      }
+      campos[campo] = v;
     }
   }
 

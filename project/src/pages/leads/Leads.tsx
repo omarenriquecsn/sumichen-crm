@@ -28,6 +28,9 @@ const tipoWebLabels: Record<string, string> = {
   cotizacion: "Cotización",
   informacion: "Información",
   soporte: "Soporte",
+  catalogo: "Catálogo",
+  proveedor: "Proveedor",
+  trabajo: "Busca trabajo",
 };
 
 const Leads: React.FC = () => {
