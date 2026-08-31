@@ -26,7 +26,7 @@ const PanelAdmin = () => {
   const valorVentasCerradas = Array.isArray(pedidos)
     ? pedidos
         .filter((pedido) => pedido.estado === "procesado")
-        .reduce((total, pedido) => total + pedido.total, 0)
+        .length
     : 0;
 
   // Calculo de pedidos por vendedor

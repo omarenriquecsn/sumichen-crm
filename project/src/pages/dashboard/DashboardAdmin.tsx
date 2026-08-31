@@ -8,7 +8,7 @@ import {
   Award,
   AlertTriangle,
   UserCheck,
-  // BarChart3,
+   PlusIcon,
 } from "lucide-react";
 import PanelAdmin from "../../utils/panelAdmin";
 import { calculoIncremento } from "../../utils/ventas";
@@ -36,12 +36,14 @@ export const DashboardAdmin: React.FC = () => {
   const {
     cantidadVendedores,
     ventasCerradas,
+    valorVentasCerradas,
     CantidadClientesActivos,
     clientesActivos,
     calculoIncrementoVendedores,
     VendedoresTop,
   } = PanelAdmin();
 
+  console.log(valorVentasCerradas)
   // incremento ventas
   const incrementoVentas = calculoIncremento(ventasCerradas);
 
@@ -223,13 +225,12 @@ export const DashboardAdmin: React.FC = () => {
       color: "blue",
     },
     {
-      title: "Ventas Totales",
-      value: formatCurrencyCompacto(ventasCerradas),
-      exacto: formatCurrency(ventasCerradas),
+      title: "Ventas Totales Cerradas",
+      value: valorVentasCerradas,
       subtitle: "",
       change: ``,
       changeType: `${typeChange(incrementoVentas)}`,
-      icon: DollarSign,
+      icon: PlusIcon,
       color: "green",
     },
     {
