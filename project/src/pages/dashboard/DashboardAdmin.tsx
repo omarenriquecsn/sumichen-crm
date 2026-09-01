@@ -43,7 +43,6 @@ export const DashboardAdmin: React.FC = () => {
     VendedoresTop,
   } = PanelAdmin();
 
-  console.log(valorVentasCerradas)
   // incremento ventas
   const incrementoVentas = calculoIncremento(ventasCerradas);
 
