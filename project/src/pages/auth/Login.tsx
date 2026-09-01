@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
-import { Building2, Mail, Lock, Eye, EyeOff, AlertCircle, Fingerprint, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Fingerprint, Loader2 } from "lucide-react";
 import { iniciarSesionBiometrica, soportaBiometria } from "../../lib/biometric";
 import { toast } from "react-toastify";
 
@@ -61,11 +61,12 @@ export const Login: React.FC = () => {
         {/* Logo y título */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-2xl shadow-lg">
-              <Building2 className="h-8 w-8 text-white" />
-            </div>
+            <img
+              src="/icons/logo-sumichem.png"
+              alt="Sumichem"
+              className="h-32 w-32 object-contain"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">CRM Pro</h1>
           <p className="text-gray-600">Inicia sesión en tu cuenta</p>
         </div>
 
@@ -192,7 +193,7 @@ export const Login: React.FC = () => {
         {/* Información adicional */}
         <div className="mt-8 text-center text-sm text-gray-500">
           <p>Sistema CRM para gestión de ventas y clientes</p>
-          <p>© 2025 CRM Pro. Todos los derechos reservados.</p>
+          <p>© 2025 Sumichem. Todos los derechos reservados.</p>
         </div>
       </div>
     </div>

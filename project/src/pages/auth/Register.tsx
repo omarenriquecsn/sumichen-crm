@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import {
-  Building2,
   Mail,
   Lock,
   User,
@@ -102,11 +101,13 @@ export const Register: React.FC = () => {
         {/* Logo y título */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-2xl shadow-lg">
-              <Building2 className="h-8 w-8 text-white" />
-            </div>
+            <img
+              src="/icons/logo-sumichem.png"
+              alt="Sumichem"
+              className="h-32 w-32 object-contain"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">CRM Pro</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Sumichem</h1>
           <p className="text-gray-600">Crea tu cuenta de vendedor</p>
         </div>
 

@@ -12,7 +12,6 @@ import {
   Settings,
   LogOut,
   Shield,
-  Building2,
   X,
   Plus,
   Sheet,
@@ -127,11 +126,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
       {/* Logo y título */}
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
         <div className="flex items-center space-x-3">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-2 rounded-xl">
-            <Building2 className="h-6 w-6 text-white" />
-          </div>
+          <img
+            src="/icons/logo-sumichem.png"
+            alt="Sumichem"
+            className="h-12 w-12 object-contain"
+          />
           <div>
-            <h1 className="text-xl font-bold text-gray-900">CRM Pro</h1>
+            <h1 className="text-xl font-bold text-gray-900">Sumichem</h1>
             <p className="text-sm text-gray-500">Sistema de Ventas</p>
           </div>
         </div>
