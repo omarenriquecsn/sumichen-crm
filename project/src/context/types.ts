@@ -10,6 +10,7 @@ export interface UserData {
   activo: boolean;
   telefono?: string;
   avatar?: string;
+  sidebar_oculto?: string[];
 }
 
 export interface AuthContextType {

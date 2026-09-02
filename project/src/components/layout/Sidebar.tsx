@@ -2,28 +2,13 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import {
-  LayoutDashboard,
-  Users,
-  TrendingUp,
-  Calendar,
-  Ticket,
-  ShoppingCart,
-  BarChart3,
-  Settings,
   LogOut,
-  Shield,
   X,
-  Plus,
-  Sheet,
-  Download,
-  UserPlus,
-  MapPin,
-  MessageSquare,
-  BarChart2,
   Smartphone,
 } from 'lucide-react';
 import { UserData } from '../../context/types';
 import { esAdminPrincipal } from '../../constants/adminPrincipal';
+import { obtenerLinksMenu } from '../../constants/menuSidebar';
 import { useInstalarApp } from '../../hooks/useInstalarApp';
 import { InstalarAppModal } from '../ui/InstalarAppModal';
 
@@ -57,42 +42,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
     }
   };
 
-  const vendedorLinks = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/clientes', icon: Users, label: 'Clientes' },
-    { to: '/pipeline', icon: TrendingUp, label: 'Pipeline de Ventas' },
-    { to: '/reuniones', icon: Calendar, label: 'Reuniones' },
-    { to: '/tickets', icon: Ticket, label: 'Tickets' },
-    { to: '/pedidos', icon: ShoppingCart, label: 'Pedidos' },
-    { to: '/productos', icon: ShoppingCart, label: 'Productos' },
-    { to: '/leads', icon: Users, label: 'Mis Leads' },
-    { to: '/chat', icon: MessageSquare, label: 'Chats' },
-    { to: '/analitica', icon: BarChart3, label: 'Analítica' },
-    { to: '/configuracion', icon: Settings, label: 'Configuración' },
-  ];
-
-  const adminLinks = [
-    { to: '/admin', icon: Shield, label: 'Panel Admin' },
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Mi Dashboard' },
-    { to: '/vendedores', icon: Users, label: 'Vendedores' },
-    { to: '/clientes', icon: Users, label: 'Clientes' },
-    { to: '/pedidos', icon: ShoppingCart, label: 'Pedidos' },
-    { to: '/crearProductos', icon: Plus, label: 'Crear Productos'},
-    { to: '/excel', icon: Sheet, label: 'Excel de Productos' },
-    { to: '/productos', icon: ShoppingCart, label: 'Productos' },
-    { to: '/descargas', icon: Download, label: 'Descargas DB' },
-    { to: '/zonas', icon: MapPin, label: 'Zonas' },
-    { to: '/leads', icon: Users, label: 'Todos los Leads' },
-    { to: '/chat', icon: MessageSquare, label: 'Chats' },
-    { to: '/marketing', icon: BarChart2, label: 'Marketing' },
-    { to: '/configuracion', icon: Settings, label: 'Configuración' },
-  ];
-
-  // Enlace exclusivo del admin PRINCIPAL (Omar Contreras)
-  const adminPrincipalLink = [
-    { to: '/registro-usuarios', icon: UserPlus, label: 'Registrar Usuarios' },
-  ];
-
   // Los vendedores solo ven el menú de vendedor. Los admins ven el menú admin;
   // además, Omar (admin principal) ve el enlace "Registrar Usuarios" al final
   // (debajo de "Descargas DB").
@@ -100,12 +49,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
     (currentUser as { supabase_id?: string })?.supabase_id,
     (userData as { supabase_id?: string })?.supabase_id
   );
-  const links =
-    userData?.rol === 'admin'
-      ? esOmar
-        ? [...adminLinks, ...adminPrincipalLink]
-        : adminLinks
-      : vendedorLinks;
+  const links = obtenerLinksMenu(userData?.rol, esOmar);
+
+  // Preferencias del menú lateral (Configuración → Sidebar): rutas que el
+  // usuario decidió ocultar. "Configuración" nunca se oculta para que no quede
+  // atrapado sin acceso a la configuración.
+  const sidebarOculto = new Set(userData?.sidebar_oculto ?? []);
+  const linksVisibles = links.filter(
+    (link) => link.to === '/configuracion' || !sidebarOculto.has(link.to)
+  );
 
   return (
     <>
@@ -162,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
 
       {/* Navegación */}
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {links.map((link) => (
+        {linksVisibles.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}

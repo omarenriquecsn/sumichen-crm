@@ -40,6 +40,7 @@ export const useUserData = (userId?: string) => {
         activo: usuarioDB.activo,
         telefono: usuarioDB.telefono,
         avatar: user?.user_metadata?.avatar_url || "",
+        sidebar_oculto: usuarioDB.sidebar_oculto ?? [],
       };
     },
     enabled: !!userId,

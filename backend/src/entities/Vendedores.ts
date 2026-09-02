@@ -40,6 +40,11 @@ export class Vendedor {
   @Column({ nullable: true, default: 0 })
   meta_mensual_clientes?: number;
 
+  // Rutas del menú lateral que el usuario decidió OCULTAR en su sidebar
+  // (default [] = todo visible). Se gestiona desde Configuración → Sidebar.
+  @Column({ type: 'jsonb', nullable: false, default: () => "'[]'::jsonb" })
+  sidebar_oculto: string[];
+
    @Column({ nullable: true, default: 0 })
   monto_negociacion_mes?: number;
 

@@ -82,6 +82,21 @@ export const actualizarMiPerfilService = async (
     perfil.telefono = typeof data.telefono === 'string' ? data.telefono.trim() || null : null;
   }
 
+  if (data.sidebar_oculto !== undefined) {
+    if (!Array.isArray(data.sidebar_oculto)) {
+      throw new ApiError('sidebar_oculto debe ser una lista de rutas', 400);
+    }
+    // Normaliza: solo strings, sin vacíos, deduplicadas.
+    const rutas = Array.from(
+      new Set(
+        data.sidebar_oculto.filter(
+          (r): r is string => typeof r === 'string' && r.trim().length > 0,
+        ).map((r) => r.trim()),
+      ),
+    );
+    perfil.sidebar_oculto = rutas;
+  }
+
   if (Object.keys(perfil).length === 0) {
     throw new ApiError('No hay campos válidos para actualizar', 400);
   }

@@ -19,6 +19,7 @@ import {
   Fingerprint,
   FileText,
   Upload,
+  LayoutGrid,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-toastify";
@@ -26,6 +27,9 @@ import { useNotificacionesPush, usePreferenciasNotificacion } from "../../hooks/
 import { useInstalarApp } from "../../hooks/useInstalarApp";
 import { InstalarAppModal } from "../../components/ui/InstalarAppModal";
 import { useActualizarPerfil } from "../../hooks/useActualizarPerfil";
+import { useActualizarSidebar } from "../../hooks/useActualizarSidebar";
+import { obtenerLinksMenu } from "../../constants/menuSidebar";
+import { esAdminPrincipal } from "../../constants/adminPrincipal";
 import {
   CATEGORIAS_NOTIFICACIONES,
   EVENTOS_NOTIFICACIONES,
@@ -39,8 +43,9 @@ import {
 import { useSupabase } from "../../hooks/useSupabase";
 
 export const Configuracion: React.FC = () => {
-  const { userData, session, refreshUserData } = useAuth();
+  const { userData, session, refreshUserData, currentUser } = useAuth();
   const actualizarPerfil = useActualizarPerfil();
+  const actualizarSidebar = useActualizarSidebar();
   const { useUtilidades, useSubirUtilidad, useEliminarUtilidad } = useSupabase();
   const { data: utilidades, isLoading: utilidadesLoading } = useUtilidades();
   const subirUtilidad = useSubirUtilidad();
@@ -61,6 +66,11 @@ export const Configuracion: React.FC = () => {
   const [registrandoBiometrico, setRegistrandoBiometrico] = useState(false);
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null);
   const archivoInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Estado del menú lateral (rutas ocultas del sidebar).
+  const [sidebarOculto, setSidebarOculto] = useState<string[]>([]);
+  const sidebarOcultoRef = React.useRef<string[]>([]);
+  const sidebarInicializado = React.useRef(false);
 
   const handleSeleccionarArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -159,6 +169,7 @@ export const Configuracion: React.FC = () => {
   const tabs = [
     { id: "perfil", label: "Perfil", icon: User },
     { id: "notificaciones", label: "Notificaciones", icon: Bell },
+    { id: "sidebar", label: "Menú lateral", icon: LayoutGrid },
     { id: "seguridad", label: "Seguridad", icon: Shield },
     { id: "documentos", label: "Documentos", icon: FileText },
   ];
@@ -209,6 +220,43 @@ export const Configuracion: React.FC = () => {
       });
     } else {
       toast.success("Preferencias de notificación actualizadas.");
+    }
+  };
+
+  // Sincroniza el estado local del menú lateral con las preferencias del
+  // backend (solo la primera carga, para no pisar ediciones en curso).
+  useEffect(() => {
+    if (!userData) return;
+    if (sidebarInicializado.current) return;
+    sidebarInicializado.current = true;
+    const inicial = userData?.sidebar_oculto ?? [];
+    sidebarOcultoRef.current = inicial;
+    setSidebarOculto(inicial);
+  }, [userData]);
+
+  // Ítems del menú lateral según el rol (misma lógica que el Sidebar).
+  const esOmar = esAdminPrincipal(
+    (currentUser as { supabase_id?: string })?.supabase_id,
+    (userData as { supabase_id?: string })?.supabase_id
+  );
+  const menuItems = obtenerLinksMenu(userData?.rol, esOmar);
+
+  const handleToggleSidebar = async (route: string, visible: boolean) => {
+    // "Configuración" siempre queda visible (no se puede ocultar).
+    if (route === "/configuracion") return;
+    const actual = sidebarOcultoRef.current;
+    const nuevoOculto = visible
+      ? actual.filter((r) => r !== route)
+      : Array.from(new Set([...actual, route]));
+    sidebarOcultoRef.current = nuevoOculto;
+    setSidebarOculto(nuevoOculto);
+    try {
+      await actualizarSidebar.mutateAsync(nuevoOculto);
+      toast.success("Menú lateral actualizado.");
+    } catch (err) {
+      sidebarOcultoRef.current = actual;
+      setSidebarOculto(actual);
+      toast.error(err instanceof Error ? err.message : "Error guardando el menú.");
     }
   };
 
@@ -598,6 +646,78 @@ export const Configuracion: React.FC = () => {
                           Instalar app en este dispositivo
                         </button>
                       </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Menú lateral (sidebar) */}
+              {activeTab === "sidebar" && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Menú lateral
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Elige qué secciones quieres ver en el menú lateral de tu
+                      cuenta. Las secciones ocultas no se muestran en el menú,
+                      pero siguen siendo accesibles por URL. Los cambios se
+                      guardan automáticamente.
+                    </p>
+
+                    <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
+                      {menuItems.map((item) => {
+                        const Icono = item.icon;
+                        const siempreVisible = item.to === "/configuracion";
+                        const activo = siempreVisible || !sidebarOculto.includes(item.to);
+                        return (
+                          <div
+                            key={item.to}
+                            className="flex items-center justify-between px-4 py-3"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Icono className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="font-medium text-gray-900 text-sm">
+                                  {item.label}
+                                </p>
+                                <p className="text-sm text-gray-500 truncate">
+                                  {item.to}
+                                  {siempreVisible && " · siempre visible"}
+                                </p>
+                              </div>
+                            </div>
+                            <label
+                              className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3"
+                              title={
+                                siempreVisible
+                                  ? "Esta sección no se puede ocultar"
+                                  : activo
+                                  ? "Ocultar esta sección del menú"
+                                  : "Mostrar esta sección en el menú"
+                              }
+                            >
+                              <input
+                                type="checkbox"
+                                checked={activo}
+                                disabled={siempreVisible || actualizarSidebar.isPending}
+                                onChange={(e) =>
+                                  handleToggleSidebar(item.to, e.target.checked)
+                                }
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {actualizarSidebar.isPending && (
+                      <p className="flex items-center gap-2 text-sm text-gray-500 mt-3">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Guardando...
+                      </p>
                     )}
                   </div>
                 </div>
