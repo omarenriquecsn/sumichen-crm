@@ -16,6 +16,8 @@ import { RemitenteTipoEnum, TipoMensajeEnum } from '../entities/Mensaje';
 import { procesarAsistente } from './asistenteMenuServices';
 import { enviarPushAUsuario, enviarPushAAdmins } from './pushServices';
 import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
+import { esUsuarioEquipoPorTelefono } from '../repositories/usuariosRepository';
+import { resolverUtilidad, enviarUtilidadPorWhatsApp } from '../utils/utilidadesWhatsapp';
 
 /**
  * Fase 2 — Webhook entrante de WhatsApp (Meta Cloud API).
@@ -87,6 +89,24 @@ const procesarMensajeWhatsApp = async (msg: any, value: any, _payload: any) => {
   // Ignorar mensajes ya procesados (Meta re-envía el mismo webhook varias veces)
   if (wamid && (await mensajeExistePorWamid(wamid))) {
     return { wamid, accion: 'duplicado_ignorado' };
+  }
+
+  // ⚠ Equipo de ventas: los mensajes de números pertenecientes a un vendedor o
+  // admin activo (teléfono del perfil) NO generan leads. Si el mensaje contiene
+  // una palabra clave de utilidades ("horario", "condiciones de despacho") se
+  // envía la imagen directamente; cualquier otro mensaje del equipo se ignora.
+  if (await esUsuarioEquipoPorTelefono(telefono)) {
+    const utilidad = resolverUtilidad(cuerpo);
+    if (utilidad) {
+      await enviarUtilidadPorWhatsApp(telefono, utilidad, value.metadata?.phone_number_id);
+      return {
+        wamid,
+        accion: 'documento_utilidad_enviado',
+        palabra_clave: utilidad.palabrasClave[0],
+        archivo: utilidad.archivo,
+      };
+    }
+    return { wamid, accion: 'interno_ignorado' };
   }
 
   let lead = await getLeadByTelefono(telefono);

@@ -20,6 +20,7 @@ import transporteRoutes from './transporteRoutes';
 import pushRoutes from './pushRoutes';
 import biometricRoutes from './biometricRoutes';
 import preferenciasNotificacionesRoutes from './preferenciasNotificacionesRoutes';
+import utilidadesRoutes from './utilidadesRoutes';
 
 // import turnRoutes from "./turnRoutes"
 const router: Router = Router();
@@ -45,5 +46,6 @@ router.use('/', transporteRoutes);
 router.use('/', pushRoutes);
 router.use('/', biometricRoutes);
 router.use('/', preferenciasNotificacionesRoutes);
+router.use('/', utilidadesRoutes);
 
 export default router;

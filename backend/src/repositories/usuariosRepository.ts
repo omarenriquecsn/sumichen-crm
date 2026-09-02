@@ -46,3 +46,25 @@ export const deleteUsuario = async (id: string) => {
   const userRepository = AppDataSource.getRepository(Vendedor);
   return await userRepository.update(id, { activo: false });
 };
+
+/**
+ * Indica si el teléfono pertenece a un usuario del equipo (vendedor o admin)
+ * activo. Normaliza el teléfono a dígitos y lo compara contra los últimos 10
+ * dígitos de `vendedores.telefono` (mismo criterio que `getLeadByTelefono`),
+ * de modo que un WhatsApp con 58412... encuentre un perfil guardado como
+ * "+58 412..." o "0412...".
+ */
+export const esUsuarioEquipoPorTelefono = async (telefono: string) => {
+  const userRepository = AppDataSource.getRepository(Vendedor);
+  const normalizado = telefono.replace(/\D/g, '');
+  if (!normalizado) return false;
+  const sufijo = normalizado.slice(-10); // últimos 10 dígitos
+  const usuario = await userRepository
+    .createQueryBuilder('v')
+    .where(
+      `v.activo = true AND v.telefono IS NOT NULL AND regexp_replace(v.telefono, '\D', '', 'g') LIKE :sufijo`,
+      { sufijo: `%${sufijo}` }
+    )
+    .getOne();
+  return !!usuario;
+};

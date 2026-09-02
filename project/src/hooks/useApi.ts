@@ -1503,6 +1503,77 @@ export const useApi = () => {
     });
   };
 
+  // Documentos de utilidades (carpeta uploads/utilidades: horario, condiciones
+  // de despacho). Se muestran en Configuración → Documentos.
+  const useUtilidades = () => {
+    return useQuery<
+      { nombre: string; tamaño: number; url: string }[]
+    >({
+      queryKey: ["utilidades"],
+      queryFn: async () => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/utilidades`, {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Error al obtener los documentos");
+        return res.json();
+      },
+      enabled: !!session?.access_token,
+      staleTime: 1000 * 60 * 5,
+    });
+  };
+
+  // Subir un documento nuevo a utilidades (solo admins).
+  const useSubirUtilidad = () => {
+    return useMutation<{ message: string; nombre: string; url: string }, Error, File>({
+      mutationFn: async (file: File) => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(`${URL}/utilidades`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+          body: formData,
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.error || "Error al subir el documento");
+        }
+        return res.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["utilidades"] });
+      },
+    });
+  };
+
+  // Eliminar un documento de utilidades (solo admins).
+  const useEliminarUtilidad = () => {
+    return useMutation<{ message: string }, Error, string>({
+      mutationFn: async (nombre: string) => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(
+          `${URL}/utilidades/${encodeURIComponent(nombre)}`,
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${session?.access_token}` },
+            credentials: "include",
+          }
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.error || "Error al eliminar el documento");
+        }
+        return res.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["utilidades"] });
+      },
+    });
+  };
+
   return {
     useClientes,
     useActividades,
@@ -1560,5 +1631,9 @@ export const useApi = () => {
     // Menú de bienvenida (asistente WhatsApp)
     useMenuBienvenida,
     useActualizarMenuBienvenida,
+    // Documentos de utilidades
+    useUtilidades,
+    useSubirUtilidad,
+    useEliminarUtilidad,
   };
 };

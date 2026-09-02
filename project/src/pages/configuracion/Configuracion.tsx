@@ -17,6 +17,8 @@ import {
   Trash2,
   Download,
   Fingerprint,
+  FileText,
+  Upload,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-toastify";
@@ -34,10 +36,17 @@ import {
   eliminarCredencial,
   soportaBiometria,
 } from "../../lib/biometric";
+import { useSupabase } from "../../hooks/useSupabase";
 
 export const Configuracion: React.FC = () => {
   const { userData, session, refreshUserData } = useAuth();
   const actualizarPerfil = useActualizarPerfil();
+  const { useUtilidades, useSubirUtilidad, useEliminarUtilidad } = useSupabase();
+  const { data: utilidades, isLoading: utilidadesLoading } = useUtilidades();
+  const subirUtilidad = useSubirUtilidad();
+  const eliminarUtilidad = useEliminarUtilidad();
+  const esAdmin = userData?.rol === "admin";
+  const URL = import.meta.env.VITE_BACKEND_URL;
   const [activeTab, setActiveTab] = useState("perfil");
   const [showPassword, setShowPassword] = useState(false);
   const push = useNotificacionesPush();
@@ -50,6 +59,40 @@ export const Configuracion: React.FC = () => {
     { id: string; dispositivo: string | null; fecha_creacion: string }[]
   >([]);
   const [registrandoBiometrico, setRegistrandoBiometrico] = useState(false);
+  const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null);
+  const archivoInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleSeleccionarArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setArchivoSeleccionado(file);
+  };
+
+  const handleSubirUtilidad = async () => {
+    if (!archivoSeleccionado) {
+      toast.info("Selecciona un archivo antes de subir.");
+      return;
+    }
+    try {
+      await subirUtilidad.mutateAsync(archivoSeleccionado);
+      toast.success("Documento subido correctamente.");
+      setArchivoSeleccionado(null);
+      if (archivoInputRef.current) archivoInputRef.current.value = "";
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al subir el documento.");
+    }
+  };
+
+  const handleEliminarUtilidad = async (nombre: string) => {
+    if (!window.confirm(`¿Eliminar "${nombre}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+    try {
+      await eliminarUtilidad.mutateAsync(nombre);
+      toast.success("Documento eliminado.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al eliminar el documento.");
+    }
+  };
 
   const cargarCredenciales = async () => {
     try {
@@ -117,6 +160,7 @@ export const Configuracion: React.FC = () => {
     { id: "perfil", label: "Perfil", icon: User },
     { id: "notificaciones", label: "Notificaciones", icon: Bell },
     { id: "seguridad", label: "Seguridad", icon: Shield },
+    { id: "documentos", label: "Documentos", icon: FileText },
   ];
 
   const handlePerfilChange = (field: string, value: string) => {
@@ -181,6 +225,34 @@ export const Configuracion: React.FC = () => {
       toast.error(
         err instanceof Error ? err.message : "Error al guardar el perfil."
       );
+    }
+  };
+
+   const handleDescargarUtilidad = async (nombre: string) => {
+    try {
+      const response = await fetch(
+        `${URL}/utilidades/${encodeURIComponent(nombre)}?download=1`,
+        {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        toast.error("Error al descargar el documento.");
+        return;
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nombre;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Descarga iniciada.");
+    } catch {
+      toast.error("Error al descargar el documento.");
     }
   };
 
@@ -703,21 +775,148 @@ export const Configuracion: React.FC = () => {
                 </div>
               )}
 
-              {/* Botón guardar */}
-              <div className="border-t border-gray-200 pt-6 mt-8">
-                <button
-                  onClick={handleSave}
-                  disabled={actualizarPerfil.isPending}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {actualizarPerfil.isPending ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Save className="h-5 w-5" />
+              {/* Documentos útiles */}
+              {activeTab === "documentos" && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Documentos Útiles
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Documentos de la carpeta <code>utilidades</code>. Se envían
+                      automáticamente por WhatsApp cuando el equipo de ventas escribe
+                      al número del API con las palabras clave{" "}
+                      <strong>"horario"</strong> o <strong>"condiciones de despacho"</strong>.
+                    </p>
+                  </div>
+
+                  {esAdmin && (
+                    <div className="border border-dashed border-blue-300 bg-blue-50/50 rounded-xl p-4">
+                      <h4 className="font-medium text-gray-900 mb-1">
+                        Subir documento
+                      </h4>
+                      <p className="text-sm text-gray-500 mb-3">
+                        Solo se admiten imágenes (JPG, PNG, WEBP, GIF) y PDF.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <input
+                          ref={archivoInputRef}
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.webp,.gif,.pdf"
+                          onChange={handleSeleccionarArchivo}
+                          className="block w-full sm:max-w-md text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                        <button
+                          onClick={handleSubirUtilidad}
+                          disabled={subirUtilidad.isPending}
+                          className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium px-4 py-2.5 rounded-lg transition-colors shrink-0"
+                        >
+                          {subirUtilidad.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="h-4 w-4" />
+                          )}
+                          {subirUtilidad.isPending ? "Subiendo..." : "Subir documento"}
+                        </button>
+                      </div>
+                    </div>
                   )}
-                  <span>Guardar Cambios</span>
-                </button>
-              </div>
+
+                  {utilidadesLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                    </div>
+                  ) : !utilidades?.length ? (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center text-gray-500 text-sm">
+                      No hay documentos en la carpeta <code>utilidades</code>.
+                      {esAdmin && " Usa el formulario de arriba para subir el primero."}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {utilidades.map((u) => {
+                        const href = `${u.url}${u.url.includes("?") ? "&" : "?"}access_token=${encodeURIComponent(
+                          session?.access_token ?? ""
+                        )}`;
+                        return (
+                          <div
+                            key={u.nombre}
+                            className="border border-gray-200 rounded-xl p-4"
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className="w-20 h-20 bg-blue-50 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {/\.(jpe?g|png|webp|gif)$/i.test(u.nombre) ? (
+                                  <img
+                                    src={href}
+                                    alt={u.nombre}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <FileText className="h-8 w-8 text-blue-600" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 truncate">
+                                  {u.nombre}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  {u.tamaño ? `${(u.tamaño / 1024).toFixed(1)} KB` : "—"}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
+                              <a
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                              >
+                                <Eye className="h-4 w-4" />
+                                <span className="hidden sm:inline">Ver</span>
+                              </a>
+                              <button
+                                onClick={() => handleDescargarUtilidad(u.nombre)}
+                                className="inline-flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                              >
+                                <Download className="h-4 w-4" />
+                                <span className="hidden sm:inline">Descargar</span>
+                              </button>
+                              {esAdmin && (
+                                <button
+                                  onClick={() => handleEliminarUtilidad(u.nombre)}
+                                  disabled={eliminarUtilidad.isPending}
+                                  className="inline-flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 gap-1.5 text-sm font-medium text-red-700 hover:text-red-900 bg-red-50 hover:bg-red-100 rounded-lg transition-colors ml-auto"
+                                  title="Eliminar documento"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="hidden sm:inline">Eliminar</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Botón guardar (solo visible en el tab Perfil) */}
+              {activeTab === "perfil" && (
+                <div className="border-t border-gray-200 pt-6 mt-8">
+                  <button
+                    onClick={handleSave}
+                    disabled={actualizarPerfil.isPending}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {actualizarPerfil.isPending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Save className="h-5 w-5" />
+                    )}
+                    <span>Guardar Cambios</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
