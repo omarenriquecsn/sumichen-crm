@@ -41,6 +41,7 @@ export const useUserData = (userId?: string) => {
         telefono: usuarioDB.telefono,
         avatar: user?.user_metadata?.avatar_url || "",
         sidebar_oculto: usuarioDB.sidebar_oculto ?? [],
+        firma_url: usuarioDB.firma_url ?? undefined,
       };
     },
     enabled: !!userId,

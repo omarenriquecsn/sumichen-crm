@@ -347,6 +347,7 @@ export type Mes = {
     rol: "vendedor" | "admin";
     monto_negociacion_mes?: number;
     sidebar_oculto?: string[];
+    firma_url?: string;
   }
 
   export enum CustomerSector {

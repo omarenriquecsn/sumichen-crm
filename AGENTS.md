@@ -187,7 +187,7 @@ No hay script de test funcional ni de typecheck dedicado (el typecheck real es `
 
 ## 8. Progreso de la actualización (bitácora)
 
-Sesión de mantenimiento: **Punto 1 (Seguridad)** ✅, **Punto 2 (Migraciones)** ✅, **Punto 3 (Refactor de hooks)** ✅, **Punto 4 (Typos)** ✅, **Punto 5 (Rol consistente)** ✅, **Punto 6 (Rutas)** ✅, **Punto 7 (Lint/typecheck/test)** ✅, **Punto 8 (Google Calendar)** ✅, **Punto 9 (Imports)** ✅, **Punto 10 (SQL alineado)** ✅ y **Punto 11 (Fixes WhatsApp + UX, 22/08)** ✅. Plus: **Feature "Registrar Usuarios"** ✅, **Feature "Marketing / Leads (Fase 1)"** ⚠ (compila; fallos críticos corregidos — ver sección del feature), **Feature "Transporte y negociación en pedidos" (24/08)** ✅ (ver Punto 12), **Punto 13 (Próximas Actividades + modal detalle + persistencia de listas, 27/08)** ✅, **Punto 14 (Descargas DB: fix reuniones + columnas nuevas + descargas de marketing, 28/08)** ✅, **Punto 15 (PWA instalable + Web Push + Acceso biométrico, 28/08)** ✅ (ver "Feature — PWA instalable + Notificaciones push + Acceso biométrico"), **Punto 16 (Editar perfil propio, 28/08)** ✅, **Punto 17 (Notificaciones push por evento + recordatorios, 28/08)** ✅ y **Punto 18 (Fix overflow de selects en móvil, 29/08)** ✅, **Punto 19 (Fix catálogo PDF del asistente, 29/08)** ✅, **Punto 20 (Fix lógica y diseño de Analítica + seed de datos de prueba, 29/08)** ✅, **Punto 21 (Vista móvil de Reuniones: tarjetas + filtro que cabía en pantalla, 29/08)** ✅, **Punto 22 (Modernización del calendario de reuniones, 29/08)** ✅, **Punto 23 (Vista móvil de Tickets: tarjetas, 29/08)** ✅ y **Punto 24 (Acciones Rápidas del cliente + "Llamar" desde PC al móvil, 29/08)** ✅ y **Punto 26 (Personalizar el menú lateral desde Configuración, 01/09)** ✅.
+Sesión de mantenimiento: **Punto 1 (Seguridad)** ✅, **Punto 2 (Migraciones)** ✅, **Punto 3 (Refactor de hooks)** ✅, **Punto 4 (Typos)** ✅, **Punto 5 (Rol consistente)** ✅, **Punto 6 (Rutas)** ✅, **Punto 7 (Lint/typecheck/test)** ✅, **Punto 8 (Google Calendar)** ✅, **Punto 9 (Imports)** ✅, **Punto 10 (SQL alineado)** ✅ y **Punto 11 (Fixes WhatsApp + UX, 22/08)** ✅. Plus: **Feature "Registrar Usuarios"** ✅, **Feature "Marketing / Leads (Fase 1)"** ⚠ (compila; fallos críticos corregidos — ver sección del feature), **Feature "Transporte y negociación en pedidos" (24/08)** ✅ (ver Punto 12), **Punto 13 (Próximas Actividades + modal detalle + persistencia de listas, 27/08)** ✅, **Punto 14 (Descargas DB: fix reuniones + columnas nuevas + descargas de marketing, 28/08)** ✅, **Punto 15 (PWA instalable + Web Push + Acceso biométrico, 28/08)** ✅ (ver "Feature — PWA instalable + Notificaciones push + Acceso biométrico"), **Punto 16 (Editar perfil propio, 28/08)** ✅, **Punto 17 (Notificaciones push por evento + recordatorios, 28/08)** ✅ y **Punto 18 (Fix overflow de selects en móvil, 29/08)** ✅, **Punto 19 (Fix catálogo PDF del asistente, 29/08)** ✅, **Punto 20 (Fix lógica y diseño de Analítica + seed de datos de prueba, 29/08)** ✅, **Punto 21 (Vista móvil de Reuniones: tarjetas + filtro que cabía en pantalla, 29/08)** ✅, **Punto 22 (Modernización del calendario de reuniones, 29/08)** ✅, **Punto 23 (Vista móvil de Tickets: tarjetas, 29/08)** ✅ y **Punto 24 (Acciones Rápidas del cliente + "Llamar" desde PC al móvil, 29/08)** ✅ y **Punto 26 (Personalizar el menú lateral desde Configuración, 01/09)** ✅ y **Punto 27 (Firma en Configuración + correo al cliente vía Resend con adjuntos, 01/09)** ✅.
 
 ### Punto 1 — Seguridad ✅ (fase 1A, 1B y 1C completadas; build backend + build/lint frontend OK)
 
@@ -978,3 +978,31 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 - Schema de datos: ya se eligió **migraciones TypeORM** (baseline idempotente). Para cambios futuros de schema: crear una migración nueva en `src/database/migrations/`, NO editar el baseline.
 - Para cualquier cambio de API: seguir el patrón routes → controllers → services → repositories → entity.
 - Para cambios de UI: mantener Tailwind + MUI y el patrón de hooks agregadores + React Query.
+### Punto 27 � Firma en Configuraci�n + correo al cliente v�a Resend con adjuntos (01/09) ? (build/lint/typecheck OK backend y frontend)
+
+> **Resumen**: (1) cada vendedor/admin sube desde **Configuraci�n ? Perfil** una **imagen de firma/logo �nica** (subir otra la sustituye; se identifica por el id de la tabla endedores). (2) El bot�n **"Enviar Email"** del detalle de cliente ya NO abre Gmail/mailto (cuerpo de texto plano que no renderiza im�genes): ahora abre un **modal de redacci�n estilo Gmail** (ComponerCorreoModal) con editor enriquecido (Quill) y **adjuntos**, y el backend env�a el correo **desde el servidor v�a Resend** con cuerpo HTML que incrusta la firma del vendedor como <img> en el pie (por eso s� se ve la imagen).
+
+#### Backend
+- **Dep**: esend (SDK oficial).
+- **services/correosServices.ts**: enviarCorreoCliente({ vendedorDbId, to, asunto, cuerpoHtml, adjuntos }) � lee el perfil por eq.user.vendedor_db_id, arma el rom "Nombre Apellido" <nombre.apellido@RESEND_DOMAIN> (normalizado: min�sculas, sin tildes/espacios ? puntos), a�ade el pie HTML con irma_url (<img>), convierte adjuntos a base64 y env�a v�a esend.emails.send. L�mites: 10 adjuntos m�x, 10 MB por archivo. Errores claros (ApiError) para dominio sin verificar, API key faltante o adjuntos muy grandes.
+- **M�dulo /correos**: POST /correos/enviar (JWT + multer upload.array('adjuntos', 10)) ? correosControllers.ts (enviarCorreo) ? correosRoutes.ts (montado en indexRoutes). Body: 	o, sunto, cuerpo (HTML del editor), files en djuntos[].
+- **Env**: RESEND_API_KEY (obligatoria) y RESEND_DOMAIN (default entas.crmsumichen.com). Documentados en .env.example y placeholders vac�os en .env.
+
+#### Frontend
+- **Dep**: eact-quill (editor enriquecido) + quill.snow.css.
+- **components/forms/ComponerCorreoModal.tsx**: modal estilo Gmail � header "Nuevo mensaje" con ?, campo **Para** (chips azul con cliente.email), **Asunto**, **cuerpo Quill** (negrita/cursiva/subrayado/listas/enlaces), **adjuntos** (bot�n ??, lista con nombre/tama�o y quitar, hasta 10 archivos/10 MB), footer con **Enviar** (spinner) y hint de firma. Recibe { cliente, firmaUrl, open, onClose, onEnviado }. Pre-carga el saludo "Estimado(a) {nombre}�" al abrir.
+- **hooks/useEnviarCorreo.ts**: mutation ? POST /correos/enviar con FormData (to/asunto/cuerpo/adjuntos) + Bearer; invalida ["actividades"].
+- **utils/firma.ts**: generarPieCorreoHtml/rmarCuerpoConFirma ahora devuelven HTML (<img>) en vez de texto.
+- **components/ui/AccionesRapidasCliente.tsx**: se elimina el mailto: m�vil y el bot�n desktop abre el modal; props onEmailMovil/onEmailDesktop/irmaUrl ? **onEnviarEmail** (�nico).
+- **ClienteDetalle.tsx** y **ClienteDetalleModal.tsx**: abren el ComponerCorreoModal con cliente + irmaUrl (en el modal resuelta desde useVendedores por endedor.id); en onEnviado registran la actividad tipo email (como antes). Se elimin� el uso de brirGmail/mailto para enviar.
+
+#### C�mo probar
+- Configuraci�n ? Perfil ? "Imagen de firma (pie de correo)": subir una imagen (se ve el preview), subir otra (sustituye), eliminar.
+- Detalle de cliente ? "Enviar Email" ? modal Gmail: escribir, adjuntar un archivo y enviar ? toast de �xito; revisar la bandeja del destinatario (la firma aparece como imagen en el pie). Sin RESEND_API_KEY el backend responde error claro.
+- Verificar que la actividad tipo email se registra tras el env�o.
+
+#### ? Notas / deuda
+- Requiere **dominio verificado** en Resend (entas.crmsumichen.com) y RESEND_API_KEY en ackend/.env (no configurada a�n � hay placeholder).
+- El rom usa el nombre/apellido del vendedor autenticado; admins tambi�n pueden enviar (su perfil tiene 
+ombre/pellido).
+- Gmail/mailto ya no se usan para el env�o; brirGmail queda en utils/pedidos.ts como c�digo legacy sin uso (no se elimin� para no romper otros imports).

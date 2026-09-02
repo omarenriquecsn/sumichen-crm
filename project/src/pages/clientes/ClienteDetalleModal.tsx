@@ -45,6 +45,8 @@ import generarGoogleCalendarLink from "../../utils/googleCalendarLink";
 import { ConfirmarAccionToast } from "../../components/ui/ConfirmarAccionToast";
 import { useAuth } from "../../context/useAuth";
 import { AccionesRapidasCliente } from "../../components/ui/AccionesRapidasCliente";
+import useVendedores from "../../hooks/useVendedores";
+import ComponerCorreoModal from "../../components/forms/ComponerCorreoModal";
 interface ClienteDetalleModalProps {
   vendedor: User | null;
   cliente: Cliente;
@@ -65,6 +67,15 @@ export const ClienteDetalleModal: React.FC<ClienteDetalleModalProps> = ({
   const { session } = useAuth();
   const URL = import.meta.env.VITE_BACKEND_URL;
 
+  // Firma/logo del vendedor para el pie del correo: como en este flujo
+  // `vendedor` solo trae el `id` (modo admin sobre el panel de un vendedor),
+  // se resuelve la firma desde la lista de vendedores del backend.
+  const { data: vendedoresLista } = useVendedores();
+  const firmaVendedorActual =
+    Array.isArray(vendedoresLista)
+      ? vendedoresLista.find((v) => v.id === currentUser?.id)?.firma_url
+      : undefined;
+
   const id = cliente.id;
 
   const navigate = useNavigate();
@@ -75,6 +86,7 @@ export const ClienteDetalleModal: React.FC<ClienteDetalleModalProps> = ({
   const [isModalCOpen, setModalCopen] = useState(false);
   const [modalPedidoVisible, setModalPedidoVisible] = useState(false);
   const [modalVendedorVisible, setModalVendedorVisible] = useState(false);
+  const [modalCorreoVisible, setModalCorreoVisible] = useState(false);
   const [mostrarToastInvitacion, setMostrarToastInvitacion] = useState(false);
   const [handlers, setHandlers] = useState<{
     handleConfirm: () => void;
@@ -142,7 +154,7 @@ export const ClienteDetalleModal: React.FC<ClienteDetalleModalProps> = ({
 
     // Pedidos filtrados Ultima Compra Abrir Gmail
 
-    const { pedidosFiltrados, ultimaCompra, abrirGmail } = utilsPedidos(
+    const { pedidosFiltrados, ultimaCompra } = utilsPedidos(
       pedidos as Pedido[],
       cliente,
     );
@@ -668,27 +680,7 @@ export const ClienteDetalleModal: React.FC<ClienteDetalleModalProps> = ({
                     currentUser: currentUser,
                   })
                 }
-                onEmailMovil={() =>
-                  crearActividad({
-                    actividadData: {
-                      titulo: "Email",
-                      fecha: new Date(),
-                      cliente_id: cliente.id,
-                      descripcion: "Se ha enviado un correo al cliente ",
-                      tipo: "email",
-                      completado: true,
-                    },
-                    currentUser: currentUser,
-                  })
-                }
-                onEmailDesktop={() =>
-                  abrirGmail({
-                    cliente,
-                    currentUser,
-                    navigate,
-                    crearActividad,
-                  })
-                }
+                onEnviarEmail={() => setModalCorreoVisible(true)}
                 onAgendarReunion={() => setModalCopen(true)}
                 onCrearPedido={() => setModalPedidoVisible(true)}
                 onAsignarVendedor={() => setModalVendedorVisible(true)}
@@ -800,6 +792,25 @@ export const ClienteDetalleModal: React.FC<ClienteDetalleModalProps> = ({
                 closeModal={() => setModalVendedorVisible(false)}
               />
             </Modal>
+            <ComponerCorreoModal
+              cliente={cliente}
+              firmaUrl={firmaVendedorActual}
+              open={modalCorreoVisible}
+              onClose={() => setModalCorreoVisible(false)}
+              onEnviado={() =>
+                crearActividad({
+                  actividadData: {
+                    titulo: "Email",
+                    fecha: new Date(),
+                    cliente_id: cliente.id,
+                    descripcion: "Se ha enviado un correo al cliente ",
+                    tipo: "email",
+                    completado: true,
+                  },
+                  currentUser: currentUser,
+                })
+              }
+            />
             {handlers && (
               <ConfirmarAccionToast
                 visible={mostrarToastInvitacion}

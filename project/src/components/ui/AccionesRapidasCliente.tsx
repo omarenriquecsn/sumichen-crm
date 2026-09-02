@@ -19,8 +19,7 @@ interface AccionesRapidasClienteProps {
   isMobile: boolean;
   esAdmin: boolean;
   onLlamar: () => void;
-  onEmailMovil: () => void;
-  onEmailDesktop: () => void;
+  onEnviarEmail: () => void;
   onAgendarReunion: () => void;
   onCrearPedido: () => void;
   onAsignarVendedor?: () => void;
@@ -45,8 +44,7 @@ export const AccionesRapidasCliente: React.FC<AccionesRapidasClienteProps> = ({
   isMobile,
   esAdmin,
   onLlamar,
-  onEmailMovil,
-  onEmailDesktop,
+  onEnviarEmail,
   onAgendarReunion,
   onCrearPedido,
   onAsignarVendedor,
@@ -180,33 +178,18 @@ export const AccionesRapidasCliente: React.FC<AccionesRapidasClienteProps> = ({
             </div>
           ))}
 
-        {isMobile ? (
-          <a
-            href={`mailto:${cliente.email}?subject=Contacto desde CRM&body=Hola ${cliente.nombre},`}
-            onClick={onEmailMovil}
-            className={`${claseBaseTarjeta} hover:border-green-300 hover:bg-green-50`}
-          >
-            <span className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-              <Mail className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-medium text-gray-700">
-              Enviar Email
-            </span>
-          </a>
-        ) : (
-          <button
-            type="button"
-            onClick={onEmailDesktop}
-            className={`${claseBaseTarjeta} hover:border-green-300 hover:bg-green-50`}
-          >
-            <span className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-              <Mail className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-medium text-gray-700">
-              Enviar Email
-            </span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onEnviarEmail}
+          className={`${claseBaseTarjeta} hover:border-green-300 hover:bg-green-50`}
+        >
+          <span className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+            <Mail className="h-5 w-5" />
+          </span>
+          <span className="text-sm font-medium text-gray-700">
+            Enviar Email
+          </span>
+        </button>
 
         {tieneTelefono && (
           <a

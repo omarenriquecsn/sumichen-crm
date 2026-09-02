@@ -50,6 +50,7 @@ import { useCrearNotificacion } from "../../hooks/useNotificaciones";
 import useVendedores from "../../hooks/useVendedores";
 import ActualizarActividadModal from "../../components/forms/ActualizarActividad";
 import { AccionesRapidasCliente } from "../../components/ui/AccionesRapidasCliente";
+import ComponerCorreoModal from "../../components/forms/ComponerCorreoModal";
 
 export const ClienteDetalle: React.FC = () => {
   dayjs.locale("es");
@@ -68,6 +69,7 @@ export const ClienteDetalle: React.FC = () => {
   const [isModalCOpen, setModalCopen] = useState(false);
   const [modalPedidoVisible, setModalPedidoVisible] = useState(false);
   const [modalVendedorVisible, setModalVendedorVisible] = useState(false);
+  const [modalCorreoVisible, setModalCorreoVisible] = useState(false);
   const [mostrarToastInvitacion, setMostrarToastInvitacion] = useState(false);
   const [handlers, setHandlers] = useState<{
     handleConfirm: () => void;
@@ -142,7 +144,7 @@ export const ClienteDetalle: React.FC = () => {
 
     // Pedidos filtrados Ultima Compra Abrir Gmail
 
-    const { pedidosFiltrados, ultimaCompra, abrirGmail } = utilsPedidos(
+    const { pedidosFiltrados, ultimaCompra } = utilsPedidos(
       pedidos as Pedido[],
       cliente,
     );
@@ -672,27 +674,7 @@ export const ClienteDetalle: React.FC = () => {
                     currentUser: currentUser,
                   })
                 }
-                onEmailMovil={() =>
-                  crearActividad({
-                    actividadData: {
-                      titulo: "Email",
-                      fecha: new Date(),
-                      cliente_id: cliente.id,
-                      descripcion: "Se ha enviado un correo al cliente ",
-                      tipo: "email",
-                      completado: true,
-                    },
-                    currentUser: currentUser,
-                  })
-                }
-                onEmailDesktop={() =>
-                  abrirGmail({
-                    cliente,
-                    currentUser,
-                    navigate,
-                    crearActividad,
-                  })
-                }
+                onEnviarEmail={() => setModalCorreoVisible(true)}
                 onAgendarReunion={() => setModalCopen(true)}
                 onCrearPedido={() => setModalPedidoVisible(true)}
                 onAsignarVendedor={() => setModalVendedorVisible(true)}
@@ -803,6 +785,25 @@ export const ClienteDetalle: React.FC = () => {
             closeModal={() => setModalVendedorVisible(false)}
           />
         </Modal>
+        <ComponerCorreoModal
+          cliente={cliente}
+          firmaUrl={(currentUser as { firma_url?: string })?.firma_url}
+          open={modalCorreoVisible}
+          onClose={() => setModalCorreoVisible(false)}
+          onEnviado={() =>
+            crearActividad({
+              actividadData: {
+                titulo: "Email",
+                fecha: new Date(),
+                cliente_id: cliente.id,
+                descripcion: "Se ha enviado un correo al cliente ",
+                tipo: "email",
+                completado: true,
+              },
+              currentUser: currentUser,
+            })
+          }
+        />
         {handlers && (
           <ConfirmarAccionToast
             visible={mostrarToastInvitacion}

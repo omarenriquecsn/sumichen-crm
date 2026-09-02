@@ -48,6 +48,11 @@ export class Vendedor {
    @Column({ nullable: true, default: 0 })
   monto_negociacion_mes?: number;
 
+  // Imagen/firma única del vendedor (subida desde Configuración → Perfil). Se usa
+  // como pie de página en el correo que se envía al cliente. URL absoluta.
+  @Column({ type: 'varchar', nullable: true })
+  firma_url?: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   fecha_creacion?: Date;
 

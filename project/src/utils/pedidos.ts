@@ -2,6 +2,7 @@ import { User } from "@supabase/supabase-js";
 import { Cliente, formProducto, Pedido, PedidoData, Actividad } from "../types";
 import { toast } from "react-toastify";
 import { UseMutateFunction } from "@tanstack/react-query";
+import { armarCuerpoConFirma } from "./firma";
 
 export interface HandleCrearPedidoParams {
   data: PedidoData;
@@ -180,10 +181,12 @@ export const utilsPedidos = (pedidos: Pedido[], cliente: Cliente) => {
     currentUser,
     navigate,
     crearActividad,
+    firmaUrl,
   }: {
     cliente: Cliente;
     currentUser: import("@supabase/supabase-js").User;
     navigate: import("react-router-dom").NavigateFunction;
+    firmaUrl?: string;
     crearActividad: (
       params: {
         actividadData: Partial<Actividad>;
@@ -200,7 +203,10 @@ export const utilsPedidos = (pedidos: Pedido[], cliente: Cliente) => {
     const destinatario = encodeURIComponent(cliente.email);
     const asunto = encodeURIComponent("¡Hola desde Sumichem!");
     const cuerpo = encodeURIComponent(
-      `Estimado ${cliente.nombre}, nos alegra contactarte.`
+      armarCuerpoConFirma(
+        `Estimado ${cliente.nombre}, nos alegra contactarte.`,
+        firmaUrl,
+      ),
     );
 
     const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${destinatario}&su=${asunto}&body=${cuerpo}`;

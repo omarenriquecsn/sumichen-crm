@@ -28,6 +28,7 @@ import { useInstalarApp } from "../../hooks/useInstalarApp";
 import { InstalarAppModal } from "../../components/ui/InstalarAppModal";
 import { useActualizarPerfil } from "../../hooks/useActualizarPerfil";
 import { useActualizarSidebar } from "../../hooks/useActualizarSidebar";
+import { useSubirFirma, useEliminarFirma } from "../../hooks/useFirma";
 import { obtenerLinksMenu } from "../../constants/menuSidebar";
 import { esAdminPrincipal } from "../../constants/adminPrincipal";
 import {
@@ -66,6 +67,52 @@ export const Configuracion: React.FC = () => {
   const [registrandoBiometrico, setRegistrandoBiometrico] = useState(false);
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null);
   const archivoInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Imagen/firma del vendedor (pie de correo). Única por usuario: subir una
+  // nueva sustituye la anterior.
+  const [firmaArchivo, setFirmaArchivo] = useState<File | null>(null);
+  const firmaInputRef = React.useRef<HTMLInputElement>(null);
+  const subirFirma = useSubirFirma();
+  const eliminarFirma = useEliminarFirma();
+  const firmaUrlActual = userData?.firma_url;
+
+  const handleSeleccionarFirma = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setFirmaArchivo(file);
+  };
+
+  const handleSubirFirma = async () => {
+    if (!firmaArchivo) {
+      toast.info("Selecciona una imagen antes de subirla.");
+      return;
+    }
+    try {
+      await subirFirma.mutateAsync(firmaArchivo);
+      toast.success("Imagen subida correctamente. Se usará en el pie de tus correos.");
+      setFirmaArchivo(null);
+      if (firmaInputRef.current) firmaInputRef.current.value = "";
+      await refreshUserData();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Error al subir la imagen.",
+      );
+    }
+  };
+
+  const handleEliminarFirma = async () => {
+    if (!window.confirm("¿Eliminar tu imagen de firma? Los próximos correos ya no la incluirán.")) {
+      return;
+    }
+    try {
+      await eliminarFirma.mutateAsync();
+      toast.success("Imagen eliminada.");
+      await refreshUserData();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Error al eliminar la imagen.",
+      );
+    }
+  };
 
   // Estado del menú lateral (rutas ocultas del sidebar).
   const [sidebarOculto, setSidebarOculto] = useState<string[]>([]);
@@ -151,7 +198,6 @@ export const Configuracion: React.FC = () => {
   });
   // Evita que el useEffect de sincronización pise lo que el usuario está escribiendo.
   const perfilEdito = React.useRef(false);
-
   // userData llega después del montaje (query async): rellena el formulario
   // cuando carga, salvo que el usuario ya haya editado algún campo.
   useEffect(() => {
@@ -450,6 +496,69 @@ export const Configuracion: React.FC = () => {
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Imagen de firma / logo (pie de correo) */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Imagen de firma (pie de correo)
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Sube una imagen (logo, firma o membrete) que se incluirá en
+                      el pie de los correos que envíes a tus clientes. Cada
+                      vendedor tiene una sola imagen: si subes una nueva, se
+                      sustituye la anterior automáticamente.
+                    </p>
+
+                    {firmaUrlActual ? (
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="w-32 h-20 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden flex items-center justify-center">
+                          <img
+                            src={firmaUrlActual}
+                            alt="Imagen de firma"
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                        <button
+                          onClick={handleEliminarFirma}
+                          disabled={eliminarFirma.isPending}
+                          className="inline-flex items-center gap-2 text-sm font-medium text-red-700 hover:text-red-900 bg-red-50 hover:bg-red-100 rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
+                        >
+                          {eliminarFirma.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                          Eliminar imagen
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 mb-4">
+                        Aún no has subido una imagen de firma.
+                      </p>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <input
+                        ref={firmaInputRef}
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp,.gif"
+                        onChange={handleSeleccionarFirma}
+                        className="block w-full sm:max-w-md text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                      <button
+                        onClick={handleSubirFirma}
+                        disabled={!firmaArchivo || subirFirma.isPending}
+                        className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium px-4 py-2.5 rounded-lg transition-colors shrink-0"
+                      >
+                        {subirFirma.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4" />
+                        )}
+                        {subirFirma.isPending ? "Subiendo..." : "Subir imagen"}
+                      </button>
                     </div>
                   </div>
                 </div>

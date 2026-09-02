@@ -11,6 +11,7 @@ export interface UserData {
   telefono?: string;
   avatar?: string;
   sidebar_oculto?: string[];
+  firma_url?: string;
 }
 
 export interface AuthContextType {
