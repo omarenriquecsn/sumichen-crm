@@ -29,7 +29,8 @@ const ExcelProductos = () => {
     })
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data?.error || "Error al enviar el archivo");
+        if (!response.ok)
+          throw new Error(data?.error || data?.message || "Error al enviar el archivo");
         return data;
       })
       .then((data) => {
@@ -67,7 +68,8 @@ const ExcelProductos = () => {
     })
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data?.error || "Error al subir la lista de precios");
+        if (!response.ok)
+          throw new Error(data?.error || data?.message || "Error al subir la lista de precios");
         return data;
       })
       .then((data) => {

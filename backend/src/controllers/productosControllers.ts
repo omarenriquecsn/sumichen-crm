@@ -127,7 +127,7 @@ export const subirInventario = [
  * $/kg" de la tabla del PDF (matcheando por código = `productos.descripcion`).
  */
 export const subirListaPrecios = [
-  upload.single('file'),
+  upload.single('filePrecios'),
   async (req: Request, res: Response) => {
     if (req.user?.rol !== 'admin') {
       return res.status(403).json({ error: 'Solo administradores' });
