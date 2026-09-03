@@ -16,4 +16,7 @@ export class Producto {
 
   @Column({ type: 'decimal', precision: 12, scale: 4, default: 0 })
   precio_base: number;
+
+  @Column({ type: 'boolean', default: true })
+  disponible: boolean;
 }

@@ -978,31 +978,87 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 - Schema de datos: ya se eligió **migraciones TypeORM** (baseline idempotente). Para cambios futuros de schema: crear una migración nueva en `src/database/migrations/`, NO editar el baseline.
 - Para cualquier cambio de API: seguir el patrón routes → controllers → services → repositories → entity.
 - Para cambios de UI: mantener Tailwind + MUI y el patrón de hooks agregadores + React Query.
-### Punto 27 � Firma en Configuraci�n + correo al cliente v�a Resend con adjuntos (01/09) ? (build/lint/typecheck OK backend y frontend)
+### Punto 27 � Firma en Configuraci�n + correo al cliente v�a Resend con adjuntos (01/09) ? (build/lint/typecheck OK backend y frontend)
 
-> **Resumen**: (1) cada vendedor/admin sube desde **Configuraci�n ? Perfil** una **imagen de firma/logo �nica** (subir otra la sustituye; se identifica por el id de la tabla endedores). (2) El bot�n **"Enviar Email"** del detalle de cliente ya NO abre Gmail/mailto (cuerpo de texto plano que no renderiza im�genes): ahora abre un **modal de redacci�n estilo Gmail** (ComponerCorreoModal) con editor enriquecido (Quill) y **adjuntos**, y el backend env�a el correo **desde el servidor v�a Resend** con cuerpo HTML que incrusta la firma del vendedor como <img> en el pie (por eso s� se ve la imagen).
+> **Resumen**: (1) cada vendedor/admin sube desde **Configuraci�n ? Perfil** una **imagen de firma/logo �nica** (subir otra la sustituye; se identifica por el id de la tabla endedores). (2) El bot�n **"Enviar Email"** del detalle de cliente ya NO abre Gmail/mailto (cuerpo de texto plano que no renderiza im�genes): ahora abre un **modal de redacci�n estilo Gmail** (ComponerCorreoModal) con editor enriquecido (Quill) y **adjuntos**, y el backend env�a el correo **desde el servidor v�a Resend** con cuerpo HTML que incrusta la firma del vendedor como <img> en el pie (por eso s� se ve la imagen).
 
 #### Backend
 - **Dep**: esend (SDK oficial).
-- **services/correosServices.ts**: enviarCorreoCliente({ vendedorDbId, to, asunto, cuerpoHtml, adjuntos }) � lee el perfil por eq.user.vendedor_db_id, arma el rom "Nombre Apellido" <nombre.apellido@RESEND_DOMAIN> (normalizado: min�sculas, sin tildes/espacios ? puntos), a�ade el pie HTML con irma_url (<img>), convierte adjuntos a base64 y env�a v�a esend.emails.send. L�mites: 10 adjuntos m�x, 10 MB por archivo. Errores claros (ApiError) para dominio sin verificar, API key faltante o adjuntos muy grandes.
-- **M�dulo /correos**: POST /correos/enviar (JWT + multer upload.array('adjuntos', 10)) ? correosControllers.ts (enviarCorreo) ? correosRoutes.ts (montado en indexRoutes). Body: 	o, sunto, cuerpo (HTML del editor), files en djuntos[].
-- **Env**: RESEND_API_KEY (obligatoria) y RESEND_DOMAIN (default entas.crmsumichen.com). Documentados en .env.example y placeholders vac�os en .env.
+- **services/correosServices.ts**: enviarCorreoCliente({ vendedorDbId, to, asunto, cuerpoHtml, adjuntos }) � lee el perfil por eq.user.vendedor_db_id, arma el rom "Nombre Apellido" <nombre.apellido@RESEND_DOMAIN> (normalizado: min�sculas, sin tildes/espacios ? puntos), a�ade el pie HTML con irma_url (<img>), convierte adjuntos a base64 y env�a v�a esend.emails.send. L�mites: 10 adjuntos m�x, 10 MB por archivo. Errores claros (ApiError) para dominio sin verificar, API key faltante o adjuntos muy grandes.
+- **M�dulo /correos**: POST /correos/enviar (JWT + multer upload.array('adjuntos', 10)) ? correosControllers.ts (enviarCorreo) ? correosRoutes.ts (montado en indexRoutes). Body: 	o, sunto, cuerpo (HTML del editor), files en djuntos[].
+- **Env**: RESEND_API_KEY (obligatoria) y RESEND_DOMAIN (default entas.crmsumichen.com). Documentados en .env.example y placeholders vac�os en .env.
 
 #### Frontend
 - **Dep**: eact-quill (editor enriquecido) + quill.snow.css.
-- **components/forms/ComponerCorreoModal.tsx**: modal estilo Gmail � header "Nuevo mensaje" con ?, campo **Para** (chips azul con cliente.email), **Asunto**, **cuerpo Quill** (negrita/cursiva/subrayado/listas/enlaces), **adjuntos** (bot�n ??, lista con nombre/tama�o y quitar, hasta 10 archivos/10 MB), footer con **Enviar** (spinner) y hint de firma. Recibe { cliente, firmaUrl, open, onClose, onEnviado }. Pre-carga el saludo "Estimado(a) {nombre}�" al abrir.
+- **components/forms/ComponerCorreoModal.tsx**: modal estilo Gmail � header "Nuevo mensaje" con ?, campo **Para** (chips azul con cliente.email), **Asunto**, **cuerpo Quill** (negrita/cursiva/subrayado/listas/enlaces), **adjuntos** (bot�n ??, lista con nombre/tama�o y quitar, hasta 10 archivos/10 MB), footer con **Enviar** (spinner) y hint de firma. Recibe { cliente, firmaUrl, open, onClose, onEnviado }. Pre-carga el saludo "Estimado(a) {nombre}�" al abrir.
 - **hooks/useEnviarCorreo.ts**: mutation ? POST /correos/enviar con FormData (to/asunto/cuerpo/adjuntos) + Bearer; invalida ["actividades"].
 - **utils/firma.ts**: generarPieCorreoHtml/rmarCuerpoConFirma ahora devuelven HTML (<img>) en vez de texto.
-- **components/ui/AccionesRapidasCliente.tsx**: se elimina el mailto: m�vil y el bot�n desktop abre el modal; props onEmailMovil/onEmailDesktop/irmaUrl ? **onEnviarEmail** (�nico).
-- **ClienteDetalle.tsx** y **ClienteDetalleModal.tsx**: abren el ComponerCorreoModal con cliente + irmaUrl (en el modal resuelta desde useVendedores por endedor.id); en onEnviado registran la actividad tipo email (como antes). Se elimin� el uso de brirGmail/mailto para enviar.
+- **components/ui/AccionesRapidasCliente.tsx**: se elimina el mailto: m�vil y el bot�n desktop abre el modal; props onEmailMovil/onEmailDesktop/irmaUrl ? **onEnviarEmail** (�nico).
+- **ClienteDetalle.tsx** y **ClienteDetalleModal.tsx**: abren el ComponerCorreoModal con cliente + irmaUrl (en el modal resuelta desde useVendedores por endedor.id); en onEnviado registran la actividad tipo email (como antes). Se elimin� el uso de brirGmail/mailto para enviar.
 
-#### C�mo probar
-- Configuraci�n ? Perfil ? "Imagen de firma (pie de correo)": subir una imagen (se ve el preview), subir otra (sustituye), eliminar.
-- Detalle de cliente ? "Enviar Email" ? modal Gmail: escribir, adjuntar un archivo y enviar ? toast de �xito; revisar la bandeja del destinatario (la firma aparece como imagen en el pie). Sin RESEND_API_KEY el backend responde error claro.
-- Verificar que la actividad tipo email se registra tras el env�o.
+#### C�mo probar
+- Configuraci�n ? Perfil ? "Imagen de firma (pie de correo)": subir una imagen (se ve el preview), subir otra (sustituye), eliminar.
+- Detalle de cliente ? "Enviar Email" ? modal Gmail: escribir, adjuntar un archivo y enviar ? toast de �xito; revisar la bandeja del destinatario (la firma aparece como imagen en el pie). Sin RESEND_API_KEY el backend responde error claro.
+- Verificar que la actividad tipo email se registra tras el env�o.
 
 #### ? Notas / deuda
-- Requiere **dominio verificado** en Resend (entas.crmsumichen.com) y RESEND_API_KEY en ackend/.env (no configurada a�n � hay placeholder).
-- El rom usa el nombre/apellido del vendedor autenticado; admins tambi�n pueden enviar (su perfil tiene 
+- Requiere **dominio verificado** en Resend (entas.crmsumichen.com) y RESEND_API_KEY en ackend/.env (no configurada a�n � hay placeholder).
+- El rom usa el nombre/apellido del vendedor autenticado; admins tambi�n pueden enviar (su perfil tiene 
 ombre/pellido).
-- Gmail/mailto ya no se usan para el env�o; brirGmail queda en utils/pedidos.ts como c�digo legacy sin uso (no se elimin� para no romper otros imports).
+- Gmail/mailto ya no se usan para el env�o; brirGmail queda en utils/pedidos.ts como c�digo legacy sin uso (no se elimin� para no romper otros imports).
+
+### Punto 28 — Disponibilidad de productos (productos.disponible) según el inventario diario ✅ (build/lint/typecheck OK backend y frontend; sync verificado en dev)
+
+> **Resumen**: la tabla `productos` gana la columna `disponible` (boolean). Al subir el inventario diario (`inventario.xlsx`) vía `POST /productos/excel` —ahora SOLO admin (403 para vendedores)—, el backend recalcula la disponibilidad de TODOS los productos: la col 1 (código) se cruza con `productos.descripcion` y la col 5 (TOTAL) define el stock. Un producto queda `disponible = true` si AL MENOS una de sus filas (lotes) tiene TOTAL > 0; si no aparece en el archivo o tiene 0 → `disponible = false`. Los formularios CrearPedido/EditarPedido solo ofrecen productos disponibles.
+
+#### Detalle
+- **Migración** `1787524212000-ProductoDisponibleSchema.ts` (idempotente): `ALTER TABLE productos ADD COLUMN IF NOT EXISTS disponible boolean NOT NULL DEFAULT true`. Aplicada en dev.
+- **Entidad** `Productos.ts`: `@Column({ type: 'boolean', default: true }) disponible: boolean;`.
+- **`utils/inventarioDisponibilidad.ts`** (nuevo): `sincronizarDisponibilidadDesdeInventario(buffer)` — parsea el xlsx (ExcelJS, helper `textoCelda` para celdas con fórmula/richText), normaliza códigos (trim + mayúsculas + sin espacios + recorta la variante tras el guion: `MP10052-1` ≡ `MP10052`), detecta y salta el encabezado si el archivo lo trae, arma el Set de códigos con stock y actualiza `disponible` por producto (solo actualiza los que cambian). Devuelve `{ total, disponibles, noDisponibles }`.
+- **Repositorio** `productosRepository.ts`: método `actualizarDisponible(id, disponible)`.
+- **Controller `subirInventario`** (`productosControllers.ts`): gate `req.user?.rol !== 'admin' → 403`; tras el upload a Supabase Storage sincroniza la disponibilidad con el buffer subido (si falla responde error claro indicando que el archivo sí quedó subido); la respuesta incluye el resumen `sincronizacion`.
+- **Frontend**: `Producto.disponible?: boolean` en `types/index.ts`; en `CrearPedido.tsx` y `EditarPedido.tsx` se filtra `p.disponible !== false` antes de pasarlos al `SelectorDeProductos`, con aviso "No hay productos disponibles en el inventario hoy" si la lista queda vacía.
+
+#### Cómo probar / verificado en dev
+- Subir el inventario por `/excel` (solo admin) → se actualizan los flags. El sync ya se ejecutó contra el inventario actual: 77 productos → **55 disponibles / 22 no disponibles** (estos últimos: ME10102/103/104, MP10251/54/59/60, MP10502, MP10822/23/24/36, MP20007/21, MP21000, MP30000/01/03/04, MP90000/03, S000013).
+- Crear/editar un pedido → el selector solo muestra los disponibles.
+- Un vendedor que intente `POST /productos/excel` recibe 403.
+
+#### ⚠ Notas / deuda
+- Refresco completo: un producto ausente del inventario del día pasa a no disponible. Incluye `S000013` (parece código de servicio/generic), que quedaría oculto de pedidos; si debe poder venderse siempre, hay que añadirlo a una whitelist o tratarlo aparte.
+- La subida del inventario queda restringida a admin (el enlace `/excel` ya era solo del menú admin; no hay página de subida para vendedores).
+- Si al desplegar se quiere el estado correcto sin esperar la subida del día, basta re-subir el mismo archivo o llamar a `sincronizarDisponibilidadDesdeInventario` una vez.
+- La página `/productos` (ExcelViewer) sigue mostrando el inventario crudo sin cambios.
+
+### Punto 29 — Lista de precios PDF (área de Mayerlin) → `precio_base` + catálogo WhatsApp de cliente (02/09) ✅ (build/lint/typecheck OK backend y frontend; parseo y actualización verificados end-to-end en dev)
+
+> **Resumen**: en `ExcelProductos` ahora hay **2 áreas**: **"Área de Edmary — Cargar Productos en almacén"** (inventario Excel, ya existente) y **"Área de Mayerlin — Cargar productos con precio base"** (nuevo input PDF). El PDF de Mayerlin (ej. "LISTA SUMICHEM INTERNACIONAL USD dd-mm-yyyy.pdf") es una tabla de 1 página con columnas `Codigo · Producto · Presentación · Procedencia · Precio OFERTA ESPECIAL $/kg · Disponibilidad`. Al subirlo: (1) se guarda SIEMPRE como `lista_precios.pdf` en `uploads/productos` (se sustituye cada vez); (2) se actualiza `productos.precio_base` con la columna **"Precio OFERTA ESPECIAL $/kg"** matcheando el **código** con `productos.descripcion` (solo los que aparecen con precio; el resto conserva su precio); (3) el **catálogo de WhatsApp** (opción "Catálogo" del asistente) ya NO se genera desde `inventario.xlsx` de Supabase: ahora se genera desde este PDF mostrando al cliente **solo Código · Producto · Presentación** (se ocultan las columnas internas Procedencia, Precio OFERTA ESPECIAL $/kg y Disponibilidad). `disponible` sigue manejándose solo con el inventario Excel.
+
+#### Backend
+- **Dependencia** `pdfjs-dist` (^6.3.289, ESM). Se carga con `import(require.resolve('pdfjs-dist/legacy/build/pdf.mjs'))` (TS en commonjs lo emite como `require`, que en Node 22 soporta ESM; no hay declaraciones de tipos en ese subpath).
+- **Nuevo `utils/listaPreciosPdf.ts`**:
+  - `NOMBRE_LISTA = 'lista_precios.pdf'`, `getCarpetaProductos()` (`PRODUCTOS_UPLOAD_PATH` o `__dirname/../../uploads/productos`), `getRutaListaPrecios()` y `leerListaPreciosDesdeDisco()`.
+  - `parsearListaPrecios(buffer): Promise<FilaListaPrecios[]>` → `{ codigo, producto, presentacion, precioOfertaKg, disponibilidad }`. Extrae texto con pdfjs (`getTextContent`), convierte y a origen-arriba, agrupa por fila (tolerancia 2.5px en y) y asigna tokens a columnas por **bandas fijas de x** (calibradas con el layout real del PDF exportado: código <98, producto <299.5, presentación <384, procedencia <432, precio <476, resto disponibilidad). Descarta cabecera (y<97), filas sin código y sin producto+presentación, y notas al pie. Precio con formato es-VE (`,` decimal, `.` miles).
+- **`repositories/productosRepository.ts`**: `actualizarPrecioBase(id, precio)`.
+- **`services/productosServices.ts`**: `aplicarPreciosListaService(filas)` → devuelve `{ totalProductos, filasEnLista, conPrecio, actualizados, sinCambio, codigosSinCoincidencia }`. Normaliza código (mayúsculas, sin espacios, recorta variante `-1` como `inventarioDisponibilidad`), matchea contra `productos.descripcion`, solo actualiza si cambia y lleva un mapa `precioAplicado` por id para no re-escribir códigos duplicados del PDF. Un código con dos filas de precio distinto (MP10020 granel/tambor) → gana la última.
+- **`controllers/productosControllers.ts`**: `subirListaPrecios = [upload.single('file'), …]` → gate admin 403 → valida extensión `.pdf` → guarda el buffer en `uploads/productos/lista_precios.pdf` (mkdir + sustitución) → `parsearListaPrecios` + `aplicarPreciosListaService` → responde `{ message, nombre:'lista_precios.pdf', resumen }`. Si el parseo falla, responde 500 aclarando que el archivo sí quedó guardado.
+- **`routes/productosRoutes.ts`**: `POST /productos/lista-precios` (JWT).
+- **`utils/catalogoProductos.ts`** (reescrito): `generarCatalogoPDF()` ahora lee `lista_precios.pdf` del disco y arma el PDF de cliente con pdfkit **multi-página** (cabecera SUMICHEM/RIF/contacto, encabezado de columnas por página, filas con salto automático) con **Código · Producto · Presentación**, dedupe de filas idénticas. Se eliminó la lectura de `inventario.xlsx` de Supabase Storage.
+- `backend/.env.example`: `PRODUCTOS_UPLOAD_PATH` documentado.
+
+#### Frontend
+- **`ExcelProductos.tsx`**: 2 tarjetas separadas. Bloque 1 "Área de Edmary — Cargar Productos en almacén" (excel, igual). Bloque 2 "Área de Mayerlin — Cargar productos con precio base" (`accept=".pdf"`, campo `filePrecios` → `POST /productos/lista-precios`). Toast de éxito con `actualizados/sinCambio` del resumen y aviso si ningún código coincidió; códigos sin coincidencia a `console.warn`.
+
+#### Cómo probar / verificado en dev
+- Parsea el PDF real (1 página): 65 filas, 52 códigos únicos, 12 filas sin precio (las de disponibilidad "Tránsito" no traen precio) y 2 filas sin código (Nonilfenol 4 Moles, PEAD 4454).
+- Endpoint/DB: primer run actualizó 35 precios de 77 productos (MP10052=2.05, MP10000=1.75, etc.); re-run reporta `sinCambio`. Productos ausentes del PDF (S000013, ME10102…) y "Tránsito" conservan su valor.
+- Catálogo generado desde `lista_precios.pdf`: PDF válido de 2 páginas sin INDIA/CHINA/OFERTA/$/kg/Stock (columnas internas ocultas).
+- En dev ya quedó creado `backend/uploads/productos/lista_precios.pdf` (copia del PDF de 01/09 para pruebas). ⚠ Es dato de runtime, no fuente.
+
+#### ⚠ Notas / deuda
+- El parseo usa **bandas de x fijas** calibradas con el layout del PDF exportado desde Excel (una sola página). Si el día cambia el formato de la lista (columnas distintas, varias páginas, otra herramienta de export), habrá que recalibrar `X_*`/`Y_DATOS_MIN`.
+- El PDF puede traer el mismo código duplicado (misma presentación) o el mismo código con dos presentaciones distintas que en `productos` es una sola fila (MP10020) → gana el último precio del PDF.
+- La subida queda restringida a admin (igual que el inventario Excel).
+- Deploy: recompilar y arrancar el backend; copiar el PDF nuevo por el endpoint (no requiere migración: `precio_base` ya existía).
+
+

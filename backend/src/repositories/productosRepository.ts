@@ -25,3 +25,16 @@ export const updateProducto = async (
   await ProductoRepository.update(id, ProductoData);
   return await ProductoRepository.findOneBy({ id });
 };
+
+export const actualizarDisponible = async (
+  id: string,
+  disponible: boolean,
+) => {
+  const ProductoRepository = AppDataSource.getRepository(Producto);
+  await ProductoRepository.update(id, { disponible });
+};
+
+export const actualizarPrecioBase = async (id: string, precioBase: number) => {
+  const ProductoRepository = AppDataSource.getRepository(Producto);
+  await ProductoRepository.update(id, { precio_base: precioBase });
+};

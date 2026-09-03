@@ -5,6 +5,7 @@ import {
   createProducto,
   updateProducto,
   subirInventario,
+  subirListaPrecios,
 } from '../controllers/productosControllers';
 import { asyncHandler } from '../middlewares/asyncHandler';
 import verificarToken from '../middlewares/jwtHandler';
@@ -19,6 +20,8 @@ router.get('/productos/:id', verificarToken, asyncHandler(getProductoById));
 router.post('/productos', verificarToken, asyncHandler(createProducto));
 
 router.post('/productos/excel', verificarToken, ...subirInventario);
+
+router.post('/productos/lista-precios', verificarToken, ...subirListaPrecios);
 
 router.put('/productos/:id', verificarToken, asyncHandler(updateProducto));
 

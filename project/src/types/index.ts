@@ -261,6 +261,7 @@ export interface Producto {
   unidad_medida: string;
   fecha_creacion: string;
   precio_base?: number
+  disponible?: boolean
 }
 export type formProducto = {
   producto_id: string;

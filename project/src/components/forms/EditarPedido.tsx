@@ -63,6 +63,12 @@ const CrearPedido = ({ onSubmit, accion, dataProps }: EditarPedidoProps) => {
     return;
   }
 
+  // Solo se ofrecen productos con stock (disponible). El flag lo recalcula el
+  // inventario diario (POST /productos/excel, solo admin).
+  const productosDisponibles = (productos as Producto[]).filter(
+    (p) => p.disponible !== false
+  );
+
   const handleOnChage = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -213,8 +219,13 @@ const CrearPedido = ({ onSubmit, accion, dataProps }: EditarPedidoProps) => {
           </div>
         </div>
 
+        {productosDisponibles.length === 0 && (
+          <p className="mb-2 text-sm font-medium text-amber-600">
+            No hay productos disponibles en el inventario hoy.
+          </p>
+        )}
         <SelectorDeProductos
-          productos={productos}
+          productos={productosDisponibles}
           onSeleccionar={(seleccion) => setProductosSeleccionados(seleccion)}
         />
         <div>

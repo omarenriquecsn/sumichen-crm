@@ -38,6 +38,7 @@
     "node-cron": "^4.2.1",
     "office-to-pdf": "^4.0.0",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289",
     "pdfkit": "^0.17.1",
     "pg": "^8.16.3",
     "resend": "^6.25.0",
