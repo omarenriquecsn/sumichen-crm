@@ -50,7 +50,16 @@ export const updateActividadesService = async (
     // Here you can add logic to update the related TAREA entity if needed
     await updateTicketsService(ActividadData.id_tipo_actividad, { descripcion: ActividadData.descripcion }, 'vendedor');
   }
-  const actividadActualizada = await updateActividad(id, ActividadData);
+  // Al reagendar (cambiar fecha/vencimiento) se resetea la bandera de recordatorio
+  // para que el worker vuelva a avisar en la nueva fecha.
+  const dataActualizar: Partial<Actividad> = { ...ActividadData };
+  if (
+    ActividadData &&
+    (ActividadData.fecha !== undefined || ActividadData.fecha_vencimiento !== undefined)
+  ) {
+    dataActualizar.recordatorio_enviado = false;
+  }
+  const actividadActualizada = await updateActividad(id, dataActualizar);
   return actividadActualizada;
 };
 

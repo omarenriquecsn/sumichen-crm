@@ -13,6 +13,7 @@ import {
   getActividadesByIdService,
   updateActividadesService,
 } from './actividadesServices';
+import { getActividads, updateActividad } from '../repositories/actividadesRepository';
 
 export const getReunionesService = async () => {
   const reunions = await getReunions();
@@ -61,6 +62,28 @@ export const updateReunionesService = async (
   const reunionActualizada = await updateReunion(id, reunionData);
 
   if (!reunionActualizada) throw new Error('No se pudo actualizar la reunion');
+
+  // Al reagendar (cambiar fecha_inicio/fecha_fin) se sincroniza la Actividad
+  // ligada que el backend crea automáticamente por cada reunión, para que las
+  // listas del dashboard y el recordatorio reflejen la nueva fecha.
+  if (
+    reunionData.fecha_inicio !== undefined ||
+    reunionData.fecha_fin !== undefined
+  ) {
+    const todasActividades = await getActividads();
+    const actividadEnlazada = todasActividades.find(
+      (a) =>
+        a.id_tipo_actividad === reunionActualizada.id &&
+        a.tipo === ActividadesEnum.REUNION,
+    );
+    if (actividadEnlazada) {
+      await updateActividad(actividadEnlazada.id, {
+        fecha: reunionActualizada.fecha_inicio,
+        fecha_vencimiento: reunionActualizada.fecha_fin,
+        recordatorio_enviado: false,
+      });
+    }
+  }
 
   if (reunionActualizada.estado === 'completada') {
     const allActividades = await getActividadesByIdService(
