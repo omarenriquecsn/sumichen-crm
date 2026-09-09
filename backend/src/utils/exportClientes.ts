@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { getClientesService } from '../services/clientesServices';
 import { getUsuariosService } from '../services/usuariosServices';
+import { getPedidos } from '../repositories/pedidosRepository';
 
  async function exportClientesToExcel() {
     const queryClientes = await getClientesService()
@@ -16,6 +17,19 @@ import { getUsuariosService } from '../services/usuariosServices';
 
     if (clientes.length === 0) {
       throw new Error('No hay clientes para exportar');
+    }
+
+    // Ventas completadas por cliente (pedidos con estado 'procesado'), para
+    // calcular el % alcanzado de la proyección de venta.
+    const pedidos = await getPedidos();
+    const ventasProcesadasPorCliente = new Map<string, number>();
+    for (const pedido of Array.isArray(pedidos) ? pedidos : []) {
+      if (pedido.estado !== 'procesado') continue;
+      const previo = ventasProcesadasPorCliente.get(pedido.cliente_id) ?? 0;
+      ventasProcesadasPorCliente.set(
+        pedido.cliente_id,
+        previo + Number(pedido.total ?? 0),
+      );
     }
 
     // Crear el libro y hoja de Excel
@@ -39,6 +53,8 @@ import { getUsuariosService } from '../services/usuariosServices';
       { header: 'Fecha de Cambio de Estado', key: 'fecha_estado', width: 20 },
       { header: 'Vendedor', key: 'vendedor', width: 36 },
       { header: 'Etapa Pipeline', key: 'etapa_venta', width: 15 },
+      { header: 'Proyección de Ventas ($)', key: 'proyeccion_venta', width: 22 },
+      { header: 'Porcentaje Alcanzado (%)', key: 'porcentaje_alcanzado', width: 22 },
       { header: 'Fecha de Creación', key: 'fecha_creacion', width: 20 },
       { header: 'Última Actualización', key: 'fecha_actualizacion', width: 20 },
       { header: 'Notas', key: 'notas', width: 100},
@@ -50,6 +66,11 @@ import { getUsuariosService } from '../services/usuariosServices';
       const vendedor = vendedores.find(
         (v) => v.id === cliente.vendedor_id,
       );
+      const proyeccion =
+        cliente.proyeccion_venta != null ? Number(cliente.proyeccion_venta) : null;
+      const ventasProcesadas = ventasProcesadasPorCliente.get(cliente.id) ?? 0;
+      const porcentaje =
+        proyeccion && proyeccion > 0 ? (ventasProcesadas / proyeccion) * 100 : null;
       sheet.addRow({
         rif: cliente.rif,
         empresa: cliente.empresa,
@@ -67,6 +88,10 @@ import { getUsuariosService } from '../services/usuariosServices';
           ? new Date(cliente.fecha_estado).toLocaleString('es-VE')
           : 'N/A',
         etapa_venta: cliente.etapa_venta,
+        proyeccion_venta:
+          proyeccion != null ? Number(proyeccion.toFixed(2)) : 'Sin proyección',
+        porcentaje_alcanzado:
+          porcentaje != null ? Number(porcentaje.toFixed(2)) : '',
         notas: cliente.notas || 'N/A',
         vendedor: vendedor ? `${vendedor.nombre} ${vendedor.apellido}` : 'N/A',
         fecha_creacion: cliente.fecha_creacion

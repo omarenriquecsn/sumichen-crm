@@ -1061,4 +1061,27 @@ ombre/pellido).
 - La subida queda restringida a admin (igual que el inventario Excel).
 - Deploy: recompilar y arrancar el backend; copiar el PDF nuevo por el endpoint (no requiere migración: `precio_base` ya existía).
 
+### Punto 30 - Proyeccion de ventas por cliente (RIF + proyeccion por Excel) 08/09 (build/lint/typecheck OK backend y frontend)
 
+> **Resumen**: cada cliente puede tener una **proyeccion de venta** (`clientes.proyeccion_venta`, numeric nullable). Se carga con un Excel de 2 columnas (RIF | proyeccion) desde la lista de clientes. El **% alcanzado NO se guarda**: se calcula en vivo = pedidos `procesado` del cliente / proyeccion * 100. En el detalle del cliente (pagina y modal) se muestra en "Resumen de Ventas" una barra de progreso (oculta si no hay proyeccion o es <= 0). El export de clientes de Descarga DB incluye "Proyeccion de Ventas ($)" y "Porcentaje Alcanzado (%)".
+
+#### Backend
+- **Migracion** `1787524213000-ProyeccionVentaSchema.ts` (idempotente): `ALTER TABLE clientes ADD COLUMN IF NOT EXISTS proyeccion_venta numeric(14,2)`.
+- **Entidad** `Clientes.ts`: campo `proyeccion_venta?: number`. **Repo** `clientesRepository.actualizarProyeccion(id, valor)`.
+- **Endpoint** `POST /clientes/proyecciones` (JWT + multer `file`): cualquier usuario autenticado puede cargarlo. Solo actualiza `proyeccion_venta`; un **vendedor solo afecta a sus propios clientes** (`vendedor_db_id`) y los ajenos se reportan en `sinPermiso`; el **admin** actualiza todos. Respuesta `{ message, nombre, resumen: { totalFilas, coincidencias, actualizados, sinCambio, sinCoincidencia[], sinPermiso[] } }`.
+- **Util** `utils/proyeccionesExcel.ts`: `parsearProyeccionesExcel(buffer)` (ExcelJS, helper `textoCelda`, salta fila de encabezado RIF/PROYEC/EMPRESA, normaliza RIF mayusculas sin guiones/espacios y parsea numeros es-VE con $/./,).
+- **Service** `aplicarProyeccionesService(filas, rol, vendedorDbId)`. **Seguridad**: `updateClientesService` ahora elimina `proyeccion_venta` del body -> la edicion generica de clientes NUNCA toca la proyeccion (solo el endpoint del Excel).
+- **Export clientes** (`utils/exportClientes.ts`): suma `pedidos.total` con estado `procesado` por cliente (`getPedidos`) y agrega columnas `Proyeccion de Ventas ($)` (o "Sin proyeccion") y `Porcentaje Alcanzado (%)` (2 decimales, vacio sin proyeccion).
+
+#### Frontend
+- `types/index.ts`: `Cliente.proyeccion_venta?: number | null`.
+- `hooks/useSubirProyecciones.ts`: mutation a `POST /clientes/proyecciones` con FormData + Bearer; invalida `["clientes"]`.
+- `components/forms/CargarProyeccionesModal.tsx`: modal de subida .xlsx/.xls con instrucciones y toasts de resumen (actualizadas/sin cambio/RIF sin coincidencia/sin permiso).
+- `pages/clientes/Clientes.tsx`: boton **"Cargar Proyecciones"** (icono Upload) debajo de "+ Nuevo Cliente". En movil los 2 botones apilan a ancho completo (`flex flex-col sm:flex-row w-full sm:w-auto`); en desktop quedan en fila en el toolbar.
+- `components/ui/ProyeccionVentas.tsx`: barra (Target) con `ventasProcesadas/proyeccion`, texto "Vendido (completado) $X de $Y - Z%", relleno azul (<100%) o verde (>=100%), ancho capado al 100%; retorna null si proyeccion null/<=0.
+- `ClienteDetalle.tsx` y `ClienteDetalleModal.tsx`: se inserta `<ProyeccionVentas>` en la card "Resumen de Ventas".
+
+#### Como probar
+- Subir Excel por el boton de la lista (admin: todos; vendedor: solo sus RIF) -> toasts + `proyeccion_venta` en DB.
+- Detalle de cliente: barra presente con proyeccion > 0; ausente si es null/0.
+- Descarga DB > Clientes: el XLSX trae las 2 columnas nuevas.

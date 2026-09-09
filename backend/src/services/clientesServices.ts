@@ -7,9 +7,14 @@ import {
   updateCliente,
   deleteCliente,
   deleteClienteDefinitivamente,
-  getOneCliente
+  getOneCliente,
+  actualizarProyeccion,
 } from '../repositories/clientesRepository';
 import { updateMetasClientesService } from './metasServices';
+import {
+  normalizarRif,
+  FilaProyeccion,
+} from '../utils/proyeccionesExcel';
 
 export const getClientesService = async () => {
   const clientes = await getClientes();
@@ -46,17 +51,79 @@ export const updateClientesService = async (
   id: string,
   clienteData: Partial<Cliente>,
 ) => {
+  // `proyeccion_venta` solo se modifica vía el endpoint de carga por Excel
+  // (POST /clientes/proyecciones); la edición genérica nunca la toca.
+  const { proyeccion_venta: _proyeccion, ...datosSeguros } = clienteData;
   const cliente = await getOneCliente(id);
-  if(cliente && clienteData.estado  && cliente.estado !== clienteData.estado )   {
-    clienteData.fecha_estado = new Date();
-    clienteData.estado_anterior = cliente?.estado;
-    clienteData.fecha_actualizacion = new Date();
+  if (cliente && datosSeguros.estado && cliente.estado !== datosSeguros.estado) {
+    datosSeguros.fecha_estado = new Date();
+    datosSeguros.estado_anterior = cliente?.estado;
+    datosSeguros.fecha_actualizacion = new Date();
   }
-  const clienteActualizado = await updateCliente(id, clienteData);
+  const clienteActualizado = await updateCliente(id, datosSeguros);
   return {
     message: 'Cliente actualizado',
     data: clienteActualizado,
   };
+};
+
+export interface ResumenProyecciones {
+  totalFilas: number;
+  coincidencias: number;
+  actualizados: number;
+  sinCambio: number;
+  sinCoincidencia: string[];
+  sinPermiso: string[];
+}
+
+/**
+ * Aplica las proyecciones leídas del Excel a los clientes que coinciden por RIF
+ * (solo actualiza `proyeccion_venta`). Un vendedor solo puede escribir
+ * proyecciones de sus propios clientes; el admin actualiza todos.
+ */
+export const aplicarProyeccionesService = async (
+  filas: FilaProyeccion[],
+  rol: string,
+  vendedorDbId?: string,
+): Promise<ResumenProyecciones> => {
+  const clientes = await getClientes();
+  const mapaRif = new Map<string, Cliente>();
+  for (const c of clientes) {
+    const key = normalizarRif(c.rif ?? '');
+    if (key && !mapaRif.has(key)) mapaRif.set(key, c);
+  }
+
+  const resumen: ResumenProyecciones = {
+    totalFilas: filas.length,
+    coincidencias: 0,
+    actualizados: 0,
+    sinCambio: 0,
+    sinCoincidencia: [],
+    sinPermiso: [],
+  };
+
+  for (const fila of filas) {
+    const cliente = mapaRif.get(fila.rif);
+    if (!cliente) {
+      resumen.sinCoincidencia.push(fila.rifOriginal || fila.rif);
+      continue;
+    }
+    if (rol !== 'admin' && cliente.vendedor_id !== vendedorDbId) {
+      resumen.sinPermiso.push(fila.rifOriginal || fila.rif);
+      continue;
+    }
+    resumen.coincidencias++;
+    const actual = Number(cliente.proyeccion_venta ?? 0);
+    const nuevo = fila.proyeccion;
+    if (actual === nuevo) {
+      resumen.sinCambio++;
+    } else {
+      await actualizarProyeccion(cliente.id, nuevo);
+      resumen.actualizados++;
+    }
+  }
+
+  return resumen;
 };
 
 export const deleteClientesService = async (id: string) => {

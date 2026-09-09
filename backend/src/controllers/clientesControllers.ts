@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import multer from 'multer';
 import {
   getClientesService,
   getClientesByIdService,
@@ -6,8 +7,12 @@ import {
   updateClientesService,
   deleteClientesService,
   deleteClientesDefinitivamenteService,
+  aplicarProyeccionesService,
 } from '../services/clientesServices';
+import { parsearProyeccionesExcel } from '../utils/proyeccionesExcel';
 import { ApiError } from '../utils/ApiError';
+
+const upload = multer({ limits: { fileSize: 10 * 1024 * 1024 } });
 
 export const getClientes = async (req: Request, res: Response) => {
   const clientes = await getClientesService();
@@ -71,3 +76,42 @@ export const deleteClientesDefinitivamente = async (
 
   res.status(204).send();
 };
+
+/**
+ * POST /clientes/proyecciones (JWT + multer)
+ * Recibe un Excel con dos columnas (RIF | proyección de venta) y actualiza
+ * únicamente `clientes.proyeccion_venta`. Cualquier usuario autenticado puede
+ * cargarlo; un vendedor solo afecta sus propios clientes y el admin a todos.
+ */
+export const subirProyecciones = [
+  upload.single('file'),
+  async (req: Request, res: Response) => {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se ha subido ningún archivo' });
+    }
+    try {
+      const filas = await parsearProyeccionesExcel(req.file.buffer);
+      if (filas.length === 0) {
+        return res.status(400).json({
+          error:
+            'El archivo no tiene filas válidas. Espera dos columnas: RIF y proyección de venta.',
+        });
+      }
+      const resumen = await aplicarProyeccionesService(
+        filas,
+        req.user?.rol ?? 'vendedor',
+        req.user?.vendedor_db_id,
+      );
+      return res.status(200).json({
+        message: 'Proyecciones cargadas exitosamente',
+        nombre: req.file.originalname,
+        resumen,
+      });
+    } catch (err) {
+      console.error('Error al procesar proyecciones:', err);
+      return res
+        .status(500)
+        .json({ error: 'Error al procesar el archivo de proyecciones' });
+    }
+  },
+];

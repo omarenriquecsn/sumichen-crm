@@ -13,11 +13,13 @@ import {
   IdCard,
   User2,
   UserCheck,
+  Upload,
 } from "lucide-react";
 import { useSupabase } from "../../hooks/useSupabase";
 import { useAuth } from "../../context/useAuth";
 import Modal from "../../components/ui/Modal";
 import ClienteForm from "../../components/forms/ClienteFom";
+import { CargarProyeccionesModal } from "../../components/forms/CargarProyeccionesModal";
 import {
   Cliente,
   ClienteFormData,
@@ -47,6 +49,7 @@ type PropsClientes = {
 
 export const Clientes: React.FC<PropsClientes> = (props) => {
   const [isModalOpen, setModalOpen] = useState(false);
+  const [isModalProyeccionesOpen, setModalProyeccionesOpen] = useState(false);
   const estadoVistaClientes = recuperarEstadoVista("clientes:vista", {
     page: 1,
     searchTerm: "",
@@ -221,7 +224,7 @@ export const Clientes: React.FC<PropsClientes> = (props) => {
               <select
                 value={filterSector}
                 onChange={(e) => setFilterSector(e.target.value)}
-                className="w-full sm:w-auto sm:min-w-0 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full sm:w-auto sm:min-w-0 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent "
               >
                 <option value="todos">Todos los sectores</option>
                 {Object.values(CustomerSector).map((sector) => (
@@ -233,14 +236,23 @@ export const Clientes: React.FC<PropsClientes> = (props) => {
             </div>
           </div>
 
-          {/* Botón agregar cliente */}
-          <button
-            onClick={() => setModalOpen(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <Plus className="h-5 w-5" />
-            <span>Nuevo Cliente</span>
-          </button>
+          {/* Botón agregar cliente + cargar proyecciones */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
+            >
+              <Plus className="h-5 w-5" />
+              <span>Nuevo Cliente</span>
+            </button>
+            <button
+              onClick={() => setModalProyeccionesOpen(true)}
+              className="bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
+            >
+              <Upload className="h-5 w-5" />
+              <span>Proyecciones</span>
+            </button>
+          </div>
         </div>
         <div className="flex items-center space-x-2">
           <input
@@ -554,6 +566,10 @@ export const Clientes: React.FC<PropsClientes> = (props) => {
           accion={!isPending ? " Crear Cliente" : "Creando..."}
         />
       </Modal>
+      <CargarProyeccionesModal
+        isOpen={isModalProyeccionesOpen}
+        onClose={() => setModalProyeccionesOpen(false)}
+      />
     </Layout>
   );
 };

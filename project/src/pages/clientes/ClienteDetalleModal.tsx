@@ -47,6 +47,7 @@ import { useAuth } from "../../context/useAuth";
 import { AccionesRapidasCliente } from "../../components/ui/AccionesRapidasCliente";
 import useVendedores from "../../hooks/useVendedores";
 import ComponerCorreoModal from "../../components/forms/ComponerCorreoModal";
+import { ProyeccionVentas } from "../../components/ui/ProyeccionVentas";
 interface ClienteDetalleModalProps {
   vendedor: User | null;
   cliente: Cliente;
@@ -725,6 +726,10 @@ export const ClienteDetalleModal: React.FC<ClienteDetalleModalProps> = ({
                           : "No ha comprado"}
                       </p>
                     </div>
+                    <ProyeccionVentas
+                      cliente={cliente}
+                      pedidos={pedidos as Pedido[]}
+                    />
                   </div>
                 </div>
               </div>

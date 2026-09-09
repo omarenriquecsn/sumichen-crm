@@ -53,6 +53,14 @@ export const updateCliente = async (
   return await ClienteRepository.findOneBy({ id });
 };
 
+// Actualiza únicamente la proyección de venta del cliente. Este es el único
+// camino de escritura de `proyeccion_venta` (la ruta genérica la ignora).
+export const actualizarProyeccion = async (id: string, valor: number) => {
+  const ClienteRepository = AppDataSource.getRepository(Cliente);
+  await ClienteRepository.update(id, { proyeccion_venta: valor });
+  return await ClienteRepository.findOneBy({ id });
+};
+
 export const deleteCliente = async (id: string) => {
   const ClienteRepository = AppDataSource.getRepository(Cliente);
   return await ClienteRepository.update(id, {

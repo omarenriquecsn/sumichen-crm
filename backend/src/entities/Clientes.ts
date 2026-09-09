@@ -88,4 +88,9 @@ export class Cliente {
     nullable: true, // ¡Clave para no romper registros anteriores!
   })
   sector?: CustomerSector;
+
+  // Proyección de venta del cliente (se carga por Excel; ver endpoint
+  // POST /clientes/proyecciones). Solo se modifica por ese endpoint.
+  @Column({ type: 'numeric', precision: 14, scale: 2, nullable: true })
+  proyeccion_venta?: number;
 }

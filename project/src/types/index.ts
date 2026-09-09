@@ -32,6 +32,7 @@ export interface Cliente {
   direccion_entrega?: string;
   google_maps?: string;
   sector?: CustomerSector;
+  proyeccion_venta?: number | null;
 }
 
 export type Estado = "prospecto" | "activo" | "inactivo";

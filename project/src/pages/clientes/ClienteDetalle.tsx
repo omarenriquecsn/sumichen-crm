@@ -51,6 +51,7 @@ import useVendedores from "../../hooks/useVendedores";
 import ActualizarActividadModal from "../../components/forms/ActualizarActividad";
 import { AccionesRapidasCliente } from "../../components/ui/AccionesRapidasCliente";
 import ComponerCorreoModal from "../../components/forms/ComponerCorreoModal";
+import { ProyeccionVentas } from "../../components/ui/ProyeccionVentas";
 
 export const ClienteDetalle: React.FC = () => {
   dayjs.locale("es");
@@ -717,6 +718,10 @@ export const ClienteDetalle: React.FC = () => {
                         : "No ha comprado"}
                     </p>
                   </div>
+                  <ProyeccionVentas
+                    cliente={cliente}
+                    pedidos={pedidos as Pedido[]}
+                  />
                 </div>
               </div>
             </div>
