@@ -10,6 +10,7 @@
     "format": "prettier --write .",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "prebuild": "node -e \"require('fs').rmSync('build',{ recursive: true, force: true })\"",
     "build": "tsc",
     "migrate": "npm run build && npx typeorm migration:run -d build/config/dataBaseConfig.js"
   },
