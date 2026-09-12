@@ -1,22 +1,17 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { Request } from 'express';
 
 // Clave de rate limit estable detrás de proxies (Cloudflare/nginx).
-// El validador por defecto de express-rate-limit lanza
-// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR si llega el header X-Forwarded-For
-// con más de una IP y no hay `trust proxy` configurado. Extraemos la
-// primera IP (la del cliente real) de forma segura.
+// Extraemos la primera IP (la del cliente real) de X-Forwarded-For y la
+// normalizamos con `ipKeyGenerator` (express-rate-limit v8), que maneja IPv6
+// correctamente y evita ERR_ERL_KEY_GEN_IPV6.
 const keyGenerator = (req: Request): string => {
   const fwd = req.headers['x-forwarded-for'];
-  let ip: string;
-  if (typeof fwd === 'string' && fwd) {
-    ip = fwd.split(',')[0].trim();
-  } else {
-    ip = req.ip || 'unknown';
-  }
-  // Express-rate-limit rechaza claves con formato IPv6 (ERR_ERL_KEY_GEN_IPV6);
-  // prefijamos para que no parezca una IP.
-  return ip.includes(':') ? `ip:${ip}` : ip;
+  const ip =
+    typeof fwd === 'string' && fwd
+      ? fwd.split(',')[0].trim()
+      : req.ip || 'unknown';
+  return ipKeyGenerator(ip);
 };
 
 // Rate limit para endpoints públicos (formulario web / captura de leads).
