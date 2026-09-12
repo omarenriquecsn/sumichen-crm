@@ -201,3 +201,61 @@ export const enviarCorreoCliente = async ({
 
   return { message: 'Correo enviado correctamente', id: data?.id, from };
 };
+
+export interface EnviarMantenimientoParams {
+  to: string;
+  asunto: string;
+  cuerpoHtml: string;
+  adjuntos?: AdjuntoCorreo[];
+}
+
+/**
+ * Envía un correo de sistema (mantenimiento/monitoreo) SIN firma de vendedor.
+ * Remitente fijo: "Sumichem CRM <mantenimiento@RESEND_DOMAIN>".
+ */
+export const enviarCorreoMantenimiento = async ({
+  to,
+  asunto,
+  cuerpoHtml,
+  adjuntos = [],
+}: EnviarMantenimientoParams) => {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new ApiError(
+      'RESEND_API_KEY no está configurada. Agrega tu API key de Resend en backend/.env',
+      500,
+    );
+  }
+  if (!to) {
+    throw new ApiError('El destinatario (to) es obligatorio', 400);
+  }
+  for (const adj of adjuntos) {
+    if (adj.buffer.length > LIMITE_TAMANO_ADJUNTO) {
+      throw new ApiError(
+        `El archivo "${adj.filename}" supera el límite de 10 MB`,
+        400,
+      );
+    }
+  }
+
+  const dominio = process.env.RESEND_DOMAIN || 'ventas.crmsumichen.com';
+  const from = `"Sumichem CRM" <mantenimiento@${dominio}>`;
+
+  const resend = new Resend(apiKey);
+  const { data, error } = await resend.emails.send({
+    from,
+    to,
+    subject: asunto || 'Mantenimiento Sumichem CRM',
+    html: cuerpoHtml,
+    attachments: adjuntos.map((adj) => ({
+      filename: adj.filename,
+      content: adj.buffer.toString('base64'),
+    })),
+  });
+
+  if (error) {
+    throw new ApiError(`Error al enviar el correo: ${error.message}`, 400);
+  }
+
+  return { message: 'Correo enviado correctamente', id: data?.id, from };
+};
