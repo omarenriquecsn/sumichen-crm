@@ -67,7 +67,7 @@ export interface Actividad {
   id: string;
   cliente_id: string;
   vendedor_id: string;
-  tipo: "llamada" | "email" | "reunion" | "nota" | "tarea";
+  tipo: "llamada" | "email" | "reunion" | "nota" | "tarea" | "whatsapp";
   titulo: string;
   descripcion: string;
   fecha: Date;
@@ -210,6 +210,7 @@ export interface Meta {
   reuniones: number;
   emails: number;
   tareas: number;
+  whatsapp: number;
   fecha_creacion: Date;
   fecha_actualizacion: Date;
 }

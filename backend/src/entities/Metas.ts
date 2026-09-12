@@ -46,6 +46,9 @@ export class Meta {
   @Column({ type: 'int', default: 0 })
   reuniones: number;
 
+  @Column({ type: 'int', default: 0 })
+  whatsapp: number;
+
   @CreateDateColumn({ type: 'timestamptz', default: () => 'now()' })
   fecha_creacion: Date;
 

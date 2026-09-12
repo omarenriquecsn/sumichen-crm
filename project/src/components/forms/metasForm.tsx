@@ -21,6 +21,7 @@ export const MetasForm: React.FC<MetasFormProps> = ({ vendedor, onSubmit, loadin
     tareas: 0,
     llamadas: 0,
     reuniones: 0,
+    whatsapp: 0,
     objetivo_clientes: 0,
     objetivo_ventas: 0,
   });
@@ -117,6 +118,19 @@ const inputNumberStyle: React.CSSProperties = {
             type="number"
             name="reuniones"
             value={form.reuniones}
+            onChange={handleChange}
+            min={0}
+            className="border rounded px-3 py-2 w-full"
+            style={inputNumberStyle}
+            onFocus={e => e.target.value = ""}
+          />
+        </div>
+        <div>
+          <label className="block font-medium mb-1">WhatsApp</label>
+          <input
+            type="number"
+            name="whatsapp"
+            value={form.whatsapp}
             onChange={handleChange}
             min={0}
             className="border rounded px-3 py-2 w-full"

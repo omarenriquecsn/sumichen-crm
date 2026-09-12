@@ -55,6 +55,7 @@ const coloresActividad = [
   "bg-green-400",
   "bg-purple-400",
   "bg-orange-400",
+  "bg-emerald-400",
 ];
 
 export const Analitica: React.FC = () => {
@@ -161,7 +162,13 @@ export const Analitica: React.FC = () => {
     actividadesPoCategoria(actividadesPorMes, "email", metas),
     actividadesPoCategoria(actividadesPorMes, "reunion", metas),
     actividadesPoCategoria(actividadesPorMes, "tarea", metas),
+    actividadesPoCategoria(actividadesPorMes, "whatsapp", metas),
   ];
+  const whatsappStats = actividadesPoCategoria(
+    actividadesPorMes,
+    "whatsapp",
+    metas,
+  );
   const maxCantidadActividades = Math.max(
     ...actividadesPorTipo.map((a) => a.cantidad),
     1,
@@ -176,7 +183,8 @@ export const Analitica: React.FC = () => {
         (metasMes.llamadas || 0) > 0 ||
         (metasMes.emails || 0) > 0 ||
         (metasMes.reuniones || 0) > 0 ||
-        (metasMes.tareas || 0) > 0),
+        (metasMes.tareas || 0) > 0 ||
+        (metasMes.whatsapp || 0) > 0),
   );
 
   const totalMetas = () => {
@@ -185,7 +193,8 @@ export const Analitica: React.FC = () => {
       (metasMes.llamadas || 0) +
       (metasMes.emails || 0) +
       (metasMes.reuniones || 0) +
-      (metasMes.tareas || 0)
+      (metasMes.tareas || 0) +
+      (metasMes.whatsapp || 0)
     );
   };
 
@@ -632,6 +641,35 @@ export const Analitica: React.FC = () => {
                   <div className="flex justify-between text-xs text-gray-500 mt-1">
                     <span>{actividadesCompletadasMes || 0}</span>
                     <span>{totalMetas()}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-600">
+                      Meta de WhatsApp
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {`${porcentaje(
+                        whatsappStats.cantidad,
+                        whatsappStats.meta,
+                      ).toFixed(2)}%`}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div
+                      className="bg-emerald-500 h-3 rounded-full"
+                      style={{
+                        width: `${porcentaje(
+                          whatsappStats.cantidad,
+                          whatsappStats.meta,
+                        ).toFixed(2)}%`,
+                      }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>{whatsappStats.cantidad} enviados</span>
+                    <span>{whatsappStats.meta} meta</span>
                   </div>
                 </div>
 

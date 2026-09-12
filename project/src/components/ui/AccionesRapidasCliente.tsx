@@ -20,6 +20,7 @@ interface AccionesRapidasClienteProps {
   esAdmin: boolean;
   onLlamar: () => void;
   onEnviarEmail: () => void;
+  onWhatsApp?: () => void;
   onAgendarReunion: () => void;
   onCrearPedido: () => void;
   onAsignarVendedor?: () => void;
@@ -45,6 +46,7 @@ export const AccionesRapidasCliente: React.FC<AccionesRapidasClienteProps> = ({
   esAdmin,
   onLlamar,
   onEnviarEmail,
+  onWhatsApp,
   onAgendarReunion,
   onCrearPedido,
   onAsignarVendedor,
@@ -198,6 +200,7 @@ export const AccionesRapidasCliente: React.FC<AccionesRapidasClienteProps> = ({
             )}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={onWhatsApp}
             className={`${claseBaseTarjeta} hover:border-emerald-300 hover:bg-emerald-50`}
           >
             <span className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">

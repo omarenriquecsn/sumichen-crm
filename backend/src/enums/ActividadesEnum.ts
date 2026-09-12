@@ -4,4 +4,5 @@ export enum ActividadesEnum {
   REUNION = 'reunion',
   NOTA = 'nota',
   TAREA = 'tarea',
+  WHATSAPP = 'whatsapp',
 }

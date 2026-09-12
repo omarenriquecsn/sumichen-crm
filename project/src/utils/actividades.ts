@@ -74,6 +74,7 @@ export const actividadesPoCategoria = (
     if(tipo === "email") return "emails";
     if(tipo === "reunion") return "reuniones";
     if(tipo === "tarea") return "tareas";
+    if(tipo === "whatsapp") return "whatsapp";
     return ;
   }
   const tipoMeta = tipoParaMetas();

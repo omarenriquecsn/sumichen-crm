@@ -10,6 +10,7 @@ import {
   Calendar,
   Phone,
   Mail,
+  MessageCircle,
   MapPin,
   X,
   Pencil,
@@ -237,6 +238,8 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
                   ? "bg-blue-100"
                   : tipo === "llamada"
                   ? "bg-green-100"
+                  : tipo === "whatsapp"
+                  ? "bg-emerald-100"
                   : "bg-purple-100"
               }`}
             >
@@ -244,6 +247,8 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
                 <Calendar className="h-6 w-6 text-blue-600" />
               ) : tipo === "llamada" ? (
                 <Phone className="h-6 w-6 text-green-600" />
+              ) : tipo === "whatsapp" ? (
+                <MessageCircle className="h-6 w-6 text-emerald-600" />
               ) : (
                 <Mail className="h-6 w-6 text-purple-600" />
               )}

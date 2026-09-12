@@ -682,6 +682,20 @@ export const ClienteDetalleModal: React.FC<ClienteDetalleModalProps> = ({
                   })
                 }
                 onEnviarEmail={() => setModalCorreoVisible(true)}
+                onWhatsApp={() =>
+                  crearActividad({
+                    actividadData: {
+                      titulo: "WhatsApp",
+                      fecha: new Date(),
+                      cliente_id: cliente.id,
+                      descripcion:
+                        "Se ha enviado un mensaje de WhatsApp al cliente ",
+                      tipo: "whatsapp",
+                      completado: true,
+                    },
+                    currentUser: currentUser,
+                  })
+                }
                 onAgendarReunion={() => setModalCopen(true)}
                 onCrearPedido={() => setModalPedidoVisible(true)}
                 onAsignarVendedor={() => setModalVendedorVisible(true)}

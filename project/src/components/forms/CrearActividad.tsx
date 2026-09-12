@@ -17,9 +17,9 @@ const schema = yup.object({
     .required("El título es obligatorio")
     .default("Actividad"),
   tipo: yup
-    .mixed<"email" | "llamada" | "reunion" | "nota" | "tarea">()
+    .mixed<"email" | "llamada" | "reunion" | "nota" | "tarea" | "whatsapp">()
     .oneOf(
-      ["email", "llamada", "reunion", "nota", "tarea"],
+      ["email", "llamada", "reunion", "nota", "tarea", "whatsapp"],
       "El tipo es obligatorio"
     )
     .required("El tipo es obligatorio")
@@ -135,6 +135,7 @@ const CrearActividad = ({ id, onSubmit, accion }: props) => {
             <option value="reunion">reunion</option>
             <option value="nota">nota</option>
             <option value="tarea">tarea</option>
+            <option value="whatsapp">whatsapp</option>
           </select>
           {errors.tipo && (
             <p className="text-red-500 text-xs mt-1">{errors.tipo.message}</p>
