@@ -48,7 +48,7 @@ const SelectorDeProductos = ({ productos, onSeleccionar }: SelectorDeProductosPr
           cantidad: 1,
           precio_base: Number(producto.precio_base) || 0,
           porcentaje_negociacion: 0,
-          precio_unitario: Number(producto.precio_base) || 0,
+          precio_unitario: Math.round((Number(producto.precio_base) || 0) * 100) / 100,
           nombre: producto.nombre,
           descripcion: producto.descripcion,
         },
@@ -68,7 +68,7 @@ const SelectorDeProductos = ({ productos, onSeleccionar }: SelectorDeProductosPr
   const calcularPrecioUnitario = (precioBase: number, porcentaje: number) => {
     const base = Math.max(0, Number(precioBase) || 0);
     const porc = Math.max(0, Number(porcentaje) || 0);
-    return base + base * (porc / 100);
+    return Math.round((base + base * (porc / 100)) * 100) / 100;
   };
 
   const cambiarPrecioBase = (id: string, precioBase: number) => {
@@ -228,7 +228,7 @@ const SelectorDeProductos = ({ productos, onSeleccionar }: SelectorDeProductosPr
                     type="number"
                     min={0}
                     step="0.0001"
-                    value={Number(producto.precio_unitario || 0).toFixed(4)}
+                    value={Number(producto.precio_unitario || 0).toFixed(2)}
                     readOnly
                     className="w-full border rounded px-2 py-1 bg-gray-100 text-gray-700 appearance-none"
                     style={{ MozAppearance: 'textfield' }}

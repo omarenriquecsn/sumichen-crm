@@ -32,6 +32,10 @@ import { sendPushNotification } from '../utils/pushoverNotificacion';
 import { getUsuarioByIdDb } from '../repositories/usuariosRepository';
 dotenv.config();
 
+// Redondea un monto a 2 decimales (el total se calcula con el precio
+// unitario ya redondeado, igual que en el formulario de pedidos).
+const redondear2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+
 export const getPedidosService = async () => {
   const pedidos = await getPedidos();
   return pedidos;
@@ -56,9 +60,12 @@ export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
   const neuevoPedido: Partial<Pedido> = {
     ...rest,
     impuestos: rest.impuestos === 'exento' ? 0 : 0.16,
-    subtotal: productos.reduce(
-      (acc, producto) => acc + producto.precio_unitario * producto.cantidad,
-      0,
+    subtotal: redondear2(
+      productos.reduce(
+        (acc, producto) =>
+          acc + redondear2(producto.precio_unitario) * producto.cantidad,
+        0,
+      ),
     ),
     total: 0,
   };
@@ -83,7 +90,7 @@ export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
   const productosPedido = productos.map((producto) => ({
     ...producto,
     pedido_id: pedido.id,
-    total: producto.precio_unitario * producto.cantidad,
+    total: redondear2(redondear2(producto.precio_unitario) * producto.cantidad),
   }));
 
   await Promise.all(
