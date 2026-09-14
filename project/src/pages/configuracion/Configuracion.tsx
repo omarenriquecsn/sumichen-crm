@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Layout } from "../../components/layout/Layout";
 import { useAuth } from "../../context/useAuth";
 
@@ -20,6 +21,9 @@ import {
   FileText,
   Upload,
   LayoutGrid,
+  Mail,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-toastify";
@@ -29,6 +33,11 @@ import { InstalarAppModal } from "../../components/ui/InstalarAppModal";
 import { useActualizarPerfil } from "../../hooks/useActualizarPerfil";
 import { useActualizarSidebar } from "../../hooks/useActualizarSidebar";
 import { useSubirFirma, useEliminarFirma } from "../../hooks/useFirma";
+import {
+  useGoogleStatus,
+  useConectarGoogle,
+  useDesconectarGoogle,
+} from "../../hooks/useGoogleAuth";
 import { obtenerLinksMenu } from "../../constants/menuSidebar";
 import { esAdminPrincipal } from "../../constants/adminPrincipal";
 import {
@@ -76,6 +85,12 @@ export const Configuracion: React.FC = () => {
   const eliminarFirma = useEliminarFirma();
   const firmaUrlActual = userData?.firma_url;
 
+  // Cuenta de Gmail (OAuth2): correo propio del vendedor para enviar al cliente.
+  const googleStatus = useGoogleStatus();
+  const conectarGoogle = useConectarGoogle();
+  const desconectarGoogle = useDesconectarGoogle();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const handleSeleccionarFirma = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setFirmaArchivo(file);
@@ -110,6 +125,51 @@ export const Configuracion: React.FC = () => {
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Error al eliminar la imagen.",
+      );
+    }
+  };
+
+  // Al volver del consentimiento de Google, el backend redirige con
+  // `?google=success|error`. Mostramos el toast y limpiamos el query.
+  useEffect(() => {
+    const resultado = searchParams.get("google");
+    if (!resultado) return;
+    if (resultado === "success") {
+      toast.success("¡Gmail conectado correctamente! Ya puedes enviar correos desde tu cuenta.");
+    } else if (resultado === "error") {
+      toast.error("No se pudo conectar la cuenta de Google. Inténtalo de nuevo.");
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("google");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const handleConectarGoogle = async () => {
+    try {
+      const { url } = await conectarGoogle.mutateAsync();
+      window.location.href = url;
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo conectar con Google.",
+      );
+    }
+  };
+
+  const handleDesconectarGoogle = async () => {
+    if (
+      !window.confirm(
+        "¿Desconectar tu cuenta de Gmail? Los correos volverán a enviarse con el remitente del CRM.",
+      )
+    ) {
+      return;
+    }
+    try {
+      await desconectarGoogle.mutateAsync();
+      toast.success("Cuenta de Gmail desconectada.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo desconectar la cuenta.",
       );
     }
   };
@@ -560,6 +620,78 @@ export const Configuracion: React.FC = () => {
                         {subirFirma.isPending ? "Subiendo..." : "Subir imagen"}
                       </button>
                     </div>
+                  </div>
+
+                  {/* Cuenta de correo (Gmail OAuth2) */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Cuenta de correo (Gmail)
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Conecta tu cuenta de Gmail para enviar los correos a tus
+                      clientes directamente desde tu propia dirección. Los
+                      correos quedarán guardados en tu carpeta "Enviados".
+                    </p>
+
+                    {googleStatus.isLoading ? (
+                      <p className="flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Verificando conexión...
+                      </p>
+                    ) : googleStatus.data?.conectado ? (
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {googleStatus.data.email}
+                            </p>
+                            <p className="text-xs text-green-700">
+                              Cuenta conectada
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleDesconectarGoogle}
+                          disabled={desconectarGoogle.isPending}
+                          className="inline-flex items-center justify-center gap-2 text-sm font-medium text-red-700 hover:text-red-900 bg-red-50 hover:bg-red-100 rounded-lg px-4 py-2 transition-colors disabled:opacity-50 shrink-0"
+                        >
+                          {desconectarGoogle.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <XCircle className="h-4 w-4" />
+                          )}
+                          Desconectar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {googleStatus.data && !googleStatus.data.configurado && (
+                          <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-lg text-sm">
+                            El administrador aún no ha configurado las
+                            credenciales de Google (GOOGLE_CLIENT_ID /
+                            GOOGLE_CLIENT_SECRET).
+                          </div>
+                        )}
+                        <button
+                          onClick={handleConectarGoogle}
+                          disabled={
+                            conectarGoogle.isPending ||
+                            (googleStatus.data
+                              ? !googleStatus.data.configurado
+                              : false)
+                          }
+                          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium px-4 py-2.5 rounded-lg transition-colors"
+                        >
+                          {conectarGoogle.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Mail className="h-4 w-4" />
+                          )}
+                          Conectar con Google
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

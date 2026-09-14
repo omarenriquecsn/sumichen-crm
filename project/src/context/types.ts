@@ -12,10 +12,18 @@ export interface UserData {
   avatar?: string;
   sidebar_oculto?: string[];
   firma_url?: string;
+  google_email?: string | null;
 }
 
 export interface AuthContextType {
-  currentUser: User | null | undefined;
+  // `currentUser` viene de `useCurrentUser` → `GET /usuarios/:id`, que devuelve
+  // el perfil de la tabla `vendedores` (no el `User` crudo de Supabase). En
+  // runtime incluye `rol` (autoritativo) y `supabase_id`; lo tipamos aquí para
+  // no acceder a propiedades inexistentes del tipo `User`.
+  currentUser:
+    | (User & { rol?: "vendedor" | "admin"; supabase_id?: string })
+    | null
+    | undefined;
   session: Session | null | undefined;
   userData: UserData | null | undefined;
   loading: boolean;

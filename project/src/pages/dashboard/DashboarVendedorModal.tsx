@@ -43,7 +43,7 @@ dayjs.extend(relativeTime);
 dayjs.locale("es");
 
 type DashboardVendedorProps = {
-  vendedor: User | null;
+  vendedor: (User & { rol?: "vendedor" | "admin" }) | null;
   isOpenDashboard?: boolean;
   onClose?: () => void;
 };

@@ -49,7 +49,7 @@ import useVendedores from "../../hooks/useVendedores";
 import ComponerCorreoModal from "../../components/forms/ComponerCorreoModal";
 import { ProyeccionVentas } from "../../components/ui/ProyeccionVentas";
 interface ClienteDetalleModalProps {
-  vendedor: User | null;
+  vendedor: (User & { rol?: "vendedor" | "admin" }) | null;
   cliente: Cliente;
   isOpenCliente: boolean;
   onClose: () => void;

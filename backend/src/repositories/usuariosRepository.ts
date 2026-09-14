@@ -16,6 +16,37 @@ export const getUsuarioByIdDb = async (id: string) => {
   return await userRepository.findOneBy({ id });
 };
 
+// Lee al vendedor INCLUYENDO los tokens de Google (marcados `select: false` en
+// la entidad). Busca por id de tabla (`vendedores.id`). Se usa para enviar
+// correo por Gmail y para gestionar la conexión OAuth.
+export const getUsuarioConGoogleByIdDb = async (id: string) => {
+  const userRepository = AppDataSource.getRepository(Vendedor);
+  return await userRepository
+    .createQueryBuilder('v')
+    .addSelect([
+      'v.google_refresh_token',
+      'v.google_access_token',
+      'v.google_token_expiry',
+    ])
+    .where('v.id = :id', { id })
+    .getOne();
+};
+
+// Igual que el anterior pero por `supabase_id` (auth.users.id). Se usa en el
+// callback de OAuth cuando aún no resolvemos el id de tabla.
+export const getUsuarioConGoogleBySupabaseId = async (supabaseId: string) => {
+  const userRepository = AppDataSource.getRepository(Vendedor);
+  return await userRepository
+    .createQueryBuilder('v')
+    .addSelect([
+      'v.google_refresh_token',
+      'v.google_access_token',
+      'v.google_token_expiry',
+    ])
+    .where('v.supabase_id = :supabaseId', { supabaseId })
+    .getOne();
+};
+
 export const createUsuario = async (userData: Partial<Vendedor>) => {
   const userRepository = AppDataSource.getRepository(Vendedor);
   const newUser = userRepository.create(userData);

@@ -53,6 +53,24 @@ export class Vendedor {
   @Column({ type: 'varchar', nullable: true })
   firma_url?: string | null;
 
+  // ── Gmail OAuth2 (correo propio del vendedor) ─────────────────────────────
+  // Cuenta de Google conectada desde Configuración → Perfil. Los correos que
+  // envía el vendedor salen desde esta cuenta y quedan en su carpeta "Enviados".
+  @Column({ type: 'varchar', nullable: true })
+  google_email?: string | null;
+
+  // Tokens OAuth2. `select: false` evita que se serialicen en las respuestas de
+  // la API (GET /usuarios y GET /usuarios/:id devuelven la entidad completa):
+  // solo se leen explícitamente para enviar correo. NUNCA deben exponerse.
+  @Column({ type: 'text', nullable: true, select: false })
+  google_refresh_token?: string | null;
+
+  @Column({ type: 'text', nullable: true, select: false })
+  google_access_token?: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true, select: false })
+  google_token_expiry?: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   fecha_creacion?: Date;
 

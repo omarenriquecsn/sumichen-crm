@@ -200,10 +200,17 @@ const ChatLista: React.FC = () => {
   const [search, setSearch] = React.useState("");
   const [convertirLeadSel, setConvertirLeadSel] = React.useState<Lead | null>(null);
 
-  const conversacionesFiltradas = conversaciones?.filter((c) =>
-    c.lead?.datos_contacto?.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-    c.lead?.datos_contacto?.telefono?.includes(search)
-  ) || [];
+  const conversacionesFiltradas = React.useMemo(
+    () =>
+      conversaciones?.filter(
+        (c) =>
+          c.lead?.datos_contacto?.nombre
+            ?.toLowerCase()
+            .includes(search.toLowerCase()) ||
+          c.lead?.datos_contacto?.telefono?.includes(search)
+      ) || [],
+    [conversaciones, search]
+  );
 
   // Leads asignados (estado asignado/contactado/reasignado) que NO tienen conversación abierta
   const leadsSinConversacion = React.useMemo(() => {

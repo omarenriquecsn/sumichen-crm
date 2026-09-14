@@ -167,7 +167,7 @@ const AnaliticaModal: React.FC<AnaliticaModalProps> = ({
   // Funcion para obtener los ultimos 5 meses
   const ventasPorMes = atras5meses(ventasPorMeses);
   const maxVentas = Math.max(...ventasPorMes.map((m) => m.ventas), 1);
-  const hayVentas = ventasPorMes.some((m) => m.ventas > 0 || m.clientes > 0);
+  const hayVentas = ventasPorMes.some((m) => m.ventas > 0 || (m.clientes ?? 0) > 0);
 
   const actividadesPorMes: Actividad[] = Array.isArray(actividades)
     ? actividades.filter((actividad: Actividad) => {

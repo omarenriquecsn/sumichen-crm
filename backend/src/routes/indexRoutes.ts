@@ -23,6 +23,7 @@ import preferenciasNotificacionesRoutes from './preferenciasNotificacionesRoutes
 import utilidadesRoutes from './utilidadesRoutes';
 import firmaRoutes from './firmaRoutes';
 import correosRoutes from './correosRoutes';
+import googleAuthRoutes from './googleAuthRoutes';
 
 // import turnRoutes from "./turnRoutes"
 const router: Router = Router();
@@ -51,5 +52,6 @@ router.use('/', preferenciasNotificacionesRoutes);
 router.use('/', utilidadesRoutes);
 router.use('/', firmaRoutes);
 router.use('/', correosRoutes);
+router.use('/', googleAuthRoutes);
 
 export default router;

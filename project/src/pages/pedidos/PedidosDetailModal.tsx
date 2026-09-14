@@ -32,7 +32,7 @@ import { useCrearNotificacion } from "../../hooks/useNotificaciones";
 dayjs.extend(utc);
 
 interface PedidosDetailProps {
-  vendedor: SupabaseUser;
+  vendedor: SupabaseUser & { rol?: "vendedor" | "admin" };
   pedido: Pedido;
   isOpenPedido: boolean;
   onClose: () => void;

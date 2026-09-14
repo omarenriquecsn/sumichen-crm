@@ -356,7 +356,7 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
               <p className="text-xs font-medium text-gray-500 uppercase">Estado</p>
               <span
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 capitalize ${
-                  estado === "completada" || estado === "resuelto"
+                  estado === "completada"
                     ? "bg-green-100 text-green-800"
                     : estado === "pendiente" || estado === "programada"
                     ? "bg-yellow-100 text-yellow-800"

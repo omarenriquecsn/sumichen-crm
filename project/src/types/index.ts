@@ -178,7 +178,7 @@ export interface Pedido {
   dias_credito?: number;
   moneda: "usd" | "bs";
   transporte: "interno" | "externo";
-  transporte_detalle?: Transporte;
+  transporte_detalle?: Transporte | Partial<Transporte>;
   evidencia_url?: string;
   productos_pedido: ProductoPedido[];
 }

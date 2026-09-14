@@ -4,10 +4,13 @@ import App from "./App.tsx";
 import "./index.css";
 import { ToastContainer } from "react-toastify";
 import { registrarServiceWorker } from "./lib/registrarServiceWorker";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
     <ToastContainer
       position="top-right"
       autoClose={3000}

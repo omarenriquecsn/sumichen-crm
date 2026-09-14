@@ -1,10 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
-import { Paperclip, Send, X, Loader2 } from "lucide-react";
+import { Paperclip, Send, X, Loader2, AlertTriangle } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Cliente } from "../../types";
 import { useEnviarCorreo } from "../../hooks/useEnviarCorreo";
+import { useGoogleStatus } from "../../hooks/useGoogleAuth";
+import { useAuth } from "../../context/useAuth";
+import { formatearRemitenteFallback } from "../../utils/remitente";
 
 interface ComponerCorreoModalProps {
   cliente: Cliente;
@@ -39,10 +43,19 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
   onEnviado,
 }) => {
   const enviarCorreo = useEnviarCorreo();
+  const google = useGoogleStatus();
+  const { userData } = useAuth();
   const [asunto, setAsunto] = useState("");
   const [cuerpo, setCuerpo] = useState("");
   const [adjuntos, setAdjuntos] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Remitente real con el que saldrá el correo: la cuenta de Gmail conectada o,
+  // si no hay, el correo del CRM (`nombre.apellido@dominio`).
+  const remitente =
+    google.data?.conectado && google.data.email
+      ? `tu Gmail (${google.data.email})`
+      : formatearRemitenteFallback(userData?.nombre, userData?.apellido);
 
   // Al abrir, precarga el saludo en el cuerpo (solo la primera vez por cliente).
   useEffect(() => {
@@ -115,6 +128,24 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
           </button>
         </div>
 
+        {/* Aviso: Gmail no conectado */}
+        {google.data && google.data.conectado === false && (
+          <div className="flex-shrink-0 mx-5 mt-4 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-500" />
+            <p>
+              No conectaste tu Gmail. Este correo se enviará desde el correo del
+              CRM y no quedará en tus Enviados.{" "}
+              <Link
+                to="/configuracion"
+                onClick={onClose}
+                className="font-semibold text-amber-900 underline"
+              >
+                Conectar Gmail
+              </Link>
+            </p>
+          </div>
+        )}
+
         {/* Para */}
         <div className="px-5 pt-4">
           <div className="flex items-center border-b border-gray-200 pb-2 gap-2">
@@ -177,7 +208,7 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
         )}
 
         {/* Barra inferior */}
-        <div className="flex-shrink-0 px-5 py-3 border-t border-gray-200 flex items-center gap-3">
+        <div className="flex-shrink-0 px-5 py-3 border-t border-gray-200 flex flex-wrap items-center gap-3">
           <button
             onClick={handleEnviar}
             disabled={enviarCorreo.isPending}
@@ -205,11 +236,17 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
             <Paperclip className="h-5 w-5" />
             Adjuntar
           </button>
-          {firmaUrl && (
-            <span className="ml-auto text-xs text-gray-400 hidden sm:inline">
-              Se incluirá tu firma en el pie del correo
+          <div className="ml-auto text-right">
+            <span className="text-xs text-gray-500">
+              Se enviará desde:{" "}
+              <span className="font-medium text-gray-700">{remitente}</span>
             </span>
-          )}
+            {firmaUrl && (
+              <span className="block text-xs text-gray-400">
+                Se incluirá tu firma en el pie del correo
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

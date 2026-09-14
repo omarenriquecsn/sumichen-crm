@@ -184,7 +184,9 @@ export const utilsPedidos = (pedidos: Pedido[], cliente: Cliente) => {
     firmaUrl,
   }: {
     cliente: Cliente;
-    currentUser: import("@supabase/supabase-js").User;
+    currentUser: import("@supabase/supabase-js").User & {
+      rol?: "vendedor" | "admin";
+    };
     navigate: import("react-router-dom").NavigateFunction;
     firmaUrl?: string;
     crearActividad: (

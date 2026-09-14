@@ -512,8 +512,8 @@ export const DashboardVendedor: React.FC<DashboardVendedorProps> = ({
                 <XAxis dataKey="mes" />
                 <YAxis />
                 <Tooltip
-                  formatter={(value: number) =>
-                    `$${value.toLocaleString(undefined, {
+                  formatter={(value) =>
+                    `$${Number(value).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}`

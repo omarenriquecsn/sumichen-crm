@@ -2,24 +2,27 @@ import fs from 'fs';
 import path from 'path';
 import { Resend } from 'resend';
 import { ApiError } from '../utils/ApiError';
-import { getUsuarioByIdDb } from '../repositories/usuariosRepository';
+import { getUsuarioConGoogleByIdDb } from '../repositories/usuariosRepository';
+import { enviarCorreoConGmail } from './gmailServices';
 import {
   getCarpetaFirmas,
   MIME_POR_EXT,
 } from '../controllers/firmaControllers';
 
 /**
- * Servicio de envío de correo al cliente vía Resend.
+ * Servicio de envío de correo al cliente.
  *
- * El correo se envía DESDE EL SERVIDOR (no se abre Gmail/mailto) con cuerpo
- * HTML. La imagen de firma del vendedor se incrusta como ADJUNTO INLINE (`cid`)
- * en el pie: se lee del disco del servidor y se referencia con `<img
- * src="cid:...">`, así los clientes de correo la renderizan siempre (evita que
- * bloqueen la imagen remota y que falle en dev con URLs tipo `localhost`).
+ * Prioridad de envío:
+ *  1. Si el vendedor conectó su cuenta de Gmail (Configuración → Perfil), el
+ *     correo sale desde ESA cuenta usando la API de Gmail, por lo que queda
+ *     guardado en su carpeta "Enviados".
+ *  2. Si no hay cuenta conectada, se usa Resend con el dominio verificado
+ *     (`RESEND_DOMAIN`, default `ventas.crmsumichen.com`).
  *
- * El `from` se construye con el nombre/apellido del vendedor autenticado sobre
- * el dominio de Resend configurado (`RESEND_DOMAIN`, default
- * `ventas.crmsumichen.com`): `Nombre Apellido <nombre.apellido@ventas...>`.
+ * En ambos casos el cuerpo va en HTML y la imagen de firma del vendedor se
+ * incrusta como ADJUNTO INLINE (`cid`) en el pie: se lee del disco del
+ * servidor y se referencia con `<img src="cid:...">`, así los clientes de
+ * correo la renderizan siempre.
  */
 
 export interface AdjuntoCorreo {
@@ -119,14 +122,6 @@ export const enviarCorreoCliente = async ({
   cuerpoHtml,
   adjuntos = [],
 }: EnviarCorreoParams) => {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    throw new ApiError(
-      'RESEND_API_KEY no está configurada. Agrega tu API key de Resend en backend/.env',
-      500,
-    );
-  }
-
   if (!to) {
     throw new ApiError('El destinatario (to) es obligatorio', 400);
   }
@@ -143,25 +138,58 @@ export const enviarCorreoCliente = async ({
     }
   }
 
-  // Perfil del vendedor que envía (id de tabla vendedores).
-  const vendedor = await getUsuarioByIdDb(vendedorDbId);
+  // Perfil del vendedor que envía (id de tabla vendedores). Se incluyen los
+  // tokens de Google (marcados select:false) para saber si envía por Gmail.
+  const vendedor = await getUsuarioConGoogleByIdDb(vendedorDbId);
   if (!vendedor) {
     throw new ApiError('Vendedor no encontrado', 404);
   }
 
   const nombre = vendedor.nombre || 'Vendedor';
   const apellido = vendedor.apellido || '';
+
+  const CID_FIRMA = 'sumichem_firma';
+  const firma = leerImagenFirma(vendedor.firma_url);
+
+  const html = armarHtmlConPie(cuerpoHtml || '', firma ? CID_FIRMA : null);
+
+  // 1) Si el vendedor conectó su cuenta de Gmail, el correo sale desde ahí y
+  //    queda guardado en su carpeta "Enviados" (Gmail API).
+  if (vendedor.google_refresh_token && vendedor.google_email) {
+    const resultado = await enviarCorreoConGmail({
+      nombre,
+      apellido,
+      googleEmail: vendedor.google_email,
+      refreshToken: vendedor.google_refresh_token,
+      to,
+      asunto: asunto || 'Contacto desde Sumichem',
+      html,
+      firma,
+      cidFirma: CID_FIRMA,
+      adjuntos,
+    });
+    return {
+      message: 'Correo enviado correctamente',
+      id: resultado.id ?? undefined,
+      from: vendedor.google_email,
+    };
+  }
+
+  // 2) Fallback: Resend con el dominio propio verificado.
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new ApiError(
+      'No hay una cuenta de Gmail conectada y RESEND_API_KEY no está configurada. Conecta tu Gmail desde Configuración → Perfil o agrega la API key de Resend en backend/.env',
+      500,
+    );
+  }
+
   const dominio = process.env.RESEND_DOMAIN || 'ventas.crmsumichen.com';
   const localPart = normalizarLocalPart(`${nombre} ${apellido}`.trim());
   const fromEmail = `${localPart}@${dominio}`;
   const from = `${nombre} ${apellido}`.trim()
     ? `"${`${nombre} ${apellido}`.trim()}" <${fromEmail}>`
     : fromEmail;
-
-  const CID_FIRMA = 'sumichem_firma';
-  const firma = leerImagenFirma(vendedor.firma_url);
-
-  const html = armarHtmlConPie(cuerpoHtml || '', firma ? CID_FIRMA : null);
 
   const resend = new Resend(apiKey);
 

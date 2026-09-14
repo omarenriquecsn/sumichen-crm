@@ -3,60 +3,32 @@
  * Responsabilidades:
  *  - Recibir notificaciones push (Web Push API) y mostrarlas en el dispositivo.
  *  - Abrir/enfocar la app al hacer clic en una notificación.
- *  - Cache básico del app-shell (network-first) para que la app abra rápido.
+ *  - Limpiar las cachés antiguas que dejaron versiones anteriores.
+ *
+ * ⚠ NO interceptamos `fetch` a propósito. El CRM es online-first (todos los
+ * datos viven en la base de datos/API), así que el caché del app-shell no
+ * aportaba valor y SÍ era la causa de las pantallas en blanco: cuando fallaba
+ * la descarga de un `.js`/`.css` (p. ej. tras un deploy que borró el chunk con
+ * hash anterior), el handler devolvía `index.html` para ese recurso, el
+ * navegador intentaba ejecutar HTML como JavaScript y React nunca montaba.
+ * Sin handler de `fetch` el navegador maneja las peticiones normalmente y no
+ * hay forma de responder con un contenido equivocado.
  */
-const CACHE_NAME = "sumichem-crm-v1";
-const APP_SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png"];
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .catch(() => {})
-  );
+self.addEventListener("install", () => {
+  // Activa el SW nuevo sin esperar a que se cierren las pestañas.
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
+  // Borra TODAS las cachés de versiones anteriores (auto-repara clientes que
+  // quedaron con assets/índice viejos) y toma el control de las pestañas.
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-      )
+      .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
       .catch(() => {})
-  );
-  self.clients.claim();
-});
-
-/* Estrategia network-first para el app-shell: usa red si hay conexión y
- * cae a la caché si no. El resto (API, imágenes externas) nunca se cachea. */
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  if (request.method !== "GET") return;
-
-  const url = new URL(request.url);
-  const mismoOrigen = url.origin === self.location.origin;
-  const esRecursoEstatico =
-    /\.(js|css|png|svg|ico|woff2?|webmanifest)$/.test(url.pathname) ||
-    url.pathname.endsWith("/") ||
-    url.pathname.endsWith("/index.html");
-
-  if (!mismoOrigen || !esRecursoEstatico) return;
-
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (response && response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
-        }
-        return response;
-      })
-      .catch(() =>
-        caches.match(request).then((cached) => cached || caches.match("./index.html"))
-      )
+      .then(() => self.clients.claim())
   );
 });
 

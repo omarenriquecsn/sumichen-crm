@@ -9,7 +9,7 @@ function arrayBufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function base64UrlToUint8Array(base64Url: string): Uint8Array {
+function base64UrlToUint8Array(base64Url: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64Url.length % 4)) % 4);
   const base64 = (base64Url + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = window.atob(base64);
@@ -80,7 +80,8 @@ function aOpcionesRegistro(
     rp: opciones.rp,
     user: { ...opciones.user, id: base64UrlToUint8Array(opciones.user.id) },
     challenge: base64UrlToUint8Array(opciones.challenge),
-    pubKeyCredParams: opciones.pubKeyCredParams,
+    pubKeyCredParams:
+      opciones.pubKeyCredParams as PublicKeyCredentialParameters[],
     timeout: opciones.timeout,
     attestation: opciones.attestation as AttestationConveyancePreference,
     authenticatorSelection:

@@ -34,7 +34,7 @@ import { useAuth } from "../../context/useAuth";
 const localizer = momentLocalizer(moment);
 moment.locale("es");
 
-const DnDCalendar = withDragAndDrop(Calendar);
+const DnDCalendar = withDragAndDrop<CalendarioEvento>(Calendar);
 
 interface CalendarioProps {
   /** Acota las reuniones al vendedor indicado (id de tabla vendedores). */
@@ -204,7 +204,7 @@ const Calendario: React.FC<CalendarioProps> = ({
       start: new Date(reunion.fecha_inicio),
       end: new Date(reunion.fecha_fin),
       allDay: false,
-      resource: reunion,
+      resource: reunion as ReunionCalendario,
     }));
   }, [reuniones, vendedorId, filtroEstado, filtroTipo]);
 

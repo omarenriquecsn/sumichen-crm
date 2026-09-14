@@ -36,7 +36,7 @@ import {
 dayjs.extend(utc);
 
 type PedidosProps = {
-  vendedor: UserSupabase;
+  vendedor: UserSupabase & { rol?: "vendedor" | "admin" };
   isOpenPedidos: boolean;
   onClose: () => void;
 };
