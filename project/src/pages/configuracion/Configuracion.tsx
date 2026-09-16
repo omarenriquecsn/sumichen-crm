@@ -24,6 +24,7 @@ import {
   Mail,
   CheckCircle2,
   XCircle,
+  Search,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-toastify";
@@ -51,6 +52,7 @@ import {
   soportaBiometria,
 } from "../../lib/biometric";
 import { useSupabase } from "../../hooks/useSupabase";
+import { ordenarPorCoincidencia } from "../../utils/busqueda";
 
 export const Configuracion: React.FC = () => {
   const { userData, session, refreshUserData, currentUser } = useAuth();
@@ -76,6 +78,13 @@ export const Configuracion: React.FC = () => {
   const [registrandoBiometrico, setRegistrandoBiometrico] = useState(false);
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null);
   const archivoInputRef = React.useRef<HTMLInputElement>(null);
+  const [busquedaDocumentos, setBusquedaDocumentos] = useState("");
+
+  const utilidadesFiltradas = React.useMemo(
+    () =>
+      ordenarPorCoincidencia(utilidades ?? [], busquedaDocumentos, (u) => u.nombre),
+    [utilidades, busquedaDocumentos]
+  );
 
   // Imagen/firma del vendedor (pie de correo). Única por usuario: subir una
   // nueva sustituye la anterior.
@@ -1183,6 +1192,19 @@ export const Configuracion: React.FC = () => {
                     </div>
                   )}
 
+                  {!utilidadesLoading && !!utilidades?.length && (
+                    <div className="relative w-full sm:max-w-sm">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={busquedaDocumentos}
+                        onChange={(e) => setBusquedaDocumentos(e.target.value)}
+                        placeholder="Buscar documento..."
+                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  )}
+
                   {utilidadesLoading ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
@@ -1192,9 +1214,13 @@ export const Configuracion: React.FC = () => {
                       No hay documentos en la carpeta <code>utilidades</code>.
                       {esAdmin && " Usa el formulario de arriba para subir el primero."}
                     </div>
+                  ) : !utilidadesFiltradas.length ? (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center text-gray-500 text-sm">
+                      No se encontraron documentos para «{busquedaDocumentos.trim()}».
+                    </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {utilidades.map((u) => {
+                      {utilidadesFiltradas.map((u) => {
                         const href = `${u.url}${u.url.includes("?") ? "&" : "?"}access_token=${encodeURIComponent(
                           session?.access_token ?? ""
                         )}`;
