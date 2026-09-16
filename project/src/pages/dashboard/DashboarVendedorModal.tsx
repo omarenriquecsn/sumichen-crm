@@ -99,7 +99,7 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
   const _currentUser = vendedor;
 
   const pedidosArray = Array.isArray(_pedidos) ? _pedidos : [];
-  const { PedidosProcesados, cifraVentasMes } = useVentas(pedidosArray);
+  const { cifraVentasMes, cifraVentasBaseMes } = useVentas(pedidosArray);
   const OportunidadesMes = OportunidadesUtilmes(_oportunidades);
 
   if (!_currentUser) {
@@ -132,24 +132,27 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
       : 0;
 
   const incremento = calculoIncremento(clientesActivos(_clientes));
-  const incrementoVentas = calculoIncremento(PedidosProcesados);
   const incrementoPipeline = calculoIncremento(OportunidadesMes);
 
   const stats = [
     {
       title: "Clientes Activos",
       value: clientesActivos(_clientes).length ?? "0",
+      subtitle: "",
       change: `${incremento.toFixed(2)}%`,
       changeType: `${typeChange(incremento)}` as const,
       icon: Users,
       color: "blue",
     },
     {
-      title: "Ventas del Mes",
-      value: formatCurrencyCompacto(cifraVentasMes(new Date().getMonth())),
-      exacto: formatCurrency(cifraVentasMes(new Date().getMonth())),
-      change: `${incrementoVentas.toFixed(2)}%`,
-      changeType: `${typeChange(incrementoVentas)}` as const,
+      title: "Ventas del Mes (Precio Base)",
+      value: formatCurrencyCompacto(cifraVentasBaseMes(new Date().getMonth())),
+      exacto: formatCurrency(cifraVentasBaseMes(new Date().getMonth())),
+      subtitle: `Total del mes: ${formatCurrency(
+        cifraVentasMes(new Date().getMonth())
+      )}`,
+      change: "",
+      changeType: "" as const,
       icon: DollarSign,
       color: "green",
     },
@@ -157,6 +160,7 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
       title: "Pipeline",
       value: formatCurrencyCompacto(valorPipeline(_oportunidades)),
       exacto: formatCurrency(valorPipeline(_oportunidades)),
+      subtitle: "",
       change: `${incrementoPipeline.toFixed(2)}%`,
       changeType: `${typeChange(incrementoPipeline)}` as const,
       icon: TrendingUp,
@@ -165,6 +169,7 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
     {
       title: "Meta Mensual",
       value: `${porcentajeMeta.toFixed(2)}%`,
+      subtitle: "",
       change: `${(porcentajeMeta - porcentajeMetaAnterior).toFixed(2)}%`,
       changeType:
         metasMesActual && ventaMes >= metasMesActual.objetivo_ventas
@@ -244,6 +249,11 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
                         {stat.value}
                       </p>
                     )}
+                    {stat.subtitle ? (
+                      <p className="text-sm text-gray-500 mt-1">
+                        {stat.subtitle}
+                      </p>
+                    ) : null}
                     <p
                       className={`text-sm mt-2 ${
                         stat.changeType === "positive" ||
@@ -252,7 +262,9 @@ export const DashboardVendedorModal: React.FC<DashboardVendedorProps> = ({
                           : "text-red-600"
                       }`}
                     >
-                      {stat.change} vs mes anterior
+                      {stat.change === ""
+                        ? ""
+                        : `${stat.change} vs mes anterior`}
                     </p>
                   </div>
                   <div
