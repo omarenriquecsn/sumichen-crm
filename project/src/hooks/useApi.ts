@@ -498,6 +498,8 @@ export const useApi = () => {
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["actividades"] });
+        // El backend sincroniza la reunión ligada si la actividad es de tipo reunion
+        queryClient.invalidateQueries({ queryKey: ["reuniones"] });
       },
     });
   };
@@ -651,6 +653,8 @@ export const useApi = () => {
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["reuniones"] });
+        // El backend sincroniza la actividad ligada de la reunión
+        queryClient.invalidateQueries({ queryKey: ["actividades"] });
       },
     });
   };

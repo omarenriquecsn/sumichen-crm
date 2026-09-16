@@ -63,13 +63,16 @@ export const updateReunionesService = async (
 
   if (!reunionActualizada) throw new Error('No se pudo actualizar la reunion');
 
-  // Al reagendar (cambiar fecha_inicio/fecha_fin) se sincroniza la Actividad
-  // ligada que el backend crea automáticamente por cada reunión, para que las
-  // listas del dashboard y el recordatorio reflejen la nueva fecha.
-  if (
+  // Se sincroniza la Actividad ligada que el backend crea automáticamente por
+  // cada reunión, para que las listas del dashboard y el recordatorio reflejen
+  // los cambios de fecha y de descripción/título.
+  const cambiaFecha =
     reunionData.fecha_inicio !== undefined ||
-    reunionData.fecha_fin !== undefined
-  ) {
+    reunionData.fecha_fin !== undefined;
+  const cambiaTexto =
+    reunionData.titulo !== undefined || reunionData.descripcion !== undefined;
+
+  if (cambiaFecha || cambiaTexto) {
     const todasActividades = await getActividads();
     const actividadEnlazada = todasActividades.find(
       (a) =>
@@ -77,11 +80,19 @@ export const updateReunionesService = async (
         a.tipo === ActividadesEnum.REUNION,
     );
     if (actividadEnlazada) {
-      await updateActividad(actividadEnlazada.id, {
-        fecha: reunionActualizada.fecha_inicio,
-        fecha_vencimiento: reunionActualizada.fecha_fin,
-        recordatorio_enviado: false,
-      });
+      const datosActividad: Partial<Actividad> = {};
+      if (cambiaFecha) {
+        datosActividad.fecha = reunionActualizada.fecha_inicio;
+        datosActividad.fecha_vencimiento = reunionActualizada.fecha_fin;
+        datosActividad.recordatorio_enviado = false;
+      }
+      if (reunionData.titulo !== undefined) {
+        datosActividad.titulo = reunionActualizada.titulo;
+      }
+      if (reunionData.descripcion !== undefined) {
+        datosActividad.descripcion = reunionActualizada.descripcion;
+      }
+      await updateActividad(actividadEnlazada.id, datosActividad);
     }
   }
 

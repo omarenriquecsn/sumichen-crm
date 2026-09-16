@@ -63,6 +63,8 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
 
   const [modoEdicion, setModoEdicion] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  // Descripción (editable en cualquier estado)
+  const [descripcionEdit, setDescripcionEdit] = useState("");
   // Reunión: inicio y fin
   const [fechaInicioEdit, setFechaInicioEdit] = useState("");
   const [fechaFinEdit, setFechaFinEdit] = useState("");
@@ -136,6 +138,10 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
   })();
 
   const entrarEdicion = () => {
+    setDescripcionEdit(
+      (reunionObjetivo?.descripcion ?? actividadObjetivo?.descripcion ?? "") ||
+        ""
+    );
     if (reunionObjetivo) {
       setFechaInicioEdit(aDateTimeLocal(reunionObjetivo.fecha_inicio));
       setFechaFinEdit(aDateTimeLocal(reunionObjetivo.fecha_fin));
@@ -150,7 +156,7 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
     setGuardando(false);
   };
 
-  const guardarReagenda = async () => {
+  const guardarCambios = async () => {
     if (!currentUser) {
       toast.error("Debes iniciar sesión para realizar esta acción.");
       return;
@@ -159,54 +165,65 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
 
     try {
       if (reunionObjetivo) {
-        const inicio = new Date(fechaInicioEdit);
-        const fin = new Date(fechaFinEdit);
-        if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) {
-          toast.error("Ingresa una fecha y hora válidas para el inicio y fin.");
-          return;
-        }
-        if (fin.getTime() <= inicio.getTime()) {
-          toast.error("La fecha de fin debe ser posterior a la de inicio.");
-          return;
+        const payload: Partial<Reunion> = {
+          id: reunionObjetivo.id,
+          descripcion: descripcionEdit,
+        };
+        // Solo se reagenda si la reunión sigue abierta
+        if (puedeReagendar) {
+          const inicio = new Date(fechaInicioEdit);
+          const fin = new Date(fechaFinEdit);
+          if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) {
+            toast.error(
+              "Ingresa una fecha y hora válidas para el inicio y fin."
+            );
+            return;
+          }
+          if (fin.getTime() <= inicio.getTime()) {
+            toast.error("La fecha de fin debe ser posterior a la de inicio.");
+            return;
+          }
+          payload.fecha_inicio = inicio;
+          payload.fecha_fin = fin;
         }
         setGuardando(true);
-        await actualizarReunion({
-          ReunionData: {
-            id: reunionObjetivo.id,
-            fecha_inicio: inicio,
-            fecha_fin: fin,
-          },
-          currentUser,
-        });
-        toast.success("Reunión reagendada correctamente");
+        await actualizarReunion({ ReunionData: payload, currentUser });
+        toast.success("Cambios guardados correctamente");
         salirEdicion();
       } else if (actividadObjetivo) {
-        const nuevaFecha = new Date(fechaEdit);
-        if (Number.isNaN(nuevaFecha.getTime())) {
-          toast.error("Ingresa una fecha y hora válidas.");
-          return;
-        }
         const payload: Partial<Actividad> = {
           id: actividadObjetivo.id,
-          fecha: nuevaFecha,
+          descripcion: descripcionEdit,
+          // Necesarios para que el backend sincronice la reunión ligada
+          tipo: actividadObjetivo.tipo,
+          id_tipo_actividad: actividadObjetivo.id_tipo_actividad,
         };
-        // Desplaza el vencimiento el mismo delta para no dejar la actividad "vencida"
-        if (actividadObjetivo.fecha_vencimiento) {
-          const vieja = new Date(actividadObjetivo.fecha);
-          const delta = nuevaFecha.getTime() - vieja.getTime();
-          payload.fecha_vencimiento = new Date(
-            new Date(actividadObjetivo.fecha_vencimiento).getTime() + delta
-          );
+        // Solo se reagenda si la actividad sigue pendiente
+        if (puedeReagendar) {
+          const nuevaFecha = new Date(fechaEdit);
+          if (Number.isNaN(nuevaFecha.getTime())) {
+            toast.error("Ingresa una fecha y hora válidas.");
+            return;
+          }
+          payload.fecha = nuevaFecha;
+          // Desplaza el vencimiento el mismo delta para no dejar la actividad "vencida"
+          if (actividadObjetivo.fecha_vencimiento) {
+            const vieja = new Date(actividadObjetivo.fecha);
+            const delta = nuevaFecha.getTime() - vieja.getTime();
+            payload.fecha_vencimiento = new Date(
+              new Date(actividadObjetivo.fecha_vencimiento).getTime() + delta
+            );
+          }
         }
         setGuardando(true);
         await actualizarActividad(payload);
-        toast.success("Actividad reagendada correctamente");
+        toast.success("Cambios guardados correctamente");
         salirEdicion();
       }
     } catch (err) {
       const message =
         (err as { message?: string })?.message ??
-        "No se pudo reagendar. Intenta de nuevo.";
+        "No se pudieron guardar los cambios. Intenta de nuevo.";
       toast.error(message);
     } finally {
       setGuardando(false);
@@ -262,12 +279,29 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase">Descripción</p>
-              <p className="text-gray-800 mt-1 whitespace-pre-wrap">
-                {descripcion || "Sin descripción"}
-              </p>
-            </div>
+            {!modoEdicion ? (
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase">
+                  Descripción
+                </p>
+                <p className="text-gray-800 mt-1 whitespace-pre-wrap">
+                  {descripcion || "Sin descripción"}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  value={descripcionEdit}
+                  onChange={(e) => setDescripcionEdit(e.target.value)}
+                  rows={4}
+                  placeholder="Escribe la descripción de la actividad..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white resize-y"
+                />
+              </div>
+            )}
 
             {!modoEdicion && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-gray-200">
@@ -292,7 +326,7 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
               </div>
             )}
 
-            {modoEdicion && reunionObjetivo && (
+            {modoEdicion && reunionObjetivo && puedeReagendar && (
               <div className="pt-2 border-t border-gray-200">
                 <p className="text-xs font-medium text-gray-500 uppercase mb-3">
                   Reagendar reunión
@@ -324,7 +358,7 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
               </div>
             )}
 
-            {modoEdicion && actividadObjetivo && (
+            {modoEdicion && actividadObjetivo && puedeReagendar && (
               <div className="pt-2 border-t border-gray-200">
                 <p className="text-xs font-medium text-gray-500 uppercase mb-3">
                   Reagendar actividad
@@ -385,15 +419,13 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
             {!modoEdicion ? (
               <>
-                {puedeReagendar && (
-                  <button
-                    onClick={entrarEdicion}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Reagendar
-                  </button>
-                )}
+                <button
+                  onClick={entrarEdicion}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar
+                </button>
                 <button
                   onClick={onClose}
                   className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg transition-colors"
@@ -411,7 +443,7 @@ export const ActividadDetalleModal: React.FC<ActividadDetalleModalProps> = ({
                   Cancelar
                 </button>
                 <button
-                  onClick={guardarReagenda}
+                  onClick={guardarCambios}
                   disabled={guardando}
                   className="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:bg-green-300 disabled:cursor-not-allowed"
                 >

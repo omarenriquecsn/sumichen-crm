@@ -41,3 +41,5 @@ test/
 
 # Otros
 .bolt
+deploy.ps1
+
