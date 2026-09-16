@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import { Users, MapPin, AlertCircle, CheckCircle, X, RotateCcw, ArrowRight, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Lead, Zona, Vendedor } from "../../types";
 import ConvertirLeadModal from "../../components/forms/ConvertirLeadModal";
+import { BotonAtenderWhatsApp } from "../../components/ui/BotonAtenderWhatsApp";
 
 const estadoColors: Record<string, string> = {
   nuevo: "bg-gray-100 text-gray-800",
@@ -167,7 +168,7 @@ const Leads: React.FC = () => {
               <option value="contactado">Contactado</option>
               <option value="calificado">Calificado</option>
               <option value="convertido">Convertido</option>
-              <option value="perdido">Perdido</option>
+              {userData?.rol === 'admin' && <option value="perdido">Perdido</option>}
               <option value="reasignado">Reasignado</option>
             </select>
             <select
@@ -348,6 +349,10 @@ const Leads: React.FC = () => {
                     <CheckCircle className="h-3 w-3" /> Convertir
                   </button>
                 )}
+                <BotonAtenderWhatsApp
+                  lead={lead}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700"
+                />
                 {lead.estado !== 'convertido' && lead.estado !== 'perdido' && (
                   <button
                     onClick={() => handlePerder(lead.id)}
@@ -473,6 +478,10 @@ const Leads: React.FC = () => {
                           <CheckCircle className="h-3 w-3 inline mr-1" /> Convertir
                         </button>
                       )}
+                      <BotonAtenderWhatsApp
+                        lead={lead}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 whitespace-nowrap"
+                      />
                       {lead.estado !== 'convertido' && lead.estado !== 'perdido' && (
                         <button
                           onClick={() => handlePerder(lead.id)}

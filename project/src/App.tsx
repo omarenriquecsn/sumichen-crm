@@ -36,6 +36,7 @@ import ChatLista from "./pages/chat/ChatLista";
 import ChatVentana from "./pages/chat/ChatVentana";
 import MarketingDashboard from "./pages/marketing/MarketingDashboard";
 import { LlamarDesdePush } from "./components/ui/LlamarDesdePush";
+import { AtenderLeadDesdePush } from "./components/ui/AtenderLeadDesdePush";
 
 const queryClient = new QueryClient();
 
@@ -279,6 +280,7 @@ function App() {
 
             </Routes>
             <LlamarDesdePush />
+            <AtenderLeadDesdePush />
           </div>
         </Router>
       </AuthProvider>

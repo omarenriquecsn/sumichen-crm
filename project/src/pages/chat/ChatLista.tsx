@@ -77,10 +77,10 @@ const ConversacionItem: React.FC<{ conv: Conversacion; onRegistrar: (lead: Lead)
                     {conv.lead.zona.nombre}
                   </span>
                 )}
-                {conv.vendedor && (
+                {conv.lead?.vendedor_asignado && (
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
-                    {conv.vendedor.nombre} {conv.vendedor.apellido}
+                    {conv.lead.vendedor_asignado.nombre} {conv.lead.vendedor_asignado.apellido}
                   </span>
                 )}
               </div>
@@ -247,13 +247,17 @@ const ChatLista: React.FC = () => {
     }
   };
 
-  // Admin: agrupar por vendedor. Vendedor: lista simple (el backend ya filtra).
+  // Admin: agrupar por el vendedor asignado ACTUAL del lead. Vendedor: lista
+  // simple (el backend ya filtra por su asignación).
   const gruposPorVendedor = React.useMemo(() => {
     if (!esAdmin) return null;
     const map = new Map<string, { vendedor: string; conversaciones: Conversacion[] }>();
     for (const conv of conversacionesFiltradas) {
-      const key = conv.vendedor_id;
-      const nombre = conv.vendedor ? `${conv.vendedor.nombre} ${conv.vendedor.apellido}` : "Sin vendedor";
+      const asignado = conv.lead?.vendedor_asignado;
+      const key = asignado?.id ?? "sin-asignar";
+      const nombre = asignado
+        ? `${asignado.nombre} ${asignado.apellido}`
+        : "Sin vendedor";
       if (!map.has(key)) {
         map.set(key, { vendedor: nombre, conversaciones: [] });
       }

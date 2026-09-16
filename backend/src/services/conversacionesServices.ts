@@ -29,7 +29,7 @@ export const getConversacionesParaExportService = async () => {
 export const getConversacionByIdService = async (id: string, reqUser?: any) => {
   const conv = await getConversacionById(id);
   if (!conv) throw new ApiError('Conversación no encontrada', 404);
-  if (reqUser?.rol === 'vendedor' && conv.vendedor_id !== reqUser.vendedor_db_id) {
+  if (reqUser?.rol === 'vendedor' && conv.lead?.vendedor_asignado_id !== reqUser.vendedor_db_id) {
     throw new ApiError('No autorizado', 403);
   }
   return conv;
@@ -38,7 +38,7 @@ export const getConversacionByIdService = async (id: string, reqUser?: any) => {
 export const getConversacionByLeadIdService = async (leadId: string, reqUser?: any) => {
   const conv = await getConversacionByLeadId(leadId);
   if (!conv) return null;
-  if (reqUser?.rol === 'vendedor' && conv.vendedor_id !== reqUser.vendedor_db_id) {
+  if (reqUser?.rol === 'vendedor' && conv.lead?.vendedor_asignado_id !== reqUser.vendedor_db_id) {
     throw new ApiError('No autorizado', 403);
   }
   return conv;
@@ -46,7 +46,14 @@ export const getConversacionByLeadIdService = async (leadId: string, reqUser?: a
 
 export const abrirConversacionParaLead = async (leadId: string, vendedorId: string, canal: string = 'whatsapp') => {
   const existing = await getConversacionByLeadId(leadId);
-  if (existing) return existing;
+  if (existing) {
+    // Si el lead fue reasignado, el chat debe quedar con el vendedor actual
+    // (el anterior pierde el acceso; evita doble contacto).
+    if (existing.vendedor_id !== vendedorId) {
+      return await updateConversacion(existing.id, { vendedor_id: vendedorId });
+    }
+    return existing;
+  }
 
   const lead = await getLeadById(leadId);
   if (!lead) throw new ApiError('Lead no encontrado', 404);
@@ -97,7 +104,7 @@ export const enviarMensajeService = async (
   if (conv.estado === 'cerrada') throw new ApiError('Conversación cerrada', 400);
   // ⚠ Aislamiento de chat: un vendedor solo puede escribir en sus propias
   // conversaciones (igual que getMensajesService).
-  if (reqUser?.rol === 'vendedor' && conv.vendedor_id !== reqUser.vendedor_db_id) {
+  if (reqUser?.rol === 'vendedor' && conv.lead?.vendedor_asignado_id !== reqUser.vendedor_db_id) {
     throw new ApiError('No autorizado', 403);
   }
 
@@ -149,7 +156,7 @@ const mensajeRepo = () => {
 export const getMensajesService = async (conversacionId: string, page = 1, limit = 50, reqUser?: any) => {
   const conv = await getConversacionById(conversacionId);
   if (!conv) throw new ApiError('Conversación no encontrada', 404);
-  if (reqUser?.rol === 'vendedor' && conv.vendedor_id !== reqUser.vendedor_db_id) {
+  if (reqUser?.rol === 'vendedor' && conv.lead?.vendedor_asignado_id !== reqUser.vendedor_db_id) {
     throw new ApiError('No autorizado', 403);
   }
   return await getMensajes(conversacionId, page, limit);
@@ -174,6 +181,10 @@ export const recibirMensajeExternoService = async (
       canal: CanalConversacionEnum.WHATSAPP,
       ultimo_mensaje_en: new Date(),
     });
+  } else if (conv.vendedor_id !== lead.vendedor_asignado_id) {
+    // El lead pudo haber sido reasignado: el chat sigue al vendedor actual.
+    await updateConversacion(conv.id, { vendedor_id: lead.vendedor_asignado_id });
+    conv.vendedor_id = lead.vendedor_asignado_id;
   }
 
   const mensaje = await createMensaje({
@@ -217,7 +228,7 @@ export const recibirMensajeExternoService = async (
 export const cerrarConversacionService = async (id: string, reqUser?: any) => {
   const conv = await getConversacionById(id);
   if (!conv) throw new ApiError('Conversación no encontrada', 404);
-  if (reqUser?.rol === 'vendedor' && conv.vendedor_id !== reqUser.vendedor_db_id) {
+  if (reqUser?.rol === 'vendedor' && conv.lead?.vendedor_asignado_id !== reqUser.vendedor_db_id) {
     throw new ApiError('No autorizado', 403);
   }
   return await cerrarConversacion(id);

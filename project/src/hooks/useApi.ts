@@ -1329,6 +1329,32 @@ export const useApi = () => {
     });
   };
 
+  const useContactarLead = () => {
+    return useMutation({
+      mutationFn: async (leadId: string) => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/leads/${leadId}/contactar`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const err = await res
+            .json()
+            .catch(() => ({ message: "Error al marcar lead como contactado" }));
+          throw new Error(err.message || "Error al marcar lead como contactado");
+        }
+        return res.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["leads"] });
+        queryClient.invalidateQueries({ queryKey: ["lead"] });
+        queryClient.invalidateQueries({ queryKey: ["conversaciones"] });
+        queryClient.invalidateQueries({ queryKey: ["conversacion"] });
+      },
+    });
+  };
+
   const useHistorialReasignaciones = (leadId: string) => {
     const { session } = useAuth();
     return useQuery({
@@ -1658,6 +1684,7 @@ export const useApi = () => {
     useReasignarLead,
     useConvertirLead,
     usePerderLead,
+    useContactarLead,
     useHistorialReasignaciones,
     // Conversaciones / Chat
     useConversaciones,

@@ -119,24 +119,22 @@ const procesarMensajeWhatsApp = async (msg: any, value: any, _payload: any) => {
     return { wamid, accion: 'duplicado_ignorado' };
   }
 
-  // ⚠ Lead perdido que vuelve a escribir: se reactiva. Con vendedor → vuelve a
-  // 'contactado' y el mensaje cae en su conversación; sin vendedor → vuelve a
-  // 'nuevo' y se reinicia el asistente de bienvenida (pregunta estado otra vez).
+  // ⚠ Lead perdido que vuelve a escribir: vuelve al pool para reasignación.
+  // Se desasigna siempre (aunque sea data legacy con vendedor) y se reinicia
+  // el asistente de bienvenida para que se reasigne por el flujo normal.
   if (lead && lead.estado === EstadoLeadEnum.PERDIDO) {
-    if (lead.vendedor_asignado_id) {
-      lead = await updateLead(lead.id, { estado: EstadoLeadEnum.CONTACTADO, ultima_actividad_en: new Date() });
-    } else {
-      const metadata = { ...lead.metadata };
-      delete metadata.paso_menu;
-      delete metadata.estados_disponibles;
-      delete metadata.intencion_seleccionada;
-      delete metadata.tipo_contacto;
-      lead = await updateLead(lead.id, {
-        estado: EstadoLeadEnum.NUEVO,
-        ultima_actividad_en: new Date(),
-        metadata,
-      });
-    }
+    const metadata = { ...lead.metadata };
+    delete metadata.paso_menu;
+    delete metadata.estados_disponibles;
+    delete metadata.intencion_seleccionada;
+    delete metadata.tipo_contacto;
+    lead = await updateLead(lead.id, {
+      estado: EstadoLeadEnum.NUEVO,
+      vendedor_asignado_id: null,
+      asignado_en: null,
+      ultima_actividad_en: new Date(),
+      metadata,
+    });
   }
 
   if (!lead) {
@@ -196,6 +194,11 @@ const procesarMensajeWhatsApp = async (msg: any, value: any, _payload: any) => {
         canal: CanalConversacionEnum.WHATSAPP,
         ultimo_mensaje_en: new Date(),
       });
+    } else if (conv.vendedor_id !== lead.vendedor_asignado_id) {
+      // El lead pudo haber sido reasignado: el chat sigue al vendedor actual
+      // (el anterior pierde el acceso; evita doble contacto).
+      await updateConversacion(conv.id, { vendedor_id: lead.vendedor_asignado_id });
+      conv.vendedor_id = lead.vendedor_asignado_id;
     }
     await updateLead(lead.id, { ultima_actividad_en: new Date(), metadata: nuevoMetadata });
     await createMensaje({

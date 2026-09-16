@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import { Send, ArrowLeft, AlertCircle, Check, Info, X, UserPlus, XCircle } from "lucide-react";
 import { Lead } from "../../types";
 import ConvertirLeadModal from "../../components/forms/ConvertirLeadModal";
+import { BotonAtenderWhatsApp } from "../../components/ui/BotonAtenderWhatsApp";
 
 const ChatVentana: React.FC = () => {
   const { currentUser } = useAuth();
@@ -120,6 +121,15 @@ const ChatVentana: React.FC = () => {
 
       {puedeAccionar && (
         <div className="mt-4 flex flex-col gap-2">
+          {lead && (
+            <BotonAtenderWhatsApp
+              lead={lead}
+              nombreVendedor={
+                vendedor ? `${vendedor.nombre} ${vendedor.apellido}`.trim() : undefined
+              }
+              className="flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-lg text-sm font-medium"
+            />
+          )}
           <button
             onClick={() => lead && setConvertirLeadSel(lead)}
             className="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm font-medium"

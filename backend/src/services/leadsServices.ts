@@ -8,10 +8,12 @@ import {
   reasignarLead,
   convertirLeadACliente,
   marcarLeadPerdido,
+  marcarLeadContactado,
   getVendedoresDeZona,
   getLeadsSLAVencido,
 } from '../repositories/leadsRepository';
 import { ApiError } from '../utils/ApiError';
+import { construirUrlAtenderLead } from '../utils/atenderLead';
 import { In } from 'typeorm';
 import { EstadoLeadEnum, TipoWebEnum, CanalEntradaEnum } from '../entities/Lead';
 import { Vendedor } from '../entities/Vendedores';
@@ -23,6 +25,8 @@ export const getLeadsService = async (filtros: any, reqUser?: any) => {
   // porque lead.vendedor_asignado_id es FK al id de la tabla vendedores.
   if (reqUser?.rol === 'vendedor') {
     filtros.vendedor_id = reqUser.vendedor_db_id;
+    // Los leads perdidos solo los ven los admins.
+    filtros.excluir_perdido = true;
   }
   return await getLeads(filtros);
 };
@@ -34,8 +38,13 @@ export const getLeadsParaExportService = async () => {
 export const getLeadByIdService = async (id: string, reqUser?: any) => {
   const lead = await getLeadById(id);
   if (!lead) throw new ApiError('Lead no encontrado', 404);
-  // Vendedor solo ve sus leads (comparar contra id de tabla)
-  if (reqUser?.rol === 'vendedor' && lead.vendedor_asignado_id !== reqUser.vendedor_db_id) {
+  // Vendedor solo ve sus leads (comparar contra id de tabla) y nunca un lead
+  // perdido (solo los admins pueden verlos).
+  if (
+    reqUser?.rol === 'vendedor' &&
+    (lead.estado === EstadoLeadEnum.PERDIDO ||
+      lead.vendedor_asignado_id !== reqUser.vendedor_db_id)
+  ) {
     throw new ApiError('No autorizado', 403);
   }
   return lead;
@@ -71,6 +80,28 @@ export const createLeadWebService = async (data: {
   return lead;
 };
 
+/**
+ * Marca un lead como `contactado` (en gestión). Solo el vendedor asignado
+ * actual o un admin. Es idempotente y reinicia la ventana SLA.
+ */
+export const contactarLeadService = async (leadId: string, reqUser?: any) => {
+  if (reqUser?.rol !== 'admin' && reqUser?.rol !== 'vendedor') {
+    throw new ApiError('No autorizado', 403);
+  }
+  const lead = await getLeadById(leadId);
+  if (!lead) throw new ApiError('Lead no encontrado', 404);
+  if (reqUser?.rol === 'vendedor' && lead.vendedor_asignado_id !== reqUser.vendedor_db_id) {
+    throw new ApiError('No es tu lead', 403);
+  }
+  if (lead.estado === EstadoLeadEnum.CONVERTIDO || lead.estado === EstadoLeadEnum.PERDIDO) {
+    throw new ApiError('No se puede marcar como contactado un lead convertido o perdido', 400);
+  }
+  if (lead.estado === EstadoLeadEnum.CONTACTADO || lead.estado === EstadoLeadEnum.CALIFICADO) {
+    return lead;
+  }
+  return await marcarLeadContactado(leadId);
+};
+
 export const asignarLeadService = async (leadId: string, zonaId: string, reqUser?: any) => {
   // Solo admin puede asignar manualmente
   if (reqUser?.rol !== 'admin') throw new ApiError('Solo administradores pueden asignar leads', 403);
@@ -94,7 +125,7 @@ export const asignarLeadService = async (leadId: string, zonaId: string, reqUser
         {
           titulo: '🔔 Nuevo lead asignado',
           cuerpo: `${nombre} fue asignado a ti. Dispones de 12 horas para atenderlo.`,
-          url: '#/chat',
+          url: construirUrlAtenderLead(asignado),
         },
         EventoNotificacionEnum.LEAD_ASIGNADO,
       );
@@ -130,7 +161,7 @@ export const reasignarLeadService = async (leadId: string, nuevoVendedorId: stri
         {
           titulo: '🔄 Lead reasignado a ti',
           cuerpo: `${nombre} fue reasignado a ti. Dispones de 12 horas para atenderlo.`,
-          url: '#/chat',
+          url: construirUrlAtenderLead(reasignado),
         },
         EventoNotificacionEnum.LEAD_REASIGNADO,
       );
@@ -210,9 +241,16 @@ export const perderLeadService = async (leadId: string, reqUser?: any) => {
   return perdido;
 };
 
-export const getHistorialReasignacionesService = async (leadId: string) => {
+export const getHistorialReasignacionesService = async (leadId: string, reqUser?: any) => {
   const lead = await getLeadById(leadId);
   if (!lead) throw new ApiError('Lead no encontrado', 404);
+  if (
+    reqUser?.rol === 'vendedor' &&
+    (lead.estado === EstadoLeadEnum.PERDIDO ||
+      lead.vendedor_asignado_id !== reqUser.vendedor_db_id)
+  ) {
+    throw new ApiError('No autorizado', 403);
+  }
   return lead.reasignaciones || [];
 };
 
@@ -254,7 +292,7 @@ export const procesarSLAVencidos = async (horasSLA = 12) => {
               {
                 titulo: '⏰ SLA vencido · Lead reasignado a ti',
                 cuerpo: `${nombre} venció el SLA de 12h y fue reasignado a ti. Dispones de 12 horas para atenderlo.`,
-                url: '#/chat',
+                url: construirUrlAtenderLead(lead),
               },
               EventoNotificacionEnum.LEAD_REASIGNADO,
             );
@@ -266,7 +304,10 @@ export const procesarSLAVencidos = async (horasSLA = 12) => {
         }
       }
 
-      // Sin vendedores disponibles en la zona -> notificar (fase 2: email Resend)
+      // Sin vendedores disponibles en la zona: se le quita el lead al vendedor
+      // que no lo atendió (pasa a `nuevo` sin asignar, visible solo para
+      // admins) para evitar que siga contactando al cliente.
+      await reasignarLead(lead.id, null, 'sin_vendedor_zona');
       resultados.push({ leadId: lead.id, accion: 'sin_vendedor_zona', notificacion: 'pendiente' });
 
       // Web Push — evento `sla_vencido_sin_vendedor`: se avisa a los admins.

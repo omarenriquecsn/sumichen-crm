@@ -7,6 +7,7 @@ import {
   createLeadWeb,
   createLeadInstagram,
   asignarLead,
+  contactarLead,
   reasignarLead,
   convertirLead,
   perderLead,
@@ -32,6 +33,7 @@ router.get('/leads', asyncHandler(getLeads));
 router.get('/leads/:id', asyncHandler(getLeadById));
 router.get('/leads/:id/historial-reasignaciones', asyncHandler(getHistorialReasignaciones));
 router.put('/leads/:id/asignar', asyncHandler(asignarLead));
+router.put('/leads/:id/contactar', asyncHandler(contactarLead));
 router.put('/leads/:id/reasignar', asyncHandler(reasignarLead));
 router.put('/leads/:id/convertir', asyncHandler(convertirLead));
 router.put('/leads/:id/perder', asyncHandler(perderLead));

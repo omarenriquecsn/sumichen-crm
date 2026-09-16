@@ -13,6 +13,7 @@ export const getLeads = async (filtros: {
   hasta?: Date;
   page?: number;
   limit?: number;
+  excluir_perdido?: boolean;
 }) => {
   const repo = AppDataSource.getRepository(Lead);
   const qb = repo.createQueryBuilder('lead')
@@ -24,6 +25,8 @@ export const getLeads = async (filtros: {
   if (filtros.vendedor_id) qb.andWhere('lead.vendedor_asignado_id = :vendedor_id', { vendedor_id: filtros.vendedor_id });
   if (filtros.zona_id) qb.andWhere('lead.zona_id = :zona_id', { zona_id: filtros.zona_id });
   if (filtros.estado) qb.andWhere('lead.estado = :estado', { estado: filtros.estado });
+  // Los leads perdidos solo los ven los admins (evita doble contacto).
+  if (filtros.excluir_perdido) qb.andWhere('lead.estado != :perdido', { perdido: 'perdido' });
   if (filtros.origen) qb.andWhere('lead.origen = :origen', { origen: filtros.origen });
   if (filtros.desde) qb.andWhere('lead.fecha_creacion >= :desde', { desde: filtros.desde });
   if (filtros.hasta) qb.andWhere('lead.fecha_creacion <= :hasta', { hasta: filtros.hasta });
@@ -154,6 +157,14 @@ export const reasignarLead = async (leadId: string, nuevoVendedorId: string | nu
 
   await leadRepo.save(lead);
 
+  // Transferir la conversación al nuevo vendedor: la conversación es única por
+  // lead y el acceso se rige por el vendedor asignado actual, así el vendedor
+  // anterior pierde el chat (evita doble contacto al cliente).
+  if (nuevoVendedorId) {
+    const convRepo = AppDataSource.getRepository('conversaciones');
+    await convRepo.update({ lead_id: leadId }, { vendedor_id: nuevoVendedorId });
+  }
+
   await reasigRepo.save({
     lead_id: leadId,
     vendedor_anterior_id: anteriorId,
@@ -203,6 +214,20 @@ export const marcarLeadPerdido = async (leadId: string) => {
   const lead = await leadRepo.findOne({ where: { id: leadId } });
   if (!lead) throw new Error('Lead no encontrado');
   lead.estado = EstadoLeadEnum.PERDIDO;
+  // Se desasigna para que el lead desaparezca del panel del vendedor que lo
+  // perdió (evita doble contacto). Los admins lo siguen viendo.
+  lead.vendedor_asignado_id = null;
+  lead.asignado_en = null;
+  lead.ultima_actividad_en = new Date();
+  return await leadRepo.save(lead);
+};
+
+export const marcarLeadContactado = async (leadId: string) => {
+  const leadRepo = AppDataSource.getRepository(Lead);
+  const lead = await leadRepo.findOne({ where: { id: leadId } });
+  if (!lead) throw new Error('Lead no encontrado');
+  lead.estado = EstadoLeadEnum.CONTACTADO;
+  // Reinicia la ventana SLA: el lead está siendo gestionado.
   lead.ultima_actividad_en = new Date();
   return await leadRepo.save(lead);
 };

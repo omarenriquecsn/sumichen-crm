@@ -11,6 +11,7 @@ import {
 } from '../services/conversacionesServices';
 import { ApiError } from '../utils/ApiError';
 import { asyncHandler } from '../middlewares/asyncHandler';
+import { getLeadById } from '../repositories/leadsRepository';
 
 export const getConversaciones = asyncHandler(async (req: Request, res: Response) => {
   const filtros = {
@@ -38,8 +39,22 @@ export const getConversacionByLead = asyncHandler(async (req: Request, res: Resp
 export const abrirConversacion = asyncHandler(async (req: Request, res: Response) => {
   const { leadId } = req.params;
   const { vendedor_id, canal } = req.body;
-  const vendedorId = vendedor_id || req.user?.vendedor_db_id;
+
+  const lead = await getLeadById(leadId);
+  if (!lead) throw new ApiError('Lead no encontrado', 404);
+
+  let vendedorId: string | undefined;
+  if (req.user?.rol === 'vendedor') {
+    // Un vendedor solo puede abrir la conversación de un lead asignado a él.
+    if (lead.vendedor_asignado_id !== req.user.vendedor_db_id) {
+      throw new ApiError('No autorizado', 403);
+    }
+    vendedorId = req.user.vendedor_db_id;
+  } else {
+    vendedorId = vendedor_id || lead.vendedor_asignado_id || undefined;
+  }
   if (!vendedorId) throw new ApiError('vendedor_id requerido', 400);
+
   const conv = await abrirConversacionParaLead(leadId, vendedorId, canal || 'whatsapp');
   res.status(201).json(conv);
 });

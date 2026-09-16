@@ -6,6 +6,7 @@ import { OpcionIntencion } from '../entities/MenuBienvenida';
 import { TipoWebEnum } from '../entities/Lead';
 import { enviarPushAUsuario } from './pushServices';
 import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
+import { construirUrlAtenderLead } from '../utils/atenderLead';
 
 /**
  * Asistente de bienvenida (WhatsApp).
@@ -193,7 +194,7 @@ const asignarTipoEspecial = async (lead: any, config: any, tipo: 'proveedor' | '
       {
         titulo: tipo === 'proveedor' ? '🤝 Nuevo proveedor' : '💼 Nuevo postulante',
         cuerpo: `${nombre} se identificó como ${tipo === 'proveedor' ? 'proveedor' : 'postulante a trabajo'} por WhatsApp.`,
-        url: '#/chat',
+        url: construirUrlAtenderLead(lead),
       },
       EventoNotificacionEnum.LEAD_ASIGNADO
     );
@@ -322,7 +323,7 @@ export const procesarRespuestaEstado = async (lead: any, cuerpo: string) => {
         {
           titulo: '🔔 Nuevo lead asignado',
           cuerpo: `${nombre} fue asignado a ti por WhatsApp. Dispones de 12 horas para atenderlo.`,
-          url: '#/chat',
+          url: construirUrlAtenderLead(lead),
         },
         EventoNotificacionEnum.LEAD_ASIGNADO,
       );

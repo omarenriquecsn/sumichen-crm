@@ -4,6 +4,7 @@ import {
   getLeadByIdService,
   createLeadWebService,
   asignarLeadService,
+  contactarLeadService,
   reasignarLeadService,
   convertirLeadService,
   perderLeadService,
@@ -73,6 +74,12 @@ export const asignarLead = asyncHandler(async (req: Request, res: Response) => {
   res.json(lead);
 });
 
+export const contactarLead = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const lead = await contactarLeadService(id, req.user);
+  res.json(lead);
+});
+
 export const reasignarLead = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { vendedor_id, motivo } = req.body;
@@ -96,7 +103,7 @@ export const perderLead = asyncHandler(async (req: Request, res: Response) => {
 
 export const getHistorialReasignaciones = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const historial = await getHistorialReasignacionesService(id);
+  const historial = await getHistorialReasignacionesService(id, req.user);
   res.json(historial);
 });
 
