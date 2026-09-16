@@ -12,19 +12,42 @@ const fmtMonto = (n: number) =>
 
 /**
  * Barra de "Proyección de ventas": compara las ventas completadas del cliente
- * (pedidos con estado 'procesado') contra su proyección_venta.
- * Si el cliente no tiene proyección (null/0/negativa) NO renderiza nada.
+ * (pedidos con estado 'procesado') a PRECIO BASE (precio_base * cantidad)
+ * contra su proyección_venta.
+ * Si el cliente no tiene proyección (null/0/negativa) muestra un aviso.
  */
 export const ProyeccionVentas: React.FC<PropsProyeccionVentas> = ({
   cliente,
   pedidos,
 }) => {
   const proyeccion = Number(cliente.proyeccion_venta ?? 0);
-  if (!proyeccion || proyeccion <= 0) return null;
+
+  if (!proyeccion || proyeccion <= 0) {
+    return (
+      <div>
+        <p className="text-sm text-gray-500 flex items-center gap-1.5">
+          <Target className="h-4 w-4 text-blue-600" />
+          Proyección de ventas
+        </p>
+        <p className="text-sm text-gray-500 break-words">
+          Sin proyección asignada
+        </p>
+      </div>
+    );
+  }
 
   const ventasProcesadas = (Array.isArray(pedidos) ? pedidos : [])
     .filter((p) => p.cliente_id === cliente.id && p.estado === "procesado")
-    .reduce((total, p) => total + Number(p.total ?? 0), 0);
+    .reduce((total, p) => {
+      const basePorPedido = Array.isArray(p.productos_pedido)
+        ? p.productos_pedido.reduce(
+            (acc, pp) =>
+              acc + (Number(pp.precio_base) || 0) * (Number(pp.cantidad) || 0),
+            0
+          )
+        : 0;
+      return total + basePorPedido;
+    }, 0);
 
   const porcentaje = (ventasProcesadas / proyeccion) * 100;
   const anchoBarra = Math.min(porcentaje, 100);
