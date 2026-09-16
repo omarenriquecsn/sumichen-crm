@@ -8,7 +8,7 @@ import {
 /**
  * Catálogo de productos para clientes (PDF).
  *
- * Se genera a partir de la lista de precios subida (área de Mayerlin): el
+ * Se genera a partir de la lista de precios subida (Área de Ventas): el
  * archivo fijo `lista_precios.pdf` de `uploads/productos`. Del PDF original se
  * ocultan las columnas internas (Procedencia, Precio OFERTA ESPECIAL $/kg y
  * Disponibilidad) y el cliente recibe solo:

@@ -125,7 +125,7 @@ const ExcelProductos = () => {
     >
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex flex-col mx-auto w-full max-w-2xl gap-6 p-6">
-          {/* Área de Edmary — inventario (Excel) */}
+          {/* Área de Inventario — inventario (Excel) */}
           <form
             method="post"
             encType="multipart/form-data"
@@ -133,7 +133,7 @@ const ExcelProductos = () => {
             className="flex flex-col p-6 bg-white border rounded-lg shadow-md"
           >
             <h2 className="text-lg font-semibold text-gray-800 mb-1">
-              Área de Edmary
+              Área de Inventario
             </h2>
             <p className="text-sm text-gray-500 mb-4">
               Cargar Productos en almacén
@@ -152,7 +152,7 @@ const ExcelProductos = () => {
             </button>
           </form>
 
-          {/* Área de Mayerlin — lista de precios (PDF) */}
+          {/* Área de Ventas — lista de precios (PDF) */}
           <form
             method="post"
             encType="multipart/form-data"
@@ -160,7 +160,7 @@ const ExcelProductos = () => {
             className="flex flex-col p-6 bg-white border rounded-lg shadow-md"
           >
             <h2 className="text-lg font-semibold text-gray-800 mb-1">
-              Área de Mayerlin
+              Área de Ventas
             </h2>
             <p className="text-sm text-gray-500 mb-4">
               Cargar productos con precio base

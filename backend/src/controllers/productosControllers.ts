@@ -119,7 +119,7 @@ export const subirInventario = [
 ];
 
 /**
- * Sube la lista de precios en PDF (área de Mayerlin). Solo admins.
+ * Sube la lista de precios en PDF (Área de Ventas). Solo admins.
  *
  * El archivo se guarda SIEMPRE con el nombre fijo `lista_precios.pdf` en
  * `uploads/productos` (se sustituye en cada subida) y además se parsea para
