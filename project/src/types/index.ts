@@ -317,6 +317,35 @@ export interface PedidoDb {
   impuestos: 'iva' | 'exento';
 }
 
+/** Producto extraído de una cotización PDF (aún sin `producto_id` del catálogo). */
+export interface ProductoCotizacion {
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  exento: boolean;
+  neto: number | null;
+}
+
+/** Resultado de parsear una cotización PDF (POST /pedidos/parsear-cotizacion). */
+export interface CotizacionParseada {
+  cotizacion: string;
+  cliente: {
+    rif: string;
+    rifNormalizado: string;
+    nombre: string;
+    direccion: string;
+    condicionPago: string;
+  };
+  fechaEmision: string | null;
+  fechaEntrega: string | null;
+  tipoPago: "contado" | "credito" | null;
+  transporte: "interno" | "externo" | null;
+  moneda: "usd" | "bs";
+  porcentajeNegociacion: number;
+  productos: ProductoCotizacion[];
+}
+
 
 export type ActividadFormateada = {
   id: string;

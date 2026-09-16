@@ -21,6 +21,8 @@ import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
 import {
   Cliente,
+  CotizacionParseada,
+  formProducto,
   Pedido,
   PedidoData,
   ProductoPedido,
@@ -31,7 +33,13 @@ import { useNavigate } from "react-router-dom";
 import Modal from "../../components/ui/Modal";
 import CrearPedido from "../../components/forms/CrearPedido";
 import SelectCliente from "../../components/ui/SelectCliente";
-import { getEstadoColor, handleCrearPedidoUtil } from "../../utils/pedidos";
+import TipoCreacionPedidoModal from "../../components/forms/TipoCreacionPedidoModal";
+import CargarCotizacionModal from "../../components/forms/CargarCotizacionModal";
+import {
+  construirPedidoDesdeCotizacion,
+  getEstadoColor,
+  handleCrearPedidoUtil,
+} from "../../utils/pedidos";
 import { handleActualizarPedidoUtil } from "../../utils/pedidos";
 import useVendedores from "../../hooks/useVendedores";
 import { useCrearNotificacion } from "../../hooks/useNotificaciones";
@@ -71,6 +79,11 @@ export const Pedidos: React.FC<PedidosProps> = ({
   const [clienteSeleccionado, setClienteSeleccionado] = useState<null | string>(
     null
   );
+  const [modalTipoVisible, setModalTipoVisible] = useState(false);
+  const [modalCotizacionVisible, setModalCotizacionVisible] = useState(false);
+  const [pedidoInicial, setPedidoInicial] = useState<
+    (Partial<Pedido> & { productos?: formProducto[] }) | undefined
+  >(undefined);
 
   const estadoVistaPedidos = recuperarEstadoVista("pedidos:vista", {
     terminoBusqueda: "",
@@ -86,6 +99,8 @@ export const Pedidos: React.FC<PedidosProps> = ({
   const { data: pedidosDb } = supabase.usePedidos();
 
   const { data: clientesDb } = supabase.useClientes();
+
+  const { data: productosDb } = supabase.useProductos();
 
   const pedidos = pedidosProp ?? pedidosDb ?? [];
   const clientes = clientesProp ?? clientesDb ?? [];
@@ -283,6 +298,62 @@ export const Pedidos: React.FC<PedidosProps> = ({
     });
   };
 
+  /**
+   * Precarga el formulario desde una cotización PDF. No guarda nada: solo llena
+   * el formulario para que el usuario lo revise y edite.
+   */
+  const handleCotizacionParseada = (data: CotizacionParseada) => {
+    const resultado = construirPedidoDesdeCotizacion(
+      data,
+      Array.isArray(clientes) ? clientes : [],
+      Array.isArray(productosDb) ? productosDb : []
+    );
+
+    if (!resultado.clienteEncontrado) {
+      toast.warning(
+        `No se encontró un cliente con RIF ${
+          data.cliente.rif || "(desconocido)"
+        }. Selecciónalo manualmente.`
+      );
+      setPedidoInicial(undefined);
+      setClienteSeleccionado(null);
+      setModalClienteVisible(true);
+      return;
+    }
+
+    if (resultado.codigosSinMatch.length > 0) {
+      const muestra = resultado.codigosSinMatch.slice(0, 5).join(", ");
+      toast.warning(
+        `Productos no encontrados en el catálogo (${resultado.codigosSinMatch.length}): ${muestra}${
+          resultado.codigosSinMatch.length > 5 ? ", ..." : ""
+        }`
+      );
+    }
+
+    if (resultado.codigosSinStock.length > 0) {
+      const muestra = resultado.codigosSinStock.slice(0, 5).join(", ");
+      toast.warning(
+        `Productos sin stock hoy, no precargados (${resultado.codigosSinStock.length}): ${muestra}${
+          resultado.codigosSinStock.length > 5 ? ", ..." : ""
+        }`
+      );
+    }
+
+    if (resultado.productosCargados === 0) {
+      toast.error(
+        "Ningún producto de la cotización coincide con el catálogo. Crea el pedido manualmente."
+      );
+      setPedidoInicial(undefined);
+      setClienteSeleccionado(resultado.clienteId);
+      setModalClienteVisible(true);
+      return;
+    }
+
+    setClienteSeleccionado(resultado.clienteId);
+    setPedidoInicial(resultado.pedidoInicial);
+    setModalPedidoVisible(true);
+  };
+
   return (
     <Layout
       title="Gestión de Pedidos"
@@ -397,7 +468,7 @@ export const Pedidos: React.FC<PedidosProps> = ({
           {/* Botón nuevo pedido */}
           <button
             onClick={() => {
-              setModalClienteVisible(true);
+              setModalTipoVisible(true);
             }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
           >
@@ -546,6 +617,27 @@ export const Pedidos: React.FC<PedidosProps> = ({
         </div>
       </div>
 
+      <TipoCreacionPedidoModal
+        isOpen={modalTipoVisible}
+        onClose={() => setModalTipoVisible(false)}
+        onManual={() => {
+          setModalTipoVisible(false);
+          setPedidoInicial(undefined);
+          setClienteSeleccionado(null);
+          setModalClienteVisible(true);
+        }}
+        onAutomatico={() => {
+          setModalTipoVisible(false);
+          setModalCotizacionVisible(true);
+        }}
+      />
+
+      <CargarCotizacionModal
+        isOpen={modalCotizacionVisible}
+        onClose={() => setModalCotizacionVisible(false)}
+        onParseado={handleCotizacionParseada}
+      />
+
       <Modal
         isOpen={modalPedidoVisible}
         onClose={() => {
@@ -555,6 +647,7 @@ export const Pedidos: React.FC<PedidosProps> = ({
         <CrearPedido
           onSubmit={handleCrearPedido}
           accion={isCreandoPedido ? "Creando" : "Crear Pedido"}
+          initialData={pedidoInicial}
         />
       </Modal>
 

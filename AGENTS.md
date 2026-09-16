@@ -948,6 +948,47 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 - Fuera de alcance: el menú rápido móvil de `VendedorPanel` (`menuVendedor.tsx`) y los accesos del dashboard (solo aplica al `Sidebar`).
 - La migración se aplica compilando y arrancando el backend una vez.
 
+### Punto 35 — Crear pedido "Automático" desde una cotización PDF (15/09) ✅ (build/lint/typecheck OK backend y frontend; parseo y endpoint verificados end-to-end)
+
+> **Resumen**: al pulsar **"Nuevo Pedido"** ahora se pregunta **Manual** (flujo actual: `SelectCliente` → `CrearPedido`) o **Automático**: se sube el **PDF de la cotización** del ERP, el backend lo **parsea en memoria** (sin guardarlo) y **precarga el formulario** con cliente, productos, precios, pago, fecha, exento/IVA, transporte y moneda. El usuario luego edita/agrega productos, elige transporte y guarda con el flujo normal. El PDF **no se persiste** en ningún lado.
+
+#### Formato del PDF (ERP Sumichem)
+Una página: cabecera con RIF/nombre/dirección del cliente, cotización, fechas emisión/entrega, `Condic. Pago` (CONTADO/CRÉDITO), `Transporte`, y tabla `Código | Modelo | Descripción | Alm. | Cantidad | Unid. | Precio Unitario | % Desc. | %I.V.A. | I.V.A. | Neto`. El PDF trae el **precio unitario final** (no el `precio_base`).
+
+#### Reglas de negocio
+- **% de negociación y moneda salen del NOMBRE del archivo** (últimos 2 caracteres): si son `00` → `moneda = usd` y `% = 0`; si son `> 0` → `moneda = bs` y ese número es el `%` (ej. `... 18.pdf` → 18% y bs).
+- **Precio base despejado**: `base = precio_unitario / (1 + %/100)` (inverso de la fórmula del formulario), redondeado a **2 decimales** (es lo que se muestra en el pedido; `SelectProductos` también redondea a 2 decimales al agregar/editar el base).
+- **Match del cliente por RIF normalizado** (solo letras/dígitos, mayúsculas) contra `clientes`. Si no coincide → aviso y cae al selector manual de cliente.
+- **Match de productos por código** (`productos.descripcion`) normalizado (mayúsculas sin espacios). Los códigos sin coincidencia se avisan y se omiten. Los que **sí existen pero están sin stock** (`productos.disponible === false`) también se **excluyen** y se avisan por separado (toast "Productos sin stock hoy, no precargados").
+- Si algún producto no es exento → `impuestos = 0.16` (IVA); si todos exentos → `0`. Se precargan `tipo_pago`, `fecha_entrega` y `transporte` (`CLIENTE` → externo, `INTERNO/SUMICHEM` → interno). `notas` = `Cotización N° {n}`.
+
+#### Backend
+- **`utils/cotizacionPdf.ts`** (nuevo, basado en `listaPreciosPdf.ts`, reusa `pdfjs-dist`): `parsearCotizacionPdf(buffer, nombreArchivo)` extrae cabecera y productos. Los campos se leen con **tokens planos + ventana vertical** (±5px) y **bandas de x calibradas** al layout real (el baseline varía ~2.8px dentro de una fila y el valor de la descripción arranca a la izquierda de su encabezado, por eso no sirve agrupar filas ni usar la cabecera). Cantidad en formato `4,200.00` y precio `2.42000` (coma = miles, punto = decimal). Detecta el `R.I.F.` del cliente (el del margen `x < 20`, no el de Sumichem). `parsearSufijoNombreArchivo` deriva `%`/moneda. `normalizarRif` exportado.
+- **`controllers/pedidosControllers.ts`**: `parsearCotizacion` (multer memory `single('file')`, valida `.pdf`, 400 claro si falla; **no escribe nada**).
+- **`routes/pedidosRoutes.ts`**: `POST /pedidos/parsear-cotizacion` (JWT), declarada antes de `POST /pedidos`.
+- Sin migración ni cambios de schema.
+
+#### Frontend
+- **`types/index.ts`**: `ProductoCotizacion` y `CotizacionParseada`.
+- **`hooks/useApi.ts`**: `useParsearCotizacion()` (POST con FormData + Bearer; expone el mensaje de error del backend).
+- **`utils/pedidos.ts`**: `normalizarRif`, `normalizarCodigoProducto`, `precioBaseDesdeUnitario` y `construirPedidoDesdeCotizacion(data, clientes, catalogo)` (devuelve `{ clienteId, clienteEncontrado, pedidoInicial, codigosSinMatch, codigosSinStock, productosCargados }`). Lógica compartida por página y modal móvil.
+- **`components/forms/TipoCreacionPedidoModal.tsx`** (nuevo): elección Manual / Automático.
+- **`components/forms/CargarCotizacionModal.tsx`** (nuevo): sube el PDF, lo parsea y devuelve los datos.
+- **`components/forms/CrearPedido.tsx`**: prop opcional `initialData?: Partial<Pedido> & { productos?: formProducto[] }`; inicializa `formData`, `transporte_detalle` y `productosSeleccionados`.
+- **`components/ui/SelectProductos.tsx`**: prop opcional `seleccionInicial?: formProducto[]`.
+- **`pages/pedidos/Pedidos.tsx`** y **`pages/pedidos/PedidosModal.tsx`**: "Nuevo Pedido" → modal Manual/Automático; el handler `handleCotizacionParseada` construye el pedido inicial y abre `CrearPedido` precargado (o cae al selector manual si el cliente no existe / no hay productos).
+
+#### Cómo probar / verificado
+- Parseo del PDF real `COTIZACION 1719 INVERSIONES 2300 08-09-2026 18.pdf`: RIF `J-29466662-0`, `INVERSIONES 2300, C.A`, `MP10053 · Acido Acetico Tote 1050 kg · 4200 kg · $2.42 · exento`, `%18`, `bs`, entrega `2026-09-08`, pago `contado`, transporte `externo`.
+- Endpoint verificado con JWT firmado local: `POST /pedidos/parsear-cotizacion` → **200** con el JSON correcto. Sin token → **401**. `MP10053` existe en `productos` (base catálogo 2.05; base despejada 2.42/1.18 = 2.0508 → **2.05** con el redondeo a 2 decimales).
+- ⚠ En dev el cliente `J294666620` no existe en `clientes` → cae al selector manual (comportamiento esperado); en producción debe existir para el match.
+
+#### ⚠ Notas / deuda
+- Las **bandas de x están calibradas** al layout actual del ERP. Si cambia el formato del PDF (columnas, varias páginas con otro orden), hay que recalibrar `BANDAS` y `DY_FILA` en `cotizacionPdf.ts`.
+- Si el nombre del archivo no termina en 2 dígitos, el parser asume `% = 0` y `usd` (sin aviso al usuario).
+- El PDF **no se adjunta** como evidencia del pedido (decisión del usuario: solo llenar el formulario).
+- Fuera de alcance: auto-crear el cliente si el RIF no existe (se optó por el fallback manual) y el flujo automático desde `ClienteDetalle`/`ClienteDetalleModal`.
+
 ## 9. Punto de partida sugerido para la próxima actualización
 
 - Los 10 puntos de esta sesión + el **feature "Registrar Usuarios"** están completos y verificados (build/lint/tsc en frontend y backend). En producción (18/08) ya se verificó que los 4 admins tienen `rol='admin'` y `supabase_id` poblado en el Postgres del VPS → **no requiere acciones manuales de SQL**. Supabase se usa solo para auth + storage, así que los SQL de migración no se aplican a producción (legacy).

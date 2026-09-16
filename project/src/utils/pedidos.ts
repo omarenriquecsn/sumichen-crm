@@ -1,5 +1,13 @@
 import { User } from "@supabase/supabase-js";
-import { Cliente, formProducto, Pedido, PedidoData, Actividad } from "../types";
+import {
+  Cliente,
+  CotizacionParseada,
+  formProducto,
+  Pedido,
+  PedidoData,
+  Producto,
+  Actividad,
+} from "../types";
 import { toast } from "react-toastify";
 import { UseMutateFunction } from "@tanstack/react-query";
 import { armarCuerpoConFirma } from "./firma";
@@ -126,6 +134,108 @@ export const handleActualizarPedidoUtil = async ({
 };
 
 
+
+/** Normaliza un RIF para comparar (solo letras y dígitos, mayúsculas). */
+export const normalizarRif = (rif?: string) =>
+  (rif || "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+
+/** Normaliza un código de producto (mayúsculas, sin espacios). */
+export const normalizarCodigoProducto = (codigo?: string) =>
+  (codigo || "").trim().toUpperCase().replace(/\s+/g, "");
+
+/**
+ * Despeja el precio base desde el precio unitario y el % de negociación, con la
+ * misma fórmula del formulario: `unitario = base + base * (%/100)`.
+ */
+export const precioBaseDesdeUnitario = (
+  precioUnitario: number,
+  porcentaje: number,
+) => {
+  const factor = 1 + (Number(porcentaje) || 0) / 100;
+  if (factor <= 0) return Number(precioUnitario) || 0;
+  return Math.round(((Number(precioUnitario) || 0) / factor) * 100) / 100;
+};
+
+export interface ResultadoCotizacion {
+  clienteId: string | null;
+  clienteEncontrado: boolean;
+  pedidoInicial: Partial<Pedido> & { productos?: formProducto[] };
+  /** Códigos de la cotización que no existen en el catálogo. */
+  codigosSinMatch: string[];
+  /** Códigos que existen en el catálogo pero están sin stock (disponible=false). */
+  codigosSinStock: string[];
+  productosCargados: number;
+}
+
+/**
+ * Convierte una cotización parseada en los datos iniciales del formulario de
+ * pedidos: matchea el cliente por RIF y los productos por código contra el
+ * catálogo, y despeja el precio base de cada producto.
+ */
+export const construirPedidoDesdeCotizacion = (
+  data: CotizacionParseada,
+  clientes: Cliente[],
+  catalogo: Producto[],
+): ResultadoCotizacion => {
+  const rifNorm = normalizarRif(data.cliente.rifNormalizado || data.cliente.rif);
+  const cliente = clientes.find((c) => normalizarRif(c.rif) === rifNorm);
+
+  const porCodigo = new Map<string, Producto>();
+  (catalogo || []).forEach((p) =>
+    porCodigo.set(normalizarCodigoProducto(p.descripcion), p),
+  );
+
+  const pct = Number(data.porcentajeNegociacion) || 0;
+  const productos: formProducto[] = [];
+  const codigosSinMatch: string[] = [];
+  const codigosSinStock: string[] = [];
+  let algunoConIva = false;
+
+  (data.productos || []).forEach((prod) => {
+    const match = porCodigo.get(normalizarCodigoProducto(prod.codigo));
+    if (!match) {
+      codigosSinMatch.push(prod.codigo);
+      return;
+    }
+    // Existe en el catálogo pero hoy no tiene stock: no se precarga.
+    if (match.disponible === false) {
+      codigosSinStock.push(prod.codigo);
+      return;
+    }
+    if (!prod.exento) algunoConIva = true;
+    productos.push({
+      producto_id: match.id,
+      cantidad: prod.cantidad,
+      precio_base: precioBaseDesdeUnitario(prod.precioUnitario, pct),
+      porcentaje_negociacion: pct,
+      precio_unitario: prod.precioUnitario,
+      nombre: match.nombre,
+      descripcion: match.descripcion,
+    });
+  });
+
+  const pedidoInicial: Partial<Pedido> & { productos?: formProducto[] } = {
+    cliente_id: cliente?.id ?? "",
+    impuestos: algunoConIva ? 0.16 : 0,
+    moneda: data.moneda,
+    tipo_pago: data.tipoPago ?? "contado",
+    transporte: data.transporte ?? "interno",
+    fecha_entrega: data.fechaEntrega
+      ? new Date(`${data.fechaEntrega}T12:00:00`)
+      : new Date(),
+    notas: data.cotizacion ? `Cotización N° ${data.cotizacion}` : "",
+    productos,
+  };
+
+  return {
+    clienteId: cliente?.id ?? null,
+    clienteEncontrado: !!cliente,
+    pedidoInicial,
+    codigosSinMatch,
+    codigosSinStock,
+    productosCargados: productos.length,
+  };
+};
 
 export const getEstadoColor = (estado: string) => {
   switch (estado) {

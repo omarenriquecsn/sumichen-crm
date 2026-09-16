@@ -7,6 +7,7 @@ import {
   deletePedido,
   getPedidosByVendedor,
   subirEvidencia,
+  parsearCotizacion,
 } from '../controllers/pedidosControllers';
 import { asyncHandler } from '../middlewares/asyncHandler';
 import verificarToken from '../middlewares/jwtHandler';
@@ -16,6 +17,8 @@ const router: Router = Router();
 router.get('/pedidos', verificarToken, asyncHandler(getPedidos));
 
 router.get('/pedidos/:id', verificarToken, asyncHandler(getPedidosByVendedor));
+
+router.post('/pedidos/parsear-cotizacion', verificarToken, ...parsearCotizacion);
 
 router.post('/pedidos', verificarToken, asyncHandler(createPedido));
 

@@ -4,6 +4,7 @@ import { User } from "@supabase/supabase-js";
 import {
   Actividad,
   Cliente,
+  CotizacionParseada,
   formProducto,
   Oportunidad,
   Pedido,
@@ -295,6 +296,39 @@ export const useApi = () => {
 
       onError: (error: unknown) => {
         if (error instanceof Error) throw new Error(error.message);
+      },
+    });
+  };
+
+  // Parsear una cotización PDF (sin guardarla) para precargar el formulario
+  const useParsearCotizacion = () => {
+    return useMutation({
+      mutationFn: async (archivo: File): Promise<CotizacionParseada> => {
+        if (!session?.access_token)
+          throw new Error("Usuario no autenticado o no hay token");
+
+        const formData = new FormData();
+        formData.append("file", archivo);
+
+        const response = await fetch(`${URL}/pedidos/parsear-cotizacion`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(
+            data?.message ||
+              data?.error ||
+              "No se pudo leer la cotización"
+          );
+        }
+
+        return (await response.json()) as CotizacionParseada;
       },
     });
   };
@@ -1591,6 +1625,7 @@ export const useApi = () => {
     useCrearReunion,
     useCrearTicket,
     useCrearPedido,
+    useParsearCotizacion,
     useCrearOportunidades,
     useActualizarCliente,
     useActualizarReunion,

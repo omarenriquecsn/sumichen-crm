@@ -14,6 +14,7 @@ import {
 import { ApiError } from '../utils/ApiError';
 import convertirArchivo from '../utils/ConvertirArchivo';
 import unirPDFS from '../utils/UnirArchivos';
+import { parsearCotizacionPdf } from '../utils/cotizacionPdf';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -147,3 +148,34 @@ export const deletePedido = async (req: Request, res: Response) => {
   if (!borrado) throw new ApiError('No se pudo eliminar el pedido', 400);
   res.status(204).send();
 };
+
+/**
+ * Parsea una cotización PDF (sin persistirla) para precargar el formulario de
+ * pedidos. El archivo viaja en memoria (multer) y se descarta.
+ */
+export const parsearCotizacion = [
+  upload.single('file'),
+
+  async (req: Request, res: Response) => {
+    if (!req.file?.buffer?.length) {
+      throw new ApiError('No se envió ningún archivo', 400);
+    }
+    if (!/\.pdf$/i.test(req.file.originalname)) {
+      throw new ApiError('El archivo debe ser un PDF', 400);
+    }
+
+    try {
+      const cotizacion = await parsearCotizacionPdf(
+        req.file.buffer,
+        req.file.originalname,
+      );
+      res.json(cotizacion);
+    } catch (error) {
+      console.error('Error al parsear la cotización:', error);
+      throw new ApiError(
+        'No se pudo leer la cotización. Verifica que sea el PDF correcto.',
+        400,
+      );
+    }
+  },
+];

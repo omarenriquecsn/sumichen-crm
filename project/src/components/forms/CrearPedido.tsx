@@ -8,16 +8,20 @@ import SelectorDeProductos from "../ui/SelectProductos";
 type CrearPedidoProps = {
   onSubmit: (data: PedidoData) => void;
   accion: string;
+  /** Datos con los que se precarga el formulario (ej. desde una cotización PDF). */
+  initialData?: Partial<Pedido> & { productos?: formProducto[] };
 };
 
-const CrearPedido = ({ onSubmit, accion }: CrearPedidoProps) => {
+const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
   const supabase = useSupabase();
 
   accion = accion || "Crear Pedido";
 
+  const { productos: productosIniciales, ...pedidoInicial } = initialData ?? {};
+
   const [productosSeleccionados, setProductosSeleccionados] = useState<
     formProducto[]
-  >([]);
+  >(productosIniciales ?? []);
 
   const [formData, setFormData] = useState<Partial<Pedido>>({
     vendedor_id: "",
@@ -33,6 +37,7 @@ const CrearPedido = ({ onSubmit, accion }: CrearPedidoProps) => {
     notas: "",
     transporte: "interno",
     moneda: "usd",
+    ...pedidoInicial,
   });
 
 
@@ -48,6 +53,7 @@ const CrearPedido = ({ onSubmit, accion }: CrearPedidoProps) => {
     marca: "",
     modelo: "",
     placa: "",
+    ...(initialData?.transporte_detalle ?? {}),
   });
 
   const {
@@ -340,6 +346,7 @@ const CrearPedido = ({ onSubmit, accion }: CrearPedidoProps) => {
         )}
         <SelectorDeProductos
           productos={productosDisponibles}
+          seleccionInicial={productosIniciales}
           onSeleccionar={(seleccion) => setProductosSeleccionados(seleccion)}
         />
         <div>

@@ -13,16 +13,19 @@ type ProductoSelectOption = Producto & {
 
 type SelectorDeProductosProps = { 
   productos: Producto[];
+  /** Productos ya seleccionados con los que se inicializa el selector (ej. al
+   *  precargar desde una cotización PDF). */
+  seleccionInicial?: formProducto[];
   onSeleccionar: (
     seleccion: { producto_id: string; cantidad: number; precio_unitario: number, nombre: string, descripcion: string, precio_base: number, porcentaje_negociacion: number }[]
     ) => void;
 };
 
-const SelectorDeProductos = ({ productos, onSeleccionar }: SelectorDeProductosProps) => {
+const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: SelectorDeProductosProps) => {
   const [selectedOption, setSelectedOption] = useState<ProductoSelectOption | null>(null);
   const [seleccion, setSeleccion] = useState<
     formProducto[]
-  >([]);
+  >(seleccionInicial ?? []);
 
   useEffect(() => {
     onSeleccionar(seleccion);
@@ -46,7 +49,7 @@ const SelectorDeProductos = ({ productos, onSeleccionar }: SelectorDeProductosPr
         {
           producto_id: producto.id,
           cantidad: 1,
-          precio_base: Number(producto.precio_base) || 0,
+          precio_base: Math.round((Number(producto.precio_base) || 0) * 100) / 100,
           porcentaje_negociacion: 0,
           precio_unitario: Math.round((Number(producto.precio_base) || 0) * 100) / 100,
           nombre: producto.nombre,
@@ -65,6 +68,9 @@ const SelectorDeProductos = ({ productos, onSeleccionar }: SelectorDeProductosPr
     );
   };
 
+  // El precio base se muestra siempre con 2 decimales.
+  const redondear2 = (n: number) => Math.round(n * 100) / 100;
+
   const calcularPrecioUnitario = (precioBase: number, porcentaje: number) => {
     const base = Math.max(0, Number(precioBase) || 0);
     const porc = Math.max(0, Number(porcentaje) || 0);
@@ -72,7 +78,7 @@ const SelectorDeProductos = ({ productos, onSeleccionar }: SelectorDeProductosPr
   };
 
   const cambiarPrecioBase = (id: string, precioBase: number) => {
-    const base = Math.max(0, Number(precioBase) || 0);
+    const base = redondear2(Math.max(0, Number(precioBase) || 0));
     setSeleccion((prev) =>
       prev.map((p) => {
         if (p.producto_id !== id) return p;
