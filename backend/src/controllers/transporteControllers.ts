@@ -12,6 +12,9 @@ export const getTransporte = async (req: Request, res: Response) => {
 
 export const saveTransporte = async (req: Request, res: Response) => {
   const { pedidoId } = req.params;
-  const transporte = await saveTransporteService(pedidoId, req.body);
+  const transporte = await saveTransporteService(pedidoId, req.body, {
+    id: req.user?.vendedor_db_id,
+    rol: req.user?.rol,
+  });
   res.json(transporte);
 };

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import { Mail, Lock, Eye, EyeOff, AlertCircle, Fingerprint, Loader2 } from "lucide-react";
 import { iniciarSesionBiometrica, soportaBiometria } from "../../lib/biometric";
@@ -14,6 +14,17 @@ export const Login: React.FC = () => {
   const [cargandoBiometria, setCargandoBiometria] = useState(false);
   const navigate = useNavigate();
   const { signIn } = useAuth();
+  const [searchParams] = useSearchParams();
+
+  // Ruta a la que volver tras iniciar sesión (ej. deep link de una
+  // notificación push a /pedidos/:id). Se valida que sea una ruta interna.
+  const redirectParam = searchParams.get("redirect");
+  const destino =
+    redirectParam &&
+    redirectParam.startsWith("/") &&
+    !redirectParam.startsWith("//")
+      ? redirectParam
+      : "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +33,7 @@ export const Login: React.FC = () => {
 
     try {
       await signIn(email, password);
-      navigate("/dashboard");
+      navigate(destino, { replace: true });
     } catch (error: unknown) {
       if (error instanceof Error) {
         console.error("Login error:", error);
@@ -47,7 +58,7 @@ export const Login: React.FC = () => {
     try {
       await iniciarSesionBiometrica();
       toast.success("Sesión iniciada con huella.");
-      navigate("/dashboard");
+      navigate(destino, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error en el acceso biométrico.");
     } finally {

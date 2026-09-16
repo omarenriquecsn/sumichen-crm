@@ -12,6 +12,7 @@ import {
   Package,
   CalendarClock,
   LifeBuoy,
+  Truck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -56,6 +57,12 @@ export const CATEGORIAS_NOTIFICACIONES: CategoriaNotificaciones[] = [
         etiqueta: "Pedido cancelado",
         descripcion: "Se avisa al vendedor y a los admins cuando un pedido se cancela.",
         icono: XCircle,
+      },
+      {
+        evento: "transporte_editado",
+        etiqueta: "Transporte actualizado",
+        descripcion: "Se avisa a los administradores cuando un vendedor edita los datos del transporte de un pedido.",
+        icono: Truck,
       },
     ],
   },

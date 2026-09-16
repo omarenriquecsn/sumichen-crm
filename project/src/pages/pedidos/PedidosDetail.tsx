@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useSupabase } from "../../hooks/useSupabase";
@@ -62,15 +62,10 @@ const PedidosDetail = () => {
   //Vendedores
   const { data: vendedores } = useVendedores();
 
-  // Actualizar Pedido
-
-  useMemo(() => {
-    const pedidosMap = pedidos?.find((p) => p.id === id);
-    if (!pedidosMap) {
-      toast.error("No se encontró el pedido.");
-      navigate("/pedidos");
-    }
-  }, [pedidos, id, navigate]);
+  // ⚠ La comprobación de "pedido no encontrado" se hace MÁS ABAJO, después de
+  // esperar a que la carga termine. Antes se hacía aquí con `useMemo` y en un
+  // deep link (abrir /pedidos/:id desde una notificación push) `pedidos` aún es
+  // undefined en el primer render, así que expulsaba al listado antes de cargar.
 
   if (
     errorPedidos ||

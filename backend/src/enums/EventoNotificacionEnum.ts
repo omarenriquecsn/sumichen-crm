@@ -11,6 +11,7 @@ export const EventoNotificacionEnum = {
   PEDIDO_NUEVO: 'pedido_nuevo',
   PEDIDO_APROBADO: 'pedido_aprobado',
   PEDIDO_CANCELADO: 'pedido_cancelado',
+  TRANSPORTE_EDITADO: 'transporte_editado',
   LEAD_ASIGNADO: 'lead_asignado',
   LEAD_REASIGNADO: 'lead_reasignado',
   LEAD_PERDIDO: 'lead_perdido',
