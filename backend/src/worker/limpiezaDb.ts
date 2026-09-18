@@ -332,11 +332,34 @@ async function main() {
       console.log(`Borrado: ${paso.nombre} (${filasPorPaso.get(paso.nombre)?.length ?? 0})`);
     }
 
-    // Evidencias PDF de los pedidos borrados
+    // Evidencias de los pedidos borrados: el PDF fusionado legacy
+    // (`pedidos.evidencia_url`) + los archivos originales de `pedido_evidencias`.
     const pedidosRows = filasPorPaso.get('pedidos') || [];
     const nombresEvidencias = pedidosRows
       .map((r) => nombreDesdeUrl(r.evidencia_url))
       .filter((n): n is string => Boolean(n));
+
+    const pedidoIds = pedidosRows
+      .map((r) => r.id)
+      .filter((v): v is string => typeof v === 'string' && v.length > 0);
+    if (pedidoIds.length) {
+      try {
+        const evRows = (await ds.query(
+          `SELECT archivo_nombre FROM pedido_evidencias WHERE pedido_id = ANY($1::uuid[])`,
+          [pedidoIds],
+        )) as { archivo_nombre: string }[];
+        for (const r of evRows) {
+          const n = nombreDesdeUrl(r.archivo_nombre) ?? r.archivo_nombre;
+          if (n) nombresEvidencias.push(path.basename(n));
+        }
+      } catch (e) {
+        console.warn(
+          'No se pudieron listar las evidencias múltiples:',
+          e instanceof Error ? e.message : e,
+        );
+      }
+    }
+
     const evRes = borrarArchivosPorNombre(getEvidenciasDir(), nombresEvidencias);
 
     // CSV comprimido con las filas eliminadas

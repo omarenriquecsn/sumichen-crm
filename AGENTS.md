@@ -989,6 +989,38 @@ Una página: cabecera con RIF/nombre/dirección del cliente, cotización, fechas
 - El PDF **no se adjunta** como evidencia del pedido (decisión del usuario: solo llenar el formulario).
 - Fuera de alcance: auto-crear el cliente si el RIF no existe (se optó por el fallback manual) y el flujo automático desde `ClienteDetalle`/`ClienteDetalleModal`.
 
+### Punto 36 — Evidencias múltiples por pedido (17/09) ✅ (build/lint/typecheck OK backend y frontend; migración aplicada en dev)
+
+> **Resumen**: los clientes reportaban que "solo podían cargar una evidencia". El código **sí aceptaba varios** (`<input multiple>` + `upload.array('files')`), pero el backend fusionaba todo en un único PDF (un solo link "Ver Orden de Compra"), fallaba en lote si un archivo no se podía convertir (HEIC/WebP/Word/Excel sin LibreOffice) y en móvil el `accept="image/*,application/pdf"` desactiva la selección múltiple. Se rediseñó a **evidencias múltiples por pedido**: tabla nueva `pedido_evidencias`, se guarda el **archivo original sin convertir** (cualquier tipo: imagen, PDF, Excel, Word…) y se ven en un **visor integrado**.
+
+#### Backend
+- **Migración** `1787524217000-PedidoEvidenciasSchema.ts` (idempotente): tabla `pedido_evidencias` (`id` uuid PK, `pedido_id` FK → `pedidos` ON DELETE CASCADE, `nombre_original`, `archivo_nombre`, `mime`, `tamano` integer, `url`, `subido_por_id` FK → `vendedores` ON DELETE SET NULL, `fecha_creacion`) + índice `pedido_id`. ⚠ Se eligió el timestamp `1787524217000` porque ya existían migraciones `...15000`/`...16000`.
+- **Entidad** `PedidoEvidencia.ts` + registro en `dataBaseConfig.ts` + `@OneToMany` `evidencias` en `Pedidos.ts` (NO eager).
+- **Módulo** routes→controller→service→repository: `POST /pedidos/:id/evidencias` (multer memoryStorage, `limits: { fileSize: 25MB, files: 10 }`, `upload.array('files')`, **try/catch por archivo** → responde `{ evidencias, fallidos }`), `GET /pedidos/:id/evidencias`, `DELETE /pedidos/:id/evidencias/:evidenciaId` (**solo admin**: el vendedor no puede eliminar evidencias de un pedido ya creado).
+- **Eliminar/cancelar pedido** (`DELETE /pedidos/:id`, `deletePedido`): **solo admin** (`req.user.rol !== 'admin'` → 403). La UI ya ocultaba el botón a vendedores en las 4 vistas.
+- **`errorHandler.ts`**: mapea `MulterError` a 400 con mensaje claro (tamaño/cantidad).
+- **`archivosControllers.ts`**: ahora sirve con `Content-Type` real (por extensión), respeta `EVIDENCIA_UPLOAD_PATH` vía `getEvidenciasDir()` (antes hardcodeaba la carpeta) y usa `inline` para PDF/imagen/texto y `attachment` para el resto. El token sigue aceptándose por header (blob) o query (legacy).
+- **Limpieza**: `deletePedidosService` borra los archivos de `pedido_evidencias` antes de eliminar el pedido (las filas caen por CASCADE); `worker/limpiezaDb.ts` también los incluye al purgar pedidos antiguos.
+- **Legacy intacto**: `pedidos.evidencia_url` y `POST /pedidos/:id/evidencia` (PDF fusionado) se conservan; el detalle sigue mostrando "Ver Orden de Compra" si existe.
+
+#### Frontend
+- **`CrearPedido.tsx`**: se quitó el `accept` restrictivo (permite cualquier tipo y la multi-selección en móvil), los archivos se acumulan entre selecciones sin duplicados, se listan con nombre/tamaño y se pueden quitar. `utils/pedidos.ts` dejó de estrechar a `FileList`.
+- **`hooks/useApi.ts`**: `useEvidenciasPedido`, `useSubirEvidencias`, `useEliminarEvidencia`; `useCrearPedido` sube al endpoint nuevo.
+- **Nuevo `components/ui/EvidenciaViewerModal.tsx`**: visor integrado. Descarga cada archivo con `Authorization: Bearer` → `Blob` → `objectURL` (el token NO va en la URL) y muestra: **PDF** en `<iframe>`, **imagen** en `<img>`, **Excel** en tabla (SheetJS `xlsx`, ya instalado) y **Word/otros** con botón de descarga. Navegación anterior/siguiente (botones y flechas), descarga, cierre con Escape/clic fuera.
+- **`PedidosDetail.tsx` y `PedidosDetailModal.tsx`**: sección "Evidencias (N)" con fila por archivo (nombre, tamaño, fecha), acciones **Ver** (abre el visor), **Descargar** y **Eliminar** (**solo admin**); se conserva el link legacy.
+- **`utils/pedidos.ts`**: helper `formatearTamanoArchivo`.
+
+#### Cómo probar
+- Crear un pedido adjuntando **varios archivos mezclados** (imagen + PDF + Excel) → se guardan todos (ver `SELECT * FROM pedido_evidencias`), cada uno con su URL.
+- En el detalle: "Ver" abre el visor con cada tipo; Excel se ve como tabla; Word se descarga; "Eliminar" borra fila + archivo.
+- Un archivo inválido no tumba la subida (se reporta en `fallidos`).
+
+#### ⚠ Notas / deuda
+- Límite por defecto: **10 archivos, 25 MB cada uno** (multer). Ajustable en `pedidoEvidenciasControllers.ts`.
+- El visor usa `xlsx` (SheetJS) para Excel; `.xls`/`.xlsx`/`.csv`. Los `.doc/.docx` no se previsualizan (se descargan).
+- Al re-subir ya no se generan PDFs huérfanos fusionados; el PDF legacy antiguo sigue en disco hasta que se borre el pedido (limpieza lo recoge).
+- En producción: recompilar/desplegar el backend (aplica la migración al arrancar) y subir el `dist/` del frontend.
+
 ## 9. Punto de partida sugerido para la próxima actualización
 
 - Los 10 puntos de esta sesión + el **feature "Registrar Usuarios"** están completos y verificados (build/lint/tsc en frontend y backend). En producción (18/08) ya se verificó que los 4 admins tienen `rol='admin'` y `supabase_id` poblado en el Postgres del VPS → **no requiere acciones manuales de SQL**. Supabase se usa solo para auth + storage, así que los SQL de migración no se aplican a producción (legacy).

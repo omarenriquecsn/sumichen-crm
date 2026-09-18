@@ -9,6 +9,8 @@ class Producto_pedido {
   precio_unitario: number;
   precio_base: number;
   porcentaje_negociacion: number;
+  /** 2 (normal) o 4 (producto especial, ej. preformas a 0.0091). */
+  decimales?: number;
 }
 
 export class CrearPedidoDto {

@@ -15,6 +15,7 @@ import {
   deleteProductos_pedidoService,
 } from './productos_pedidoServices';
 import { createTransporte } from '../repositories/transporteRepository';
+import { eliminarEvidenciasDePedidoService } from './pedidoEvidenciasServices';
 import {
   enviarPushAUsuario,
   enviarPushAAdmins,
@@ -35,6 +36,25 @@ dotenv.config();
 // Redondea un monto a 2 decimales (el total se calcula con el precio
 // unitario ya redondeado, igual que en el formulario de pedidos).
 const redondear2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+
+/** Redondea a la cantidad de decimales indicada. */
+const redondearA = (n: number, decimales: number) => {
+  const factor = 10 ** decimales;
+  return Math.round((Number(n) || 0) * factor) / factor;
+};
+
+/**
+ * Precio unitario de una línea. Con `decimales = 2` (normal) es idéntico al
+ * cálculo de siempre; con `decimales = 4` (productos especiales, ej. preformas
+ * a 0.0091) se conservan los 4 decimales sin redondear a 2.
+ */
+const precioUnitarioDeLinea = (producto: {
+  precio_unitario: number;
+  decimales?: number;
+}) => {
+  const decimales = Number(producto.decimales) === 4 ? 4 : 2;
+  return redondearA(producto.precio_unitario, decimales);
+};
 
 export const getPedidosService = async () => {
   const pedidos = await getPedidos();
@@ -63,7 +83,7 @@ export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
     subtotal: redondear2(
       productos.reduce(
         (acc, producto) =>
-          acc + redondear2(producto.precio_unitario) * producto.cantidad,
+          acc + precioUnitarioDeLinea(producto) * producto.cantidad,
         0,
       ),
     ),
@@ -88,9 +108,13 @@ export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
   }
 
   const productosPedido = productos.map((producto) => ({
-    ...producto,
+    producto_id: producto.producto_id,
+    cantidad: producto.cantidad,
+    precio_unitario: producto.precio_unitario,
+    precio_base: producto.precio_base,
+    porcentaje_negociacion: producto.porcentaje_negociacion,
     pedido_id: pedido.id,
-    total: redondear2(redondear2(producto.precio_unitario) * producto.cantidad),
+    total: redondear2(precioUnitarioDeLinea(producto) * producto.cantidad),
   }));
 
   await Promise.all(
@@ -194,6 +218,15 @@ export const deletePedidosService = async (id: string) => {
       await deleteProductos_pedidoService(producto.id);
     }),
   );
+
+  // Borra los archivos de las evidencias múltiples antes de eliminar el pedido
+  // (las filas de `pedido_evidencias` caen por CASCADE).
+  try {
+    await eliminarEvidenciasDePedidoService(id);
+  } catch (error) {
+    console.error('No se pudieron borrar las evidencias del pedido:', error);
+  }
+
   const pedidoBorrado = await deletePedido(id);
 
   // Web Push — evento `pedido_cancelado`: el pedido se elimina (cancelación) y

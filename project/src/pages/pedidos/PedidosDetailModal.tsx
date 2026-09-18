@@ -1,4 +1,4 @@
-// import { useMemo } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useSupabase } from "../../hooks/useSupabase";
@@ -19,13 +19,20 @@ import {
   Check,
   X,
   VerifiedIcon,
+  Paperclip,
+  Trash2,
+  Eye,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { Pedido, ProductoPedido, Vendedor } from "../../types";
 import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
-import { getEstadoColor } from "../../utils/pedidos";
-import { handleActualizarPedidoUtil } from "../../utils/pedidos";
+import {
+  getEstadoColor,
+  handleActualizarPedidoUtil,
+  formatearTamanoArchivo,
+} from "../../utils/pedidos";
 import useVendedores from "../../hooks/useVendedores";
+import EvidenciaViewerModal from "../../components/ui/EvidenciaViewerModal";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import utc from "dayjs/plugin/utc";
 import { useCrearNotificacion } from "../../hooks/useNotificaciones";
@@ -64,6 +71,11 @@ export const PedidosDetailModal: React.FC<PedidosDetailProps> = ({
 
   const { mutate: crearNotificacion } = useCrearNotificacion();
 
+  // Evidencias múltiples del pedido (archivos originales)
+  const { data: evidencias } = supabase.useEvidenciasPedido(pedido?.id);
+  const { mutate: eliminarEvidencia } = supabase.useEliminarEvidencia();
+  const [evidenciaIndice, setEvidenciaIndice] = useState<number | null>(null);
+
   // Clientes
   const {
     data: clientes,
@@ -98,6 +110,23 @@ export const PedidosDetailModal: React.FC<PedidosDetailProps> = ({
   if (!pedido) {
     return;
   }
+
+  // Solo el admin puede eliminar evidencias de un pedido ya creado.
+  const puedeGestionarEvidencias = currentUser.rol === "admin";
+
+  const handleEliminarEvidencia = (evidenciaId: string) => {
+    if (!window.confirm("¿Eliminar esta evidencia?")) return;
+    eliminarEvidencia(
+      { pedidoId: pedido.id, evidenciaId },
+      {
+        onSuccess: () => toast.success("Evidencia eliminada"),
+        onError: (e) =>
+          toast.error(
+            e instanceof Error ? e.message : "Error al eliminar la evidencia"
+          ),
+      }
+    );
+  };
 
   const handleAprobarPedido = () => {
     pedido.estado = "procesado";
@@ -255,6 +284,54 @@ export const PedidosDetailModal: React.FC<PedidosDetailProps> = ({
                     </a>
                   </div>
                 )}
+
+                {evidencias && evidencias.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium text-gray-800 mb-2 flex items-center gap-2">
+                      <Paperclip className="h-4 w-4" /> Evidencias (
+                      {evidencias.length})
+                    </h4>
+                    <ul className="space-y-2">
+                      {evidencias.map((ev, idx) => (
+                        <li
+                          key={ev.id}
+                          className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
+                        >
+                          <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-gray-800 truncate">
+                              {ev.nombre_original}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatearTamanoArchivo(ev.tamano)}
+                              {formatearTamanoArchivo(ev.tamano) ? " · " : ""}
+                              {dayjs(ev.fecha_creacion).format(
+                                "DD/MM/YYYY HH:mm"
+                              )}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEvidenciaIndice(idx)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 shrink-0"
+                          >
+                            <Eye className="h-4 w-4" /> Ver
+                          </button>
+                          {puedeGestionarEvidencias && (
+                            <button
+                              type="button"
+                              onClick={() => handleEliminarEvidencia(ev.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 shrink-0"
+                              title="Eliminar evidencia"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <div className="flex justify-end items-center border-t border-gray-200 pt-4 mt-4">
                   <p className="text-lg font-semibold text-gray-900">
                     Total: ${pedido.total.toLocaleString()}
@@ -404,6 +481,14 @@ export const PedidosDetailModal: React.FC<PedidosDetailProps> = ({
           </div>
         </div>
       </div>
+
+      {evidenciaIndice !== null && evidencias && evidencias.length > 0 && (
+        <EvidenciaViewerModal
+          evidencias={evidencias}
+          indiceInicial={evidenciaIndice}
+          onClose={() => setEvidenciaIndice(null)}
+        />
+      )}
     </div>
   );
 };

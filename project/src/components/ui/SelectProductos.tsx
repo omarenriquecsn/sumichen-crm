@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { formProducto, Producto } from "../../types";
 import { toast } from "react-toastify";
 import Select from 'react-select';
+import { decimalesDePrecio, redondearA } from "../../utils/pedidos";
 
 
 // Define el tipo para las opciones que usará react-select.
@@ -16,9 +17,7 @@ type SelectorDeProductosProps = {
   /** Productos ya seleccionados con los que se inicializa el selector (ej. al
    *  precargar desde una cotización PDF). */
   seleccionInicial?: formProducto[];
-  onSeleccionar: (
-    seleccion: { producto_id: string; cantidad: number; precio_unitario: number, nombre: string, descripcion: string, precio_base: number, porcentaje_negociacion: number }[]
-    ) => void;
+  onSeleccionar: (seleccion: formProducto[]) => void;
 };
 
 const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: SelectorDeProductosProps) => {
@@ -43,17 +42,21 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
     if (existe) {
       setSeleccion((prev) => prev.filter((p) => p.producto_id !== producto.id));
     } else {
+      // Ruta de 4 decimales si el precio base del catálogo es especial.
+      const decimales = decimalesDePrecio(producto.precio_base);
+      const base = redondearA(Number(producto.precio_base) || 0, decimales);
 
       setSeleccion((prev) => [
         ...prev,
         {
           producto_id: producto.id,
           cantidad: 1,
-          precio_base: Math.round((Number(producto.precio_base) || 0) * 100) / 100,
+          precio_base: base,
           porcentaje_negociacion: 0,
-          precio_unitario: Math.round((Number(producto.precio_base) || 0) * 100) / 100,
+          precio_unitario: base,
           nombre: producto.nombre,
           descripcion: producto.descripcion,
+          decimales,
         },
       ]);
     }
@@ -68,24 +71,41 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
     );
   };
 
-  // El precio base se muestra siempre con 2 decimales.
-  const redondear2 = (n: number) => Math.round(n * 100) / 100;
+  /**
+   * Decimales de la línea: 4 si el precio base tiene más de 2 decimales
+   * (producto especial), 2 en caso contrario. Con 2 el cálculo es idéntico al
+   * de siempre.
+   */
+  const decimalesDeLinea = (p: formProducto) =>
+    p.decimales ?? decimalesDePrecio(p.precio_base);
 
-  const calcularPrecioUnitario = (precioBase: number, porcentaje: number) => {
+  const calcularPrecioUnitario = (
+    precioBase: number,
+    porcentaje: number,
+    decimales: number,
+  ) => {
     const base = Math.max(0, Number(precioBase) || 0);
     const porc = Math.max(0, Number(porcentaje) || 0);
-    return Math.round((base + base * (porc / 100)) * 100) / 100;
+    return redondearA(base + base * (porc / 100), decimales);
   };
 
   const cambiarPrecioBase = (id: string, precioBase: number) => {
-    const base = redondear2(Math.max(0, Number(precioBase) || 0));
+    const valor = Math.max(0, Number(precioBase) || 0);
+    // La ruta de 4 decimales se activa según el valor escrito.
+    const decimales = decimalesDePrecio(valor);
+    const base = redondearA(valor, decimales);
     setSeleccion((prev) =>
       prev.map((p) => {
         if (p.producto_id !== id) return p;
         return {
           ...p,
+          decimales,
           precio_base: base,
-          precio_unitario: calcularPrecioUnitario(base, p.porcentaje_negociacion),
+          precio_unitario: calcularPrecioUnitario(
+            base,
+            p.porcentaje_negociacion,
+            decimales,
+          ),
         };
       })
     );
@@ -99,7 +119,11 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
         return {
           ...p,
           porcentaje_negociacion: porc,
-          precio_unitario: calcularPrecioUnitario(p.precio_base, porc),
+          precio_unitario: calcularPrecioUnitario(
+            p.precio_base,
+            porc,
+            decimalesDeLinea(p),
+          ),
         };
       })
     );
@@ -212,6 +236,11 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
                     step="0.5"
                     value={producto.porcentaje_negociacion}
                     onChange={(e) => cambiarPorcentaje(producto.producto_id, parseFloat(e.target.value))}
+                    onFocus={e => {
+                      if (e.target.value === "0") {
+                        e.target.value = "";
+                      }
+                    }}
                     className="w-full border rounded px-2 py-1 appearance-none"
                     style={{ MozAppearance: 'textfield' }}
                   />
@@ -234,7 +263,9 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
                     type="number"
                     min={0}
                     step="0.0001"
-                    value={Number(producto.precio_unitario || 0).toFixed(2)}
+                    value={Number(producto.precio_unitario || 0).toFixed(
+                      decimalesDeLinea(producto)
+                    )}
                     readOnly
                     className="w-full border rounded px-2 py-1 bg-gray-100 text-gray-700 appearance-none"
                     style={{ MozAppearance: 'textfield' }}

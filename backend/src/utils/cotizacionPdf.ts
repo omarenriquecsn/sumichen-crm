@@ -61,6 +61,8 @@ export interface CotizacionParseada {
   fechaEmision: string | null;
   fechaEntrega: string | null;
   tipoPago: 'contado' | 'credito' | null;
+  /** Días de crédito del PDF (ej. "CREDITO A 15" → 15); null si no aplica. */
+  diasCredito: number | null;
   transporte: 'interno' | 'externo' | null;
   moneda: 'usd' | 'bs';
   porcentajeNegociacion: number;
@@ -262,16 +264,31 @@ export const parsearCotizacionPdf = async (
   const cotizacion =
     buscarValores(tokens, etiqueta('cotizacion:'), () => true)[0]?.texto ?? '';
 
-  const condicionPago =
-    buscarValores(
-      tokens,
-      etiqueta('pago:'),
-      (t) => /^(contado|credito)$/i.test(normalizar(t.texto)),
-    )[0]?.texto ?? '';
+  // "Condic. Pago: CREDITO A 15" vive en la columna derecha de la cabecera, así
+  // que no se restringe por x. Se incluye el token de la etiqueta por si el
+  // valor viene embebido en el mismo texto.
+  const condicionPago = (() => {
+    for (const et of tokens) {
+      if (!normalizar(et.texto).includes('pago')) continue;
+      const derecha = tokens
+        .filter((t) => t.x > et.x + 5 && Math.abs(t.y - et.y) <= DY_FILA)
+        .map((t) => t.texto)
+        .join(' ');
+      const texto = `${et.texto} ${derecha}`.trim();
+      if (/credito|contado/i.test(texto)) return texto;
+    }
+    return '';
+  })();
   const tipoPago: 'contado' | 'credito' | null = /credito/i.test(condicionPago)
     ? 'credito'
     : /contado/i.test(condicionPago)
       ? 'contado'
+      : null;
+  // "CREDITO A 15" → 15; "CONTADO" → sin número.
+  const diasCreditoMatch = condicionPago.match(/\d{1,3}/);
+  const diasCredito =
+    tipoPago === 'credito' && diasCreditoMatch
+      ? parseInt(diasCreditoMatch[0], 10)
       : null;
 
   const fechaEmision = fechaAIso(
@@ -341,6 +358,7 @@ export const parsearCotizacionPdf = async (
     fechaEmision,
     fechaEntrega,
     tipoPago,
+    diasCredito,
     transporte,
     moneda,
     porcentajeNegociacion,

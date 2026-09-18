@@ -161,6 +161,18 @@ export interface Transporte {
   placa: string;
 }
 
+export interface PedidoEvidencia {
+  id: string;
+  pedido_id: string;
+  nombre_original: string;
+  archivo_nombre: string;
+  mime?: string | null;
+  tamano?: number | null;
+  url: string;
+  subido_por_id?: string | null;
+  fecha_creacion: string;
+}
+
 export interface Pedido {
   id: string;
   cliente_id: string;
@@ -273,11 +285,13 @@ export type formProducto = {
   descripcion: string;
   precio_base: number;
   porcentaje_negociacion: number;
+  /** Decimales del precio: 2 (normal) o 4 (productos especiales). */
+  decimales?: number;
 };
 
 export interface PedidoData extends Pedido {
   productos: formProducto[];
-  archivoAdjunto?: File | null;
+  archivoAdjunto?: File | File[] | FileList | null;
   transporte_detalle?: Partial<Transporte>;
 }
 
@@ -302,6 +316,8 @@ export interface ProductoDb {
   precio_unitario: number;
   precio_base?: number;
   porcentaje_negociacion?: number;
+  /** 2 (normal) o 4 (producto especial). */
+  decimales?: number;
 }
 
 export interface PedidoDb {
@@ -340,6 +356,7 @@ export interface CotizacionParseada {
   fechaEmision: string | null;
   fechaEntrega: string | null;
   tipoPago: "contado" | "credito" | null;
+  diasCredito: number | null;
   transporte: "interno" | "externo" | null;
   moneda: "usd" | "bs";
   porcentajeNegociacion: number;

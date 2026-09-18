@@ -18,6 +18,7 @@ import { MonedaEnum } from '../enums/MonedaEnum';
 import { TransporteEnum } from '../enums/TransporteEnum';
 import { EstadoPedidoEnum } from '../enums/EstadoPedidoEnum';
 import { Transporte } from './Transporte';
+import { PedidoEvidencia } from './PedidoEvidencia';
 
 @Entity('pedidos')
 export class Pedido {
@@ -88,6 +89,10 @@ export class Pedido {
 
   @Column({ type: 'text', nullable: true })
   evidencia_url?: string;
+
+  // Evidencias múltiples (archivos originales). No eager: se consultan aparte.
+  @OneToMany(() => PedidoEvidencia, (evidencia) => evidencia.pedido)
+  evidencias: PedidoEvidencia[];
 
   @Column({
     type: 'enum',

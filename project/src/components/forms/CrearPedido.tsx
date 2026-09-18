@@ -4,6 +4,14 @@ import { LoadingSpinner } from "../ui/LoadingSpinner";
 import { toast } from "react-toastify";
 import { useSupabase } from "../../hooks/useSupabase";
 import SelectorDeProductos from "../ui/SelectProductos";
+import { X } from "lucide-react";
+
+/** Formatea bytes a un texto legible (KB/MB). */
+const formatearTamano = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
 
 type CrearPedidoProps = {
   onSubmit: (data: PedidoData) => void;
@@ -41,8 +49,8 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
   });
 
 
-  // Estado para el archivo adjunto
-  const [archivoAdjunto, setArchivoAdjunto] = useState<FileList | null>(null);
+  // Estado para los archivos adjuntos (varias evidencias de cualquier tipo)
+  const [archivoAdjunto, setArchivoAdjunto] = useState<File[]>([]);
 
   // Estado de los datos del transporte cuando es externo
   const [transporte_detalle, setTransporteDetalle] = useState<
@@ -93,11 +101,21 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
   };
 
   const handleArchivoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setArchivoAdjunto(e.target.files);
-    } else {
-      setArchivoAdjunto(null);
+    const nuevos = e.target.files ? Array.from(e.target.files) : [];
+    if (nuevos.length > 0) {
+      // Acumula los archivos de varias selecciones, sin duplicados.
+      const clave = (f: File) => `${f.name}|${f.size}|${f.lastModified}`;
+      setArchivoAdjunto((prev) => {
+        const existentes = new Set(prev.map(clave));
+        return [...prev, ...nuevos.filter((f) => !existentes.has(clave(f)))];
+      });
     }
+    // Permite volver a seleccionar el mismo archivo después.
+    e.target.value = "";
+  };
+
+  const quitarArchivo = (idx: number) => {
+    setArchivoAdjunto((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleTransporteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,8 +140,8 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
       productos: productosSeleccionados,
       transporte_detalle:
         formData.transporte === "externo" ? transporte_detalle : undefined,
-      archivoAdjunto, // Se puede enviar como parte del objeto si el backend lo soporta
-    } as PedidoData & { archivoAdjunto?: File };
+      archivoAdjunto: archivoAdjunto.length > 0 ? archivoAdjunto : null,
+    } as PedidoData;
     onSubmit(pedidoConProductos);
   };
   return (
@@ -382,30 +400,50 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
             ))}
           </div>
         )}
-        {/* Sección para cargar archivo */}
+        {/* Sección para cargar evidencias (varias, de cualquier tipo) */}
         <div>
           <label
             htmlFor="archivoAdjunto"
             className="block text-sm font-medium text-gray-700"
           >
-            Adjuntar archivo (opcional)
+            Evidencias (opcional)
           </label>
           <input
             type="file"
             id="archivoAdjunto"
             name="files"
             onChange={handleArchivoChange}
-            accept="image/*,application/pdf"
             className="mt-1 block w-full"
             multiple
           />
-          {archivoAdjunto?.length && (
-            <p className="text-sm text-gray-600 mt-1">
-              Archivos seleccionados:{" "}
-              {Array.from(archivoAdjunto)
-                .map((file) => file.name)
-                .join(", ")}
-            </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Puedes adjuntar varios archivos: imágenes, PDF, Excel, Word, etc.
+            (máx. 10 archivos, 25 MB cada uno).
+          </p>
+          {archivoAdjunto.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {archivoAdjunto.map((file, idx) => (
+                <li
+                  key={`${file.name}-${idx}`}
+                  className="flex items-center justify-between gap-2 text-sm bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5"
+                >
+                  <span className="truncate text-gray-700">{file.name}</span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-gray-500">
+                      {formatearTamano(file.size)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => quitarArchivo(idx)}
+                      className="text-gray-400 hover:text-red-600"
+                      aria-label={`Quitar ${file.name}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
         <div className="flex justify-end pt-4">

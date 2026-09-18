@@ -143,6 +143,10 @@ export const updatePedido = async (req: Request, res: Response) => {
 };
 
 export const deletePedido = async (req: Request, res: Response) => {
+  // Solo un administrador puede cancelar/eliminar un pedido.
+  if (req.user?.rol !== 'admin') {
+    throw new ApiError('Solo un administrador puede cancelar pedidos', 403);
+  }
   const { id } = req.params;
   const borrado = await deletePedidosService(id);
   if (!borrado) throw new ApiError('No se pudo eliminar el pedido', 400);

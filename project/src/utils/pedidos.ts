@@ -12,6 +12,14 @@ import { toast } from "react-toastify";
 import { UseMutateFunction } from "@tanstack/react-query";
 import { armarCuerpoConFirma } from "./firma";
 
+/** Formatea un tamaño en bytes a un texto legible (B/KB/MB). */
+export const formatearTamanoArchivo = (bytes?: number | null): string => {
+  if (!bytes || bytes <= 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
+
 export interface HandleCrearPedidoParams {
   data: PedidoData;
   currentUser: User;
@@ -21,7 +29,7 @@ export interface HandleCrearPedidoParams {
       pedidoData: Partial<Pedido>;
       currentUser: User;
       productosPedido: formProducto[];
-      archivoAdjunto: FileList | null;
+      archivoAdjunto: File[] | FileList | null;
     },
     callbacks: {
       onError: (error: unknown) => void;
@@ -85,7 +93,14 @@ export function handleCrearPedidoUtil({
       pedidoData: { ...rest },
       currentUser,
       productosPedido: productos,
-      archivoAdjunto: (data.archivoAdjunto instanceof FileList ? data.archivoAdjunto : null),
+      archivoAdjunto:
+        data.archivoAdjunto instanceof FileList
+          ? Array.from(data.archivoAdjunto)
+          : Array.isArray(data.archivoAdjunto)
+            ? data.archivoAdjunto
+            : data.archivoAdjunto instanceof File
+              ? [data.archivoAdjunto]
+              : null,
     },
     {
       onError: async (error: unknown) => {
@@ -143,17 +158,38 @@ export const normalizarRif = (rif?: string) =>
 export const normalizarCodigoProducto = (codigo?: string) =>
   (codigo || "").trim().toUpperCase().replace(/\s+/g, "");
 
+/** Redondea un número a la cantidad de decimales indicada. */
+export const redondearA = (n: number, decimales: number) => {
+  const factor = 10 ** decimales;
+  return Math.round((Number(n) || 0) * factor) / factor;
+};
+
+/**
+ * Determina si un precio usa la ruta de 4 decimales: un precio es "especial"
+ * cuando tiene más de 2 decimales (ej. preformas a 0.0091). Los precios con 2
+ * decimales o menos siguen la ruta normal de 2 decimales.
+ */
+export const decimalesDePrecio = (precio?: number | string): 2 | 4 => {
+  const n = Number(precio) || 0;
+  return redondearA(n, 4) !== redondearA(n, 2) ? 4 : 2;
+};
+
 /**
  * Despeja el precio base desde el precio unitario y el % de negociación, con la
  * misma fórmula del formulario: `unitario = base + base * (%/100)`.
+ *
+ * Con `decimales = 2` el comportamiento es idéntico al de siempre. Con
+ * `decimales = 4` (productos especiales) se conservan 4 decimales sin redondear
+ * a 2.
  */
 export const precioBaseDesdeUnitario = (
   precioUnitario: number,
   porcentaje: number,
+  decimales: number = 2,
 ) => {
   const factor = 1 + (Number(porcentaje) || 0) / 100;
   if (factor <= 0) return Number(precioUnitario) || 0;
-  return Math.round(((Number(precioUnitario) || 0) / factor) * 100) / 100;
+  return redondearA((Number(precioUnitario) || 0) / factor, decimales);
 };
 
 export interface ResultadoCotizacion {
@@ -203,14 +239,18 @@ export const construirPedidoDesdeCotizacion = (
       return;
     }
     if (!prod.exento) algunoConIva = true;
+    // Ruta de 4 decimales para productos especiales (precio base con >2
+    // decimales, ej. preformas a 0.0091); el resto sigue con 2.
+    const decimales = decimalesDePrecio(match.precio_base);
     productos.push({
       producto_id: match.id,
       cantidad: prod.cantidad,
-      precio_base: precioBaseDesdeUnitario(prod.precioUnitario, pct),
+      precio_base: precioBaseDesdeUnitario(prod.precioUnitario, pct, decimales),
       porcentaje_negociacion: pct,
       precio_unitario: prod.precioUnitario,
       nombre: match.nombre,
       descripcion: match.descripcion,
+      decimales,
     });
   });
 
@@ -219,6 +259,8 @@ export const construirPedidoDesdeCotizacion = (
     impuestos: algunoConIva ? 0.16 : 0,
     moneda: data.moneda,
     tipo_pago: data.tipoPago ?? "contado",
+    dias_credito:
+      data.tipoPago === "credito" ? (data.diasCredito ?? 0) : 0,
     transporte: data.transporte ?? "interno",
     fecha_entrega: data.fechaEntrega
       ? new Date(`${data.fechaEntrega}T12:00:00`)

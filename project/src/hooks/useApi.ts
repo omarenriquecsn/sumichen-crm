@@ -9,6 +9,7 @@ import {
   Oportunidad,
   Pedido,
   PedidoDb,
+  PedidoEvidencia,
   Producto,
   ProductoDb,
   Reunion,
@@ -195,7 +196,7 @@ export const useApi = () => {
     pedidoData: Partial<Pedido>;
     productosPedido: formProducto[];
     currentUser: User;
-    archivoAdjunto: FileList | File | null;
+    archivoAdjunto: File[] | FileList | File | null;
   };
 
   // Crear pedido + subir evidencia (PDF) si viene adjunta
@@ -238,6 +239,7 @@ export const useApi = () => {
           precio_unitario: p.precio_unitario,
           precio_base: p.precio_base,
           porcentaje_negociacion: p.porcentaje_negociacion,
+          decimales: p.decimales,
         }));
 
         // 1. Crear el pedido
@@ -274,7 +276,7 @@ export const useApi = () => {
             formData.append("files", file);
           });
           const evidenciaRes = await fetch(
-            `${URL}/pedidos/${pedidoId}/evidencia`,
+            `${URL}/pedidos/${pedidoId}/evidencias`,
             {
               method: "POST",
               credentials: "include",
@@ -286,7 +288,11 @@ export const useApi = () => {
             }
           );
           if (!evidenciaRes.ok) {
-            throw new Error("Error al subir la evidencia del pedido");
+            const errorData = await evidenciaRes.json().catch(() => ({}));
+            throw new Error(
+              (errorData as { message?: string })?.message ||
+                "Error al subir las evidencias del pedido"
+            );
           }
         }
       },
@@ -443,6 +449,106 @@ export const useApi = () => {
           queryKey: ["transporte", variables.pedidoId],
         });
         queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+      },
+    });
+  };
+
+  // ---------- Evidencias de pedido (múltiples) ----------
+
+  // Lista las evidencias de un pedido
+  const useEvidenciasPedido = (pedidoId?: string) => {
+    return useQuery<PedidoEvidencia[]>({
+      queryKey: ["pedido-evidencias", pedidoId],
+      enabled: !!pedidoId && !!session?.access_token,
+      queryFn: async () => {
+        const response = await fetch(
+          `${URL}/pedidos/${pedidoId}/evidencias`,
+          {
+            headers: { Authorization: `Bearer ${session?.access_token}` },
+            credentials: "include",
+          }
+        );
+        if (!response.ok) throw new Error("Error al cargar las evidencias");
+        return (await response.json()) as PedidoEvidencia[];
+      },
+    });
+  };
+
+  // Sube una o varias evidencias a un pedido
+  const useSubirEvidencias = () => {
+    return useMutation({
+      mutationFn: async ({
+        pedidoId,
+        archivos,
+      }: {
+        pedidoId: string;
+        archivos: File[];
+      }) => {
+        if (!session?.access_token) throw new Error("No autenticado");
+        const formData = new FormData();
+        archivos.forEach((file) => formData.append("files", file));
+        const response = await fetch(
+          `${URL}/pedidos/${pedidoId}/evidencias`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { Authorization: `Bearer ${session.access_token}` },
+            body: formData,
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            (data as { message?: string })?.message ||
+              "Error al subir las evidencias"
+          );
+        }
+        return data as {
+          evidencias: PedidoEvidencia[];
+          fallidos: { nombre: string; error: string }[];
+        };
+      },
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({
+          queryKey: ["pedido-evidencias", variables.pedidoId],
+        });
+        queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+      },
+    });
+  };
+
+  // Elimina una evidencia de un pedido
+  const useEliminarEvidencia = () => {
+    return useMutation({
+      mutationFn: async ({
+        pedidoId,
+        evidenciaId,
+      }: {
+        pedidoId: string;
+        evidenciaId: string;
+      }) => {
+        if (!session?.access_token) throw new Error("No autenticado");
+        const response = await fetch(
+          `${URL}/pedidos/${pedidoId}/evidencias/${evidenciaId}`,
+          {
+            method: "DELETE",
+            credentials: "include",
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            (data as { message?: string })?.message ||
+              "Error al eliminar la evidencia"
+          );
+        }
+        return data;
+      },
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({
+          queryKey: ["pedido-evidencias", variables.pedidoId],
+        });
       },
     });
   };
@@ -1663,6 +1769,9 @@ export const useApi = () => {
     useCancelarPedido,
     useTransportePedido,
     useGuardarTransporte,
+    useEvidenciasPedido,
+    useSubirEvidencias,
+    useEliminarEvidencia,
     useActualizarActividad,
     useEliminarActividad,
     useEliminarTicket,
