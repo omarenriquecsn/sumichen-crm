@@ -7,6 +7,7 @@ import { TipoWebEnum } from '../entities/Lead';
 import { enviarPushAUsuario } from './pushServices';
 import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 import { construirUrlAtenderLead } from '../utils/atenderLead';
+import { esFinDeSemana, getPartesFechaLocal } from '../utils/finSemana';
 
 /**
  * Asistente de bienvenida (WhatsApp).
@@ -410,6 +411,39 @@ export const procesarRespuestaIntencion = async (lead: any, cuerpo: string) => {
   });
 };
 
+/**
+ * Fin de semana: envía el horario de atención y deja el asistente en pausa.
+ *
+ * - Se responde al menos una vez por día (`metadata.fin_semana_respondido`),
+ *   así el cliente que escribe varias veces el sábado/domingo no recibe spam.
+ * - El lead queda con `metadata.paso_menu = 'fin_semana'`; el worker
+ *   `finSemanaMonitor` lo reanuda el próximo día hábil (o si vuelve a escribir
+ *   en día hábil antes de que corra el worker).
+ */
+const responderFinDeSemana = async (lead: any, config: any) => {
+  const { telefono, phoneNumberId } = getTelefono(lead);
+  const nombre = lead?.datos_contacto?.nombre || '';
+  if (!telefono) return;
+
+  const hoy = getPartesFechaLocal().ymd;
+  const yaRespondidoHoy = lead?.metadata?.fin_semana_respondido === hoy;
+
+  // Se marca la pausa SIEMPRE (aunque ya se haya respondido hoy) para que el
+  // asistente no avance y el worker lo retome el próximo día hábil.
+  await updateLead(lead.id, {
+    metadata: {
+      ...(lead.metadata || {}),
+      paso_menu: 'fin_semana',
+      fin_semana_respondido: hoy,
+    },
+  });
+
+  if (yaRespondidoHoy) return;
+
+  const texto = config.mensaje_fin_semana.replace(/\{nombre\}/g, nombre);
+  await enviarSeguro(telefono, texto, phoneNumberId);
+};
+
 /** Punto de entrada del asistente, invocado desde el webhook por cada mensaje. */
 export const procesarAsistente = async (leadId: string, cuerpo: string) => {
   const config = await getMenuBienvenida();
@@ -418,7 +452,22 @@ export const procesarAsistente = async (leadId: string, cuerpo: string) => {
   const lead = await getLeadById(leadId);
   if (!lead) return;
 
+  // Fin de semana: si el lead aún no tiene vendedor, se pausa el flujo y se
+  // responde el horario de atención. Los leads ya asignados siguen el flujo
+  // normal (se guardan el mensaje y el push al vendedor).
+  if (config.fin_semana_activo && !lead.vendedor_asignado_id && esFinDeSemana()) {
+    await responderFinDeSemana(lead, config);
+    return;
+  }
+
   const paso = lead.metadata?.paso_menu;
+
+  // Lead pausado por fin de semana que vuelve a escribir en día hábil (antes
+  // de que corra el worker de reanudación): se reinicia el asistente.
+  if (paso === 'fin_semana') {
+    if (!lead.vendedor_asignado_id) await enviarMenuTipoContacto(lead);
+    return;
+  }
 
   if (paso === undefined) {
     // Primer contacto (sin vendedor): bienvenida + menú de tipo de contacto.

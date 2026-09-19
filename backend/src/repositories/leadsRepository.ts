@@ -249,6 +249,26 @@ export const getLeadsPorVencerSLA = async (horas: number) => {
   });
 };
 
+/**
+ * Leads pausados por fin de semana: sin vendedor asignado, con
+ * `metadata.paso_menu = 'fin_semana'` y aún no convertidos/perdidos.
+ *
+ * El worker `finSemanaMonitor` los reanuda el próximo día hábil reenviándoles
+ * el menú de bienvenida (tipo de contacto) para continuar la asignación.
+ */
+export const getLeadsFinSemanaPausados = async () => {
+  const repo = AppDataSource.getRepository(Lead);
+  return await repo
+    .createQueryBuilder('lead')
+    .where('lead.vendedor_asignado_id IS NULL')
+    .andWhere(`lead.metadata->>'paso_menu' = :paso`, { paso: 'fin_semana' })
+    .andWhere('lead.estado NOT IN (:...estados)', {
+      estados: [EstadoLeadEnum.CONVERTIDO, EstadoLeadEnum.PERDIDO],
+    })
+    .orderBy('lead.fecha_creacion', 'ASC')
+    .getMany();
+};
+
 export const getLeadsSLAVencido = async (horas: number) => {
   const repo = AppDataSource.getRepository(Lead);
   const limite = new Date(Date.now() - horas * 60 * 60 * 1000);

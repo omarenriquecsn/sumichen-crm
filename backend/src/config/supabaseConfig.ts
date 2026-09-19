@@ -11,7 +11,7 @@ const SUPABASE_KEY =
 
 let supabaseClient: SupabaseClient | null = null;
 
-function getSupabaseClient(): SupabaseClient | null {
+export function getSupabaseClient(): SupabaseClient | null {
   if (supabaseClient) return supabaseClient;
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
   supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);

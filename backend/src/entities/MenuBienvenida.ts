@@ -50,6 +50,12 @@ export class MenuBienvenida {
   @Column({ type: 'text', default: 'Gracias {nombre}. {vendedor} se comunicará contigo por este medio.' })
   mensaje_trabajo: string;
 
+  @Column({ type: 'boolean', default: true })
+  fin_semana_activo: boolean;
+
+  @Column({ type: 'text', default: '¡Gracias por escribir a Sumichem! Nuestro horario de atención es de lunes a viernes de 8:00 a.m. a 5:00 p.m. En cuanto abramos, un asesor continuará atendiéndote.' })
+  mensaje_fin_semana: string;
+
   @Column({ type: 'jsonb', default: () => `'[{"numero":1,"etiqueta":"Cotización","tipo_web":"cotizacion"},{"numero":2,"etiqueta":"Catálogo","tipo_web":"catalogo"}]'` })
   opciones_intencion: OpcionIntencion[];
 

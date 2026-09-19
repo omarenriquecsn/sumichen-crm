@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
 import swaggerDocument from './docs/swagger.json';
 import { errorHandler } from './middlewares/errorHandler';
+import { resumenHora } from './utils/finSemana';
 import { Request } from 'express';
 
 const app = express();
@@ -43,7 +44,9 @@ app.use(router);
 // Configure Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use(errorHandler);
-app.get('/health', (req, res) => {
-  res.status(200).send('OK');
+app.get('/health', (_req, res) => {
+  // Incluye la hora del servidor y la zona usada por el flujo de fin de semana
+  // (útil para validar en el VPS que la decisión de sábado/domingo sea correcta).
+  res.status(200).json({ status: 'OK', ...resumenHora() });
 });
 export default app;

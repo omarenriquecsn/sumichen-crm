@@ -533,6 +533,8 @@ export interface MenuBienvenida {
   vendedor_trabajo_id: string | null;
   mensaje_proveedor: string;
   mensaje_trabajo: string;
+  fin_semana_activo: boolean;
+  mensaje_fin_semana: string;
   opciones_intencion: OpcionIntencion[];
   fecha_creacion: string;
   fecha_actualizacion: string;

@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "prebuild": "node -e \"require('fs').rmSync('build',{ recursive: true, force: true })\"",
     "build": "tsc",
-    "migrate": "npm run build && npx typeorm migration:run -d build/config/dataBaseConfig.js"
+    "migrate": "npm run build && npx typeorm migration:run -d build/config/dataBaseConfig.js",
+    "backup": "node build/worker/clean.js --backup-once",
+    "restore": "node build/scripts/restoreBackup.js"
   },
   "keywords": [],
   "author": "",

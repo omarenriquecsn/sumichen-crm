@@ -15,7 +15,12 @@ export const updateMenuBienvenidaService = async (data: any) => {
     campos.activo = data.activo;
   }
 
-  for (const texto of ['mensaje_bienvenida', 'pregunta_estado', 'mensaje_sin_vendedor', 'pregunta_intencion', 'mensaje_confirmacion', 'mensaje_tipo_contacto', 'mensaje_proveedor', 'mensaje_trabajo']) {
+  if (data.fin_semana_activo !== undefined) {
+    if (typeof data.fin_semana_activo !== 'boolean') throw new ApiError('fin_semana_activo debe ser un booleano', 400);
+    campos.fin_semana_activo = data.fin_semana_activo;
+  }
+
+  for (const texto of ['mensaje_bienvenida', 'pregunta_estado', 'mensaje_sin_vendedor', 'pregunta_intencion', 'mensaje_confirmacion', 'mensaje_tipo_contacto', 'mensaje_proveedor', 'mensaje_trabajo', 'mensaje_fin_semana']) {
     if (data[texto] !== undefined) {
       if (typeof data[texto] !== 'string' || !data[texto].trim()) {
         throw new ApiError(`${texto} debe ser un texto no vacío`, 400);

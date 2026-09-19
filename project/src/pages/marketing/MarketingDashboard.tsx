@@ -55,6 +55,8 @@ const MarketingDashboard: React.FC = () => {
     vendedor_trabajo_id: "",
     mensaje_proveedor: "",
     mensaje_trabajo: "",
+    fin_semana_activo: true,
+    mensaje_fin_semana: "",
     opciones_intencion: [] as OpcionIntencion[],
   });
 
@@ -72,6 +74,8 @@ const MarketingDashboard: React.FC = () => {
         vendedor_trabajo_id: menuConfig.vendedor_trabajo_id || "",
         mensaje_proveedor: menuConfig.mensaje_proveedor || "",
         mensaje_trabajo: menuConfig.mensaje_trabajo || "",
+        fin_semana_activo: menuConfig.fin_semana_activo ?? true,
+        mensaje_fin_semana: menuConfig.mensaje_fin_semana || "",
         opciones_intencion: menuConfig.opciones_intencion || [],
       });
     }
@@ -94,6 +98,8 @@ const MarketingDashboard: React.FC = () => {
         vendedor_trabajo_id: menuForm.vendedor_trabajo_id || null,
         mensaje_proveedor: menuForm.mensaje_proveedor,
         mensaje_trabajo: menuForm.mensaje_trabajo,
+        fin_semana_activo: menuForm.fin_semana_activo,
+        mensaje_fin_semana: menuForm.mensaje_fin_semana,
         opciones_intencion: opciones,
       },
       {
@@ -335,6 +341,42 @@ const MarketingDashboard: React.FC = () => {
                     <p className="text-xs text-gray-400 mt-1">Variables: {"{nombre}"}, {"{vendedor}"}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Atención en fin de semana */}
+              <div className="md:col-span-2 border-t border-gray-100 pt-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Atención en fin de semana (sábado y domingo)
+                    </label>
+                    <p className="text-xs text-gray-400">
+                      Los leads de WhatsApp <b>sin vendedor</b> que escriban sábado o domingo reciben este mensaje con el
+                      horario (una vez por día) y el asistente queda en pausa. El próximo día hábil se reanuda el flujo de
+                      asignación automáticamente.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                    <input
+                      type="checkbox"
+                      checked={menuForm.fin_semana_activo}
+                      onChange={(e) => setMenuForm((prev) => ({ ...prev, fin_semana_activo: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <span className="ml-3 text-sm font-medium text-gray-700">
+                      {menuForm.fin_semana_activo ? "Activo" : "Inactivo"}
+                    </span>
+                  </label>
+                </div>
+                <textarea
+                  value={menuForm.mensaje_fin_semana}
+                  onChange={(e) => setMenuForm((prev) => ({ ...prev, mensaje_fin_semana: e.target.value }))}
+                  rows={3}
+                  className="w-full mt-3 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="¡Gracias por escribir a Sumichem! Nuestro horario de atención es de lunes a viernes de 8:00 a.m. a 5:00 p.m..."
+                />
+                <p className="text-xs text-gray-400 mt-1">Variable: {"{nombre}"}</p>
               </div>
 
               <div>

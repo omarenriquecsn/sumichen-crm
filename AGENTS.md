@@ -1055,6 +1055,7 @@ Una página: cabecera con RIF/nombre/dirección del cliente, cotización, fechas
 - Schema de datos: ya se eligió **migraciones TypeORM** (baseline idempotente). Para cambios futuros de schema: crear una migración nueva en `src/database/migrations/`, NO editar el baseline.
 - Para cualquier cambio de API: seguir el patrón routes → controllers → services → repositories → entity.
 - Para cambios de UI: mantener Tailwind + MUI y el patrón de hooks agregadores + React Query.
+- **Punto 37 / Respaldo diario (DB + evidencias) a Supabase Storage + correo** ✅ (18/09): `ejecutarBackup()` en `services/backupServices.ts` corre dentro de `crm-clean` a las **03:30**; sube el `pg_dump` a `backups/db/` (retención **7 diarios + 4 semanales**), lo adjunta por correo (Resend) y hace **espejo incremental** de las evidencias a `backups/evidencias/`. Restore con `node build/scripts/restoreBackup.js --list` / `[fecha] --yes`. Env `BACKUP_*`. Ver Punto 37 en §8.
 ### Punto 27 � Firma en Configuraci�n + correo al cliente v�a Resend con adjuntos (01/09) ? (build/lint/typecheck OK backend y frontend)
 
 > **Resumen**: (1) cada vendedor/admin sube desde **Configuraci�n ? Perfil** una **imagen de firma/logo �nica** (subir otra la sustituye; se identifica por el id de la tabla endedores). (2) El bot�n **"Enviar Email"** del detalle de cliente ya NO abre Gmail/mailto (cuerpo de texto plano que no renderiza im�genes): ahora abre un **modal de redacci�n estilo Gmail** (ComponerCorreoModal) con editor enriquecido (Quill) y **adjuntos**, y el backend env�a el correo **desde el servidor v�a Resend** con cuerpo HTML que incrusta la firma del vendedor como <img> en el pie (por eso s� se ve la imagen).
@@ -1252,3 +1253,56 @@ ombre/pellido).
 - `npx tsc --noEmit -p tsconfig.app.json` → **exit 0 (0 errores)**.
 - `npm run lint` → **0 problemas**.
 - `npm run build` → OK (solo warnings de tamaño de chunk, pre-existentes).
+
+### Punto 37 — Respaldo diario (DB + evidencias) a Supabase Storage + correo (18/09) ✅ (build/lint/typecheck OK backend; probado end-to-end en dev)
+
+> **Resumen**: nuevo respaldo automático diario que corre dentro del worker `crm-clean`. Cada día a las **03:30** hace `pg_dump -Fc` de la DB y lo sube al bucket privado `backups` de Supabase, lo **adjunta por correo** a `MAINTENANCE_EMAIL` (Resend) y hace un **espejo incremental** de las evidencias de pedidos a `backups/evidencias/`. Retención de dumps: **7 diarios + 4 semanales**. Sin cifrado (decisión del usuario). Diseñado para no depender de la limpieza: corre siempre (aunque no haya filas que borrar).
+
+#### Contexto / por qué
+- La DB es diminuta (~7 MB; dump ~266 KB) y el folder de evidencias ~132 MB acotado por la limpieza.
+- El `pg_dump` de `worker/limpiezaDb.ts` era **local** (mismo disco) y **solo se generaba cuando había filas que borrar** → no servía como política de respaldo.
+- El backup cubre los archivos (evidencias) que el dump de la DB NO incluye (solo guarda las filas de `pedido_evidencias`).
+
+#### Backend
+- **Nuevo `services/backupServices.ts`** → `ejecutarBackup()`:
+  1. Sale si `BACKUP_ENABLED === 'false'` o si Supabase no está configurado.
+  2. Asegura el bucket (`getBucket` → `createBucket` privado si falta).
+  3. `pg_dump -Fc` a un temporal (`os.tmpdir()`), sube a `backups/db/sumichem-YYYY-MM-DD.dump` (`upsert`).
+  4. Domingos: además `backups/db/sumichem-weekly-YYYY-WNN.dump`.
+  5. Correo con el dump adjunto (`enviarCorreoMantenimiento`, ya existente; remitente `mantenimiento@RESEND_DOMAIN`).
+  6. Retención: lista `db/`, conserva los N diarios + M semanales más recientes y borra el resto (lotes de 100).
+  7. **Espejo** de evidencias: lista recursiva local + remota, sube nuevos/cambiados (nombre+tamaño) y borra remotos que ya no están en local. **Guarda**: si el local queda vacío con remotos existentes, aborta el borrado (evita que un fallo de montaje/disco borre el backup).
+  8. Cada sección con try/catch; un fallo no tumba las demás. Devuelve un resumen.
+- **`worker/clean.ts`**: nuevo `cron.schedule(BACKUP_CRON || '30 3 * * *')` que llama `ejecutarBackup()`. Soporte `--backup-once` (ejecuta y sale) para pruebas: `node build/worker/clean.js --backup-once` (o `npm run backup`).
+- **`config/supabaseConfig.ts`**: `getSupabaseClient` ahora es exportado.
+- **Nuevo `src/scripts/restoreBackup.ts`** (compila a `build/scripts/restoreBackup.js`): CLI de restore (`--list`, `[YYYY-MM-DD]`, `--yes`, `--no-evidencias`).
+- **`package.json`**: scripts `backup` y `restore`.
+
+#### Env nuevas (`.env` + `.env.example`)
+`BACKUP_ENABLED=true`, `BACKUP_CRON=30 3 * * *`, `BACKUP_TZ=UTC`, `BACKUP_BUCKET=backups`, `BACKUP_TO=` (vacío → `MAINTENANCE_EMAIL`), `BACKUP_DB_RETENTION_DAILY=7`, `BACKUP_DB_RETENTION_WEEKLY=4`, `BACKUP_EVIDENCIAS=true`.
+⚠ `BACKUP_BUCKET` NO debe ser el bucket de evidencias: `crm-clean` lo purga a los `CLEANUP_DAYS`.
+
+#### Cómo probar / verificado en dev (18/09)
+- `node build/worker/clean.js --backup-once` → subió `db/sumichem-2026-09-18.dump` (266202 bytes), envió el correo y espejó 9 evidencias. Verificado en Supabase (bucket `backups`): `db/` + `evidencias/`.
+- `node build/scripts/restoreBackup.js --list` → lista el dump disponible.
+
+#### Restore (procedimiento)
+Desde `backend/` en el VPS:
+```bash
+node build/scripts/restoreBackup.js --list              # ver dumps disponibles
+node build/scripts/restoreBackup.js 2026-09-18 --yes    # restaura DB + evidencias
+# o solo la DB:  node build/scripts/restoreBackup.js 2026-09-18 --yes --no-evidencias
+pm2 restart crm-server
+```
+Equivalente manual (si el script no está disponible): descargar el `.dump` del bucket `backups/db/`, luego
+`pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" sumichem-YYYY-MM-DD.dump`
+y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no probado no es backup: conviene hacer un restore de prueba.
+
+#### ⚠ Notas / deuda
+- El backup corre dentro de `crm-clean`: si ese worker se cae, no hay backup ni limpieza (el correo diario sirve de alarma).
+- El espejo borra en Supabase lo que ya no está en local (decisión del usuario); la guarda evita el borrado si el folder local queda vacío.
+- Sin cifrado: el dump va a un bucket privado y al correo.
+- Requiere `pg_dump`/`pg_restore` en el PATH del VPS (ya instalados).
+- Los `BACKUP_*` tienen defaults, así que funciona sin añadirlos al `.env` del VPS; `RESEND_API_KEY` y `MAINTENANCE_EMAIL` ya estaban.
+- Al desplegar, el espejo borrará de `backups/evidencias/` los archivos de dev que subió la prueba (no existen en el folder local del servidor) y subirá los reales.
+- Deploy: `.\deploy.ps1` (no requiere cambios; `crm-clean` ya está en `$Pm2Workers`).
