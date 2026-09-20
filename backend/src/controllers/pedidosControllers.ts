@@ -10,6 +10,7 @@ import {
   updatePedidosService,
   deletePedidosService,
   getPedidosByVendedorService,
+  editarPedidosService,
 } from '../services/pedidosServices';
 import { ApiError } from '../utils/ApiError';
 import convertirArchivo from '../utils/ConvertirArchivo';
@@ -139,6 +140,14 @@ export const updatePedido = async (req: Request, res: Response) => {
   const { id } = req.params;
   const actualizado = await updatePedidosService(id, req.body);
   if (!actualizado) throw new ApiError('No se pudo actualizar el pedido', 400);
+  res.json(actualizado);
+};
+
+/** Edición completa de un pedido pendiente (cabecera + líneas + transporte). */
+export const editarPedido = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const actualizado = await editarPedidosService(id, req.body, req.user);
+  if (!actualizado) throw new ApiError('No se pudo editar el pedido', 400);
   res.json(actualizado);
 };
 

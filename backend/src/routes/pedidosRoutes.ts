@@ -8,6 +8,7 @@ import {
   getPedidosByVendedor,
   subirEvidencia,
   parsearCotizacion,
+  editarPedido,
 } from '../controllers/pedidosControllers';
 import {
   subirEvidencias,
@@ -37,6 +38,8 @@ router.delete(
   verificarToken,
   eliminarEvidencia,
 );
+
+router.put('/pedidos/:id/editar', verificarToken, asyncHandler(editarPedido));
 
 router.put('/pedidos/:id', verificarToken, asyncHandler(updatePedido));
 

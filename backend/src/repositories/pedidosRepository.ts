@@ -17,6 +17,12 @@ export const getPedidoById = async (id: string) => {
   });
 };
 
+/** Un pedido por su id (pk). */
+export const getPedido = async (id: string) => {
+  const PedidoRepository = AppDataSource.getRepository(Pedido);
+  return await PedidoRepository.findOne({ where: { id } });
+};
+
 export const createPedido = async (PedidoData: Partial<Pedido>) => {
   const PedidoRepository = AppDataSource.getRepository(Pedido);
   const newPedido = PedidoRepository.create(PedidoData);

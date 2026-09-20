@@ -3,7 +3,11 @@ import { Pedido } from '../entities/Pedidos';
 import { ProductosPedido } from '../entities/Productos_pedido';
 import { Transporte } from '../entities/Transporte';
 import { AppDataSource } from '../config/dataBaseConfig';
-import { getPedidos, getPedidoById } from '../repositories/pedidosRepository';
+import {
+  getPedidos,
+  getPedidoById,
+  getPedido,
+} from '../repositories/pedidosRepository';
 import {
   consumirLineasPedido,
   restaurarStockPedido,
@@ -186,6 +190,102 @@ export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
   }
 
   return pedido;
+};
+
+/**
+ * Edita un pedido PENDIENTE por completo (cabecera + líneas + transporte).
+ * Devuelve al inventario las reservas actuales y vuelve a consumir con las
+ * líneas nuevas, todo dentro de una transacción.
+ */
+export const editarPedidosService = async (
+  id: string,
+  pedidoData: CrearPedidoDto,
+  usuario?: { rol?: string; vendedor_db_id?: string },
+) => {
+  const anterior = await getPedido(id);
+  if (!anterior) throw new ApiError('Pedido no encontrado', 404);
+  if (anterior.estado !== 'pendiente') {
+    throw new ApiError(
+      'Solo se pueden editar pedidos pendientes. Para corregir un pedido confirmado usa una devolución.',
+      400,
+    );
+  }
+  if (
+    usuario?.rol !== 'admin' &&
+    anterior.vendedor_id !== usuario?.vendedor_db_id
+  ) {
+    throw new ApiError('No puedes editar un pedido de otro vendedor', 403);
+  }
+
+  const { productos, transporte_detalle, ...rest } = pedidoData;
+  const subtotal = redondear2(
+    productos.reduce(
+      (acc, producto) => acc + precioUnitarioDeLinea(producto) * producto.cantidad,
+      0,
+    ),
+  );
+
+  return AppDataSource.transaction(async (manager) => {
+    // 1. Devuelve al inventario lo que el pedido tenía reservado.
+    await restaurarStockPedido(manager, id, 'Edición de pedido');
+
+    // 2. Borra las líneas anteriores.
+    await manager.getRepository(ProductosPedido).delete({ pedido_id: id });
+
+    // 3. Actualiza la cabecera.
+    const cabecera: Partial<Pedido> = {
+      ...rest,
+      impuestos: rest.impuestos === 'exento' ? 0 : 0.16,
+      subtotal,
+      total: subtotal,
+    };
+
+    if (rest.transporte === 'externo' && transporte_detalle) {
+      const transporteRepo = manager.getRepository(Transporte);
+      if (anterior.transporte_detalle?.id) {
+        await transporteRepo.update(
+          anterior.transporte_detalle.id,
+          transporte_detalle as Partial<Transporte>,
+        );
+      } else {
+        const nuevo = await transporteRepo.save(
+          transporteRepo.create(transporte_detalle as Partial<Transporte>),
+        );
+        cabecera.transporte_detalle = nuevo;
+      }
+    }
+
+    await manager.getRepository(Pedido).update(id, cabecera);
+
+    // 4. Nuevas líneas + re-consumo FIFO.
+    const lineaRepo = manager.getRepository(ProductosPedido);
+    for (const producto of productos) {
+      await lineaRepo.save(
+        lineaRepo.create({
+          producto_id: producto.producto_id,
+          cantidad: producto.cantidad,
+          precio_unitario: producto.precio_unitario,
+          precio_base: producto.precio_base,
+          porcentaje_negociacion: producto.porcentaje_negociacion,
+          almacen: producto.almacen,
+          pedido_id: id,
+          total: redondear2(precioUnitarioDeLinea(producto) * producto.cantidad),
+        }),
+      );
+    }
+
+    await consumirLineasPedido(
+      manager,
+      id,
+      productos.map((p) => ({
+        producto_id: p.producto_id,
+        almacen: p.almacen,
+        cantidad: p.cantidad,
+      })),
+    );
+
+    return manager.getRepository(Pedido).findOneBy({ id });
+  });
 };
 
 export const updatePedidosService = async (

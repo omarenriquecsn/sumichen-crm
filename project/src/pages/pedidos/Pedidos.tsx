@@ -32,6 +32,7 @@ import { useAuth } from "../../context/useAuth";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/ui/Modal";
 import CrearPedido from "../../components/forms/CrearPedido";
+import EditarPedido from "../../components/forms/EditarPedido";
 import SelectCliente from "../../components/ui/SelectCliente";
 import TipoCreacionPedidoModal from "../../components/forms/TipoCreacionPedidoModal";
 import CargarCotizacionModal from "../../components/forms/CargarCotizacionModal";
@@ -71,6 +72,9 @@ export const Pedidos: React.FC<PedidosProps> = ({
 
   const { mutate: aprobarPedido } = supabase.useActualizarPedido();
 
+  const { mutate: editarPedido, isPending: isEditandoPedido } =
+    supabase.useEditarPedido();
+
   const { mutate: crearNotificacion } = useCrearNotificacion();
 
   const [modalPedidoVisible, setModalPedidoVisible] = useState(false);
@@ -81,6 +85,8 @@ export const Pedidos: React.FC<PedidosProps> = ({
   );
   const [modalTipoVisible, setModalTipoVisible] = useState(false);
   const [modalCotizacionVisible, setModalCotizacionVisible] = useState(false);
+  const [modalEditarVisible, setModalEditarVisible] = useState(false);
+  const [pedidoAEditar, setPedidoAEditar] = useState<Pedido | null>(null);
   const [pedidoInicial, setPedidoInicial] = useState<
     (Partial<Pedido> & { productos?: formProducto[] }) | undefined
   >(undefined);
@@ -201,6 +207,31 @@ export const Pedidos: React.FC<PedidosProps> = ({
       } ha sido aprobado.`,
     });
     toast.success("Pedido aprobado exitosamente.");
+  };
+
+  const handleEditarPedido = (data: PedidoData) => {
+    if (!pedidoAEditar) return;
+    editarPedido(
+      {
+        id: pedidoAEditar.id,
+        pedidoData: data,
+        productosPedido: data.productos,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Pedido actualizado exitosamente.");
+          setModalEditarVisible(false);
+          setPedidoAEditar(null);
+        },
+        onError: (error: unknown) => {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Error al editar el pedido",
+          );
+        },
+      },
+    );
   };
 
   const getEstadoIcon = (estado: string) => {
@@ -584,11 +615,19 @@ export const Pedidos: React.FC<PedidosProps> = ({
                     >
                       Ver Detalles
                     </button>
-                    {session?.user.user_metadata.rol === "admin" && (
-                      <button className="text-green-600 hover:text-green-700 text-sm font-medium">
-                        Editar
-                      </button>
-                    )}
+                    {pedido.estado === "pendiente" &&
+                      (session?.user.user_metadata.rol === "admin" ||
+                        pedido.vendedor_id === currentUser?.id) && (
+                        <button
+                          onClick={() => {
+                            setPedidoAEditar(pedido);
+                            setModalEditarVisible(true);
+                          }}
+                          className="text-green-600 hover:text-green-700 text-sm font-medium"
+                        >
+                          Editar
+                        </button>
+                      )}
                     {/* <button className="text-purple-600 hover:text-purple-700 text-sm font-medium">
                       Duplicar
                     </button> */}
@@ -649,6 +688,22 @@ export const Pedidos: React.FC<PedidosProps> = ({
           accion={isCreandoPedido ? "Creando" : "Crear Pedido"}
           initialData={pedidoInicial}
         />
+      </Modal>
+
+      <Modal
+        isOpen={modalEditarVisible}
+        onClose={() => {
+          setModalEditarVisible(false);
+          setPedidoAEditar(null);
+        }}
+      >
+        {pedidoAEditar && (
+          <EditarPedido
+            onSubmit={handleEditarPedido}
+            accion={isEditandoPedido ? "Guardando..." : "Guardar Cambios"}
+            dataProps={pedidoAEditar}
+          />
+        )}
       </Modal>
 
       <Modal

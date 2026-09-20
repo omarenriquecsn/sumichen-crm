@@ -372,6 +372,63 @@ export const useApi = () => {
     });
   };
 
+  // Editar un pedido pendiente (cabecera + líneas + almacén)
+  const useEditarPedido = () => {
+    return useMutation({
+      mutationFn: async ({
+        id,
+        pedidoData,
+        productosPedido,
+      }: {
+        id: string;
+        pedidoData: Partial<Pedido>;
+        productosPedido: formProducto[];
+      }) => {
+        const productosFormateados = productosPedido.map((p: ProductoDb) => ({
+          producto_id: p.producto_id,
+          cantidad: p.cantidad,
+          precio_unitario: p.precio_unitario,
+          precio_base: p.precio_base,
+          porcentaje_negociacion: p.porcentaje_negociacion,
+          almacen: p.almacen,
+          decimales: p.decimales,
+        }));
+
+        const response = await fetch(`${URL}/pedidos/${id}/editar`, {
+          method: "PUT",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            ...pedidoData,
+            impuestos:
+              pedidoData.impuestos && pedidoData.impuestos > 0
+                ? "iva"
+                : "exento",
+            transporte_detalle:
+              pedidoData.transporte === "externo"
+                ? pedidoData.transporte_detalle
+                : undefined,
+            productos: productosFormateados,
+          }),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(
+            data?.message || data?.error || "Error al editar el pedido",
+          );
+        }
+        return response.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+        queryClient.invalidateQueries({ queryKey: ["productos", "stock"] });
+      },
+    });
+  };
+
   // Cancelar (eliminar) un pedido
   const useCancelarPedido = () => {
     const { session } = useAuth();
@@ -1786,6 +1843,7 @@ export const useApi = () => {
     useActualizarReunion,
     useActualizarTicket,
     useActualizarPedido,
+    useEditarPedido,
     useActualizarOportunidad,
     useProductos,
     useStockProductos,
