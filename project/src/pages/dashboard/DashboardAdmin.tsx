@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import PanelAdmin from "../../utils/panelAdmin";
 import { calculoIncremento } from "../../utils/ventas";
+import { esPedidoVenta, montoNetoPedido } from "../../utils/pedidos";
 import { typeChange } from "../../constants/typeChange";
 import {
   BarChart,
@@ -110,22 +111,28 @@ export const DashboardAdmin: React.FC = () => {
       })
     : [];
 
-  //total ventas del mes actual
-  const totalVentasMes = Array.isArray(pedidosMes) ? pedidosMes.reduce(
-    (total, pedido) => total + Number(pedido.total),
-    0
-  ) : 0;
+  //total ventas del mes actual (netas: confirmadas y devoluciones parciales)
+  const totalVentasMes = Array.isArray(pedidosMes)
+    ? pedidosMes
+        .filter((pedido) => esPedidoVenta(pedido))
+        .reduce((total, pedido) => total + montoNetoPedido(pedido), 0)
+    : 0;
 
-  //total ventas del mes actual por precio base (precio_base * cantidad) solo pedidos confirmados
+  //total ventas del mes actual por precio base (precio_base * cantidad neta)
   const totalVentasMesPrecioBase = Array.isArray(pedidosMes)
     ? pedidosMes
-        .filter((pedido) => pedido.estado === "procesado")
+        .filter((pedido) => esPedidoVenta(pedido))
         .reduce((total, pedido) => {
           const basePorPedido = Array.isArray(pedido.productos_pedido)
             ? pedido.productos_pedido.reduce(
                 (acc, pp) =>
                   acc +
-                  (Number(pp.precio_base) || 0) * (Number(pp.cantidad) || 0),
+                  (Number(pp.precio_base) || 0) *
+                    Math.max(
+                      0,
+                      (Number(pp.cantidad) || 0) -
+                        (Number(pp.cantidad_devuelta) || 0),
+                    ),
                 0
               )
             : 0;
@@ -133,11 +140,11 @@ export const DashboardAdmin: React.FC = () => {
         }, 0)
     : 0;
 
-  //total ventas del mes actual (precio unitario) solo pedidos confirmados
+  //total ventas del mes actual (precio unitario) netas
   const totalVentasMesConfirmadas = Array.isArray(pedidosMes)
     ? pedidosMes
-        .filter((pedido) => pedido.estado === "procesado")
-        .reduce((total, pedido) => total + Number(pedido.total), 0)
+        .filter((pedido) => esPedidoVenta(pedido))
+        .reduce((total, pedido) => total + montoNetoPedido(pedido), 0)
     : 0;
 
   //porcetaje de la meta mensual
@@ -159,8 +166,11 @@ export const DashboardAdmin: React.FC = () => {
   const calculoVentasVendedores = (vendedorId: string) => {
     return Array.isArray(pedidosMes)
       ? pedidosMes
-          .filter((pedido) => pedido.vendedor_id === vendedorId)
-          .reduce((total, pedido) => total + Number(pedido.total), 0)
+          .filter(
+            (pedido) =>
+              esPedidoVenta(pedido) && pedido.vendedor_id === vendedorId,
+          )
+          .reduce((total, pedido) => total + montoNetoPedido(pedido), 0)
       : 0;
   };
 

@@ -19,17 +19,20 @@ import { getPedidos } from '../repositories/pedidosRepository';
       throw new Error('No hay clientes para exportar');
     }
 
-    // Ventas completadas por cliente (pedidos con estado 'procesado'), para
-    // calcular el % alcanzado de la proyección de venta.
+    // Ventas netas por cliente (confirmadas o con devolución parcial, menos lo
+    // devuelto), para calcular el % alcanzado de la proyección de venta.
     const pedidos = await getPedidos();
     const ventasProcesadasPorCliente = new Map<string, number>();
     for (const pedido of Array.isArray(pedidos) ? pedidos : []) {
-      if (pedido.estado !== 'procesado') continue;
-      const previo = ventasProcesadasPorCliente.get(pedido.cliente_id) ?? 0;
-      ventasProcesadasPorCliente.set(
-        pedido.cliente_id,
-        previo + Number(pedido.total ?? 0),
+      const esVenta =
+        pedido.estado === 'procesado' || pedido.estado === 'devuelto_parcial';
+      if (!esVenta) continue;
+      const neto = Math.max(
+        0,
+        Number(pedido.total ?? 0) - Number(pedido.total_devuelto ?? 0),
       );
+      const previo = ventasProcesadasPorCliente.get(pedido.cliente_id) ?? 0;
+      ventasProcesadasPorCliente.set(pedido.cliente_id, previo + neto);
     }
 
     // Crear el libro y hoja de Excel

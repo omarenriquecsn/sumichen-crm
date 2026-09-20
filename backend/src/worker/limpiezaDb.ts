@@ -66,10 +66,10 @@ const construirPasos = (): Paso[] => {
   return [
     {
       nombre: 'pedidos',
-      select: `SELECT * FROM pedidos WHERE estado = 'procesado' AND fecha_creacion < now() - ($1 || ' days')::interval`,
+      select: `SELECT * FROM pedidos WHERE estado IN ('procesado', 'devuelto', 'devuelto_parcial') AND fecha_creacion < now() - ($1 || ' days')::interval`,
       deletes: [
-        `DELETE FROM productos_pedido WHERE pedido_id IN (SELECT id FROM pedidos WHERE estado = 'procesado' AND fecha_creacion < now() - ($1 || ' days')::interval)`,
-        `DELETE FROM pedidos WHERE estado = 'procesado' AND fecha_creacion < now() - ($1 || ' days')::interval`,
+        `DELETE FROM productos_pedido WHERE pedido_id IN (SELECT id FROM pedidos WHERE estado IN ('procesado', 'devuelto', 'devuelto_parcial') AND fecha_creacion < now() - ($1 || ' days')::interval)`,
+        `DELETE FROM pedidos WHERE estado IN ('procesado', 'devuelto', 'devuelto_parcial') AND fecha_creacion < now() - ($1 || ' days')::interval`,
       ],
       params: p(pedidos),
       evidencias: true,

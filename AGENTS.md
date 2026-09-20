@@ -1306,3 +1306,39 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - Los `BACKUP_*` tienen defaults, así que funciona sin añadirlos al `.env` del VPS; `RESEND_API_KEY` y `MAINTENANCE_EMAIL` ya estaban.
 - Al desplegar, el espejo borrará de `backups/evidencias/` los archivos de dev que subió la prueba (no existen en el folder local del servidor) y subirá los reales.
 - Deploy: `.\deploy.ps1` (no requiere cambios; `crm-clean` ya está en `$Pm2Workers`).
+
+### Punto 38 — Inventario por lotes/almacenes + devoluciones + edición de pedidos ⏸️ (18/09, EN STANDBY hasta tener el Excel real)
+
+> **Estado**: implementado y compilando (backend + frontend; `tsc`/`lint`/`build` OK) en la rama **`feature/inventario-lotes-almacenes-devoluciones`**, que vive en un **`git worktree`** aparte (`E:\Documentos\escritorio\sumichem\sumichem-inventario`). **NO se ha mergeado ni desplegado**: `main` y la BD de producción quedan intactos hasta tener el Excel con la columna `FECHA` y la información requerida. La migración `1787524219000-InventarioLotesSchema.ts` no existe en `main`, así que no se aplica.
+
+> **Resumen**: el CRM pasa de un booleano de disponibilidad a **stock real por lotes y almacenes**. El inventario diario (Excel) ahora **solo registra entradas** (crea lotes); los pedidos **descuentan stock FIFO** por almacén al crearse, lo reponen al cancelarse y las **devoluciones** (total/parcial) reponen los kg y ajustan las ventas. Incluye **edición de pedidos pendientes**.
+
+#### Modelo de datos
+- **Enums nuevos**: `AlmacenEnum { globalca, wms }`, `MovimientoInventarioTipoEnum { entrada, reserva, salida, liberacion, devolucion, ajuste }`, `DevolucionTipoEnum { total, parcial }`. `EstadoPedidoEnum` agrega `devuelto` y `devuelto_parcial`.
+- **Tablas nuevas** (`1787524219000-InventarioLotesSchema.ts`): `lotes` (producto_id, almacen, codigo_lote, **fecha_ingreso**, cantidad_inicial/actual; `UNIQUE(producto_id, almacen, codigo_lote)` + índice FIFO), `movimientos_inventario` (ledger auditable; `pedido_id ON DELETE SET NULL`), `devoluciones` (cabecera) y `devoluciones_detalle`.
+- **Columnas**: `productos_pedido.almacen` y `productos_pedido.cantidad_devuelta`; `pedidos.total_devuelto`.
+- `productos.disponible` ahora es **derivado** del stock real (suma de lotes), no del Excel.
+
+#### Flujos
+- **Entrada (Excel)** — `POST /productos/excel` (solo admin): `utils/ingresosInventario.ts` parsea `CODIGO, DESCRIPCION, GLOBALCA, WMS, TOTAL, LOTE, FECHA`. Un lote por (producto, almacén, código); **el lote nunca se reutiliza** (duplicado = reportado, no se crea). Si el código no existe, **crea el producto** (`nombre=DESCRIPCION`, `descripcion=CODIGO`, `unidad_medida='kg'`, `precio_base=0`). Reemplaza a `inventarioDisponibilidad.ts` (eliminado).
+- **Crear pedido** — transacción: cada línea lleva `almacen`; consume FIFO (`fecha_ingreso ASC`) y crea movimientos `RESERVA`. Stock insuficiente → 400.
+- **Confirmar** (`procesado`): movimientos `RESERVA` → `SALIDA`.
+- **Cancelar/eliminar**: `restaurarStockPedido()` repone el neto y borra.
+- **Editar** — `PUT /pedidos/:id/editar` (solo `pendiente`, admin o dueño): repone lo reservado y reconsume las líneas nuevas.
+- **Devolución** — `POST /pedidos/:id/devoluciones`: valida kg pendientes por línea, repone a **los lotes originales** (movimientos `SALIDA`), actualiza `cantidad_devuelta`/`total_devuelto` y pasa a `devuelto`/`devuelto_parcial`. `GET` devuelve el historial. Push `pedido_devuelto`.
+
+#### Ventas netas (Fase 5)
+- Helpers `esPedidoVenta(p)` (`procesado` | `devuelto_parcial`) y `montoNetoPedido(p)` (`total - total_devuelto`) en `utils/pedidos.ts`.
+- Actualizados: `utils/panelAdmin.ts`, `utils/ventas.ts`, `hooks/useVentas.ts`, `components/ui/ProyeccionVentas.tsx`, `pages/dashboard/DashboardAdmin.tsx`, `backend/utils/exportClientes.ts` y `backend/worker/limpiezaDb.ts` (purga también `devuelto`/`devuelto_parcial`).
+
+#### Cómo activar (cuando llegue el Excel)
+1. Respaldo de BD (worker Punto 37) y respaldar la base actual.
+2. En el worktree: `npm run build` (backend) y `npx vite build`/`npm run build` (frontend); arrancar el backend una vez para aplicar la migración.
+3. Subir el Excel con la columna `FECHA` (cabecera `CODIGO, DESCRIPCION, GLOBALCA, WMS, TOTAL, LOTE, FECHA`).
+4. Probar flujo completo y, al aprobar, `git merge` a `main` y `.\deploy.ps1`.
+
+#### ⚠ Notas / deuda
+- El parser asume columnas en el orden estándar si no hay encabezado; si cambia el layout, recalibrar en `utils/ingresosInventario.ts`.
+- Los pedidos legacy (creados antes de esta feature) no tienen `almacen` en sus líneas; no se pueden editar/devolver hasta ese punto.
+- `deploy.ps1` **no está versionado** (línea 44 del `.gitignore`): se le añadió una **guarda de rama** local (aborta si no estás en `main`, salvo `-AllowBranch`) para no publicar el feature por accidente. El worktree no lo incluye.
+- La primera carga del Excel inicializa los lotes existentes; a partir de ahí el Excel solo debe traer **mercancía nueva**.

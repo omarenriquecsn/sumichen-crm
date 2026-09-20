@@ -279,6 +279,18 @@ export const construirPedidoDesdeCotizacion = (
   };
 };
 
+/**
+ * Un pedido cuenta como venta si está confirmado (`procesado`) o fue devuelto
+ * parcialmente (`devuelto_parcial`). Los `devuelto` (total) no cuentan.
+ */
+export const esPedidoVenta = (pedido: Pick<Pedido, "estado">) =>
+  pedido.estado === "procesado" || pedido.estado === "devuelto_parcial";
+
+/** Monto neto de venta de un pedido: total menos lo devuelto. */
+export const montoNetoPedido = (
+  pedido: Pick<Pedido, "total" | "total_devuelto">,
+) => Math.max(0, Number(pedido.total) - Number(pedido.total_devuelto ?? 0));
+
 export const getEstadoColor = (estado: string) => {
   switch (estado) {
     case "pendiente":

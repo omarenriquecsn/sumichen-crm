@@ -1,6 +1,7 @@
 import useVendedores from "../hooks/useVendedores";
 import { useSupabase } from "../hooks/useSupabase";
 import { Meta, Vendedor } from "../types";
+import { esPedidoVenta, montoNetoPedido } from "./pedidos";
 
 const PanelAdmin = () => {
   const { data: pedidos } = useSupabase().usePedidos();
@@ -12,9 +13,9 @@ const PanelAdmin = () => {
     ? clientes.filter((cliente) => cliente.estado === "activo")
     : [];
 
-  // Calculo de ventas cerradas
+  // Calculo de ventas cerradas (confirmadas o con devolución parcial)
   const ventasCerradas = Array.isArray(pedidos)
-    ? pedidos.filter((pedido) => pedido.estado === "procesado")
+    ? pedidos.filter((pedido) => esPedidoVenta(pedido))
     : [];
 
   // Calculo de cantidad clientes activos
@@ -24,9 +25,7 @@ const PanelAdmin = () => {
 
   // Calculo de valor ventas cerradas
   const valorVentasCerradas = Array.isArray(pedidos)
-    ? pedidos
-        .filter((pedido) => pedido.estado === "procesado")
-        .length
+    ? pedidos.filter((pedido) => esPedidoVenta(pedido)).length
     : 0;
 
   // Calculo de pedidos por vendedor
@@ -41,8 +40,11 @@ const PanelAdmin = () => {
   const calculoVentasVendedores = (vendedorId: string) => {
     return Array.isArray(pedidosMes)
       ? pedidosMes
-          .filter((pedido) => pedido.vendedor_id === vendedorId)
-          .reduce((total, pedido) => total + Number(pedido.total), 0)
+          .filter(
+            (pedido) =>
+              esPedidoVenta(pedido) && pedido.vendedor_id === vendedorId,
+          )
+          .reduce((total, pedido) => total + montoNetoPedido(pedido), 0)
       : 0;
   };
 

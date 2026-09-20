@@ -1,6 +1,7 @@
 import React from "react";
 import { Target } from "lucide-react";
 import { Cliente, Pedido } from "../../types";
+import { esPedidoVenta } from "../../utils/pedidos";
 
 type PropsProyeccionVentas = {
   cliente: Cliente;
@@ -37,12 +38,18 @@ export const ProyeccionVentas: React.FC<PropsProyeccionVentas> = ({
   }
 
   const ventasProcesadas = (Array.isArray(pedidos) ? pedidos : [])
-    .filter((p) => p.cliente_id === cliente.id && p.estado === "procesado")
+    .filter((p) => p.cliente_id === cliente.id && esPedidoVenta(p))
     .reduce((total, p) => {
       const basePorPedido = Array.isArray(p.productos_pedido)
         ? p.productos_pedido.reduce(
             (acc, pp) =>
-              acc + (Number(pp.precio_base) || 0) * (Number(pp.cantidad) || 0),
+              acc +
+              (Number(pp.precio_base) || 0) *
+                Math.max(
+                  0,
+                  (Number(pp.cantidad) || 0) -
+                    (Number(pp.cantidad_devuelta) || 0),
+                ),
             0
           )
         : 0;

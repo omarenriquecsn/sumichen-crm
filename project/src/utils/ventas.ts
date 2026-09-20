@@ -1,5 +1,6 @@
 import { Cliente, Pedido, Oportunidad, Actividad, Mes } from "../types";
 import { clientesNuevosMes } from "./clientes";
+import { esPedidoVenta, montoNetoPedido } from "./pedidos";
 
 // ⚠ Legacy: comparaba "este mes" contra TODO el histórico acumulado y contaba registros (no dinero).
 // Se mantiene por compatibilidad con los dashboards (DashboardAdmin/DashboardVendedor).
@@ -124,12 +125,13 @@ export const ventasPorMes = (
   return Array.isArray(pedidos)
     ? pedidos
         ?.filter((pedido) => {
+          if (!esPedidoVenta(pedido)) return false;
           const fecha = new Date(pedido.fecha_creacion);
           return (
             fecha.getMonth() === mes && fecha.getFullYear() === anioActual
           );
         })
-        .reduce((total, pedido) => total + Number(pedido.total), 0) ?? 0
+        .reduce((total, pedido) => total + montoNetoPedido(pedido), 0) ?? 0
     : 0;
 };
 
@@ -199,7 +201,7 @@ const pedidosProcesadosDe = (
   anio: number
 ): Pedido[] =>
   (Array.isArray(pedidos) ? pedidos : []).filter((p) => {
-    if (p.estado !== "procesado") return false;
+    if (!esPedidoVenta(p)) return false;
     const fecha = new Date(p.fecha_creacion);
     return (
       !isNaN(fecha.getTime()) &&

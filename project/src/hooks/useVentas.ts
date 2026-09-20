@@ -1,11 +1,12 @@
 import { Pedido } from "../types";
+import { esPedidoVenta, montoNetoPedido } from "../utils/pedidos";
 
  export const useVentas = (pedidos: Pedido[] | undefined) => {
     const anioActual = new Date().getFullYear();
 
-    // Pedidos Procesados
+    // Pedidos confirmados (o con devolución parcial)
     const PedidosProcesados =
-    (Array.isArray(pedidos) ? pedidos : []).filter((pedido) => pedido.estado === "procesado") ?? [];
+    (Array.isArray(pedidos) ? pedidos : []).filter((pedido) => esPedidoVenta(pedido)) ?? [];
 
     // funcion para obtener la cifra de ventas de un mes (solo del año actual)
     const cifraVentasMes = (mes: number) => {
@@ -17,7 +18,7 @@ import { Pedido } from "../types";
        ) ?? [];
 
            const totalPedidosMes = VentasdelMes.reduce(
-               (total, pedido) => total + Number(pedido.total),
+               (total, pedido) => total + montoNetoPedido(pedido),
                0
            );
            return totalPedidosMes;
@@ -39,7 +40,12 @@ import { Pedido } from "../types";
                        ? pedido.productos_pedido.reduce(
                            (acc, pp) =>
                                acc +
-                               (Number(pp.precio_base) || 0) * (Number(pp.cantidad) || 0),
+                               (Number(pp.precio_base) || 0) *
+                                   Math.max(
+                                       0,
+                                       (Number(pp.cantidad) || 0) -
+                                           (Number(pp.cantidad_devuelta) || 0),
+                                   ),
                            0
                        )
                        : 0;
