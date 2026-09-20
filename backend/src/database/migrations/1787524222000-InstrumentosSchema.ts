@@ -97,8 +97,8 @@ export class InstrumentosSchema1787524222000 implements MigrationInterface {
     for (const nombre of ['Paleta', 'Tambor', 'Baritanque', 'Carboya']) {
       await queryRunner.query(
         `INSERT INTO "tipos_instrumento" ("nombre")
-         SELECT $1 WHERE NOT EXISTS (
-           SELECT 1 FROM "tipos_instrumento" WHERE "nombre" = $1
+         SELECT $1::varchar WHERE NOT EXISTS (
+           SELECT 1 FROM "tipos_instrumento" WHERE "nombre" = $1::varchar
          );`,
         [nombre],
       );

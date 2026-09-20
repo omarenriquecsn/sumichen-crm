@@ -1342,3 +1342,52 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - Los pedidos legacy (creados antes de esta feature) no tienen `almacen` en sus líneas; no se pueden editar/devolver hasta ese punto.
 - `deploy.ps1` **no está versionado** (línea 44 del `.gitignore`): se le añadió una **guarda de rama** local (aborta si no estás en `main`, salvo `-AllowBranch`) para no publicar el feature por accidente. El worktree no lo incluye.
 - La primera carga del Excel inicializa los lotes existentes; a partir de ahí el Excel solo debe traer **mercancía nueva**.
+
+### Punto 39 — Logística: vencimiento de lote, kardex/ajustes e instrumentos retornables ⏸️ (19/09, EN STANDBY)
+
+> **Estado**: implementado y verificado en compilación (backend + frontend; `tsc`/`lint`/`build` OK) en la misma rama `feature/inventario-lotes-almacenes-devoluciones` (worktree aparte). **No mergeado ni desplegado.** Se probó el arranque del backend contra un **clon de la BD local** (`crm_local_test`), aplicando las migraciones nuevas.
+
+> **Resumen**: (1) los lotes ahora tienen **fecha de vencimiento** (Excel + edición manual); (2) hay **kardex** de inventario y **ajustes manuales** con motivo categorizado; (3) se añadió el manejo de **instrumentos retornables** (paletas, tambores, baritanques, carboyas) con **4 estados + dañado**, control por **tipo y almacén**, y una sección **Logística** que centraliza panel de alertas, productos (lista/tarjetas + modal), kardex e instrumentos.
+
+#### Vencimiento de lote
+- `lotes.fecha_vencimiento` (date, nullable), migración `1787524220000-LoteVencimientoSchema.ts`.
+- El parser del Excel lee la columna `VENCIMIENTO` (fallback posición 8) además de `FECHA`. Editable con `PUT /inventario/lotes/:id/vencimiento` (admin).
+- El consumo sigue **FIFO por `fecha_ingreso`**; el vencimiento es informativo y se resalta en la UI (vencido/por vencer). Un ajuste puede justificar un lote vencido.
+
+#### Kardex + ajustes manuales
+- `MotivoAjusteEnum { conteo_fisico, merma, dano, vencimiento, correccion, otro }`; se agregaron `ajuste_positivo`/`ajuste_negativo` a `movimiento_inventario_tipo_enum` y `movimientos_inventario.motivo_categoria`. Migración `1787524221000-AjusteInventarioSchema.ts`.
+- `POST /inventario/ajustes` (admin): ajuste **siempre sobre un lote existente** (entrada/salida) con motivo + nota. `GET /inventario/kardex` y `GET /inventario/lotes`.
+
+#### Instrumentos retornables
+- Tablas `tipos_instrumento` (catálogo configurable, seed Paleta/Tambor/Baritanque/Carboya), `instrumento_stock` por `(tipo, almacén)` (`cantidad_total`/`cantidad_disponible`), `movimientos_instrumento` (kardex) y `pedido_instrumentos` (línea con contadores por estado). Migración `1787524222000-InstrumentosSchema.ts`.
+- **Estados**: `en_almacen`, `en_transito`, `en_cliente` (con el cliente), `donado` y `danado` (terminales, no vuelven al conteo).
+- Flujo: al **crear** el pedido los instrumentos pasan de almacén a `en_transito` (movimiento `prestamo`); el paso a `en_cliente` es **manual** desde el detalle/Logística (`entregar`); devolución → `en_almacen`; **donado/dañado** desde cliente o almacén. Cancelar/editar el pedido libera y reconsume.
+- **El almacén del instrumento se deriva del producto** (no se elige en el pedido salvo que el pedido mezcle almacenes).
+- Endpoints en `routes/instrumentosRoutes.ts` (`/instrumentos/*` y `/pedidos/:id/instrumentos*`), admin para catálogo/movimientos.
+- **Lista de clientes con cantidad** de instrumentos: `GET /instrumentos/clientes`.
+
+#### Sección Logística (admin, `/logistica`)
+- **Panel**: lotes vencidos/por vencer, pedidos en tránsito y resumen de instrumentos.
+- **Productos**: vista **lista/tarjetas**, con **modal** de lotes (vencimiento editable) y **ajuste manual**.
+- **Kardex**: historial de movimientos con filtro por producto.
+- **Instrumentos**: existencias por tipo/almacén, clientes con cantidades, entradas/bajas/ajustes y kardex.
+- Enlace "Logística" en el sidebar admin (`constants/menuSidebar.ts`).
+
+#### Bug corregido
+- El seed de `tipos_instrumento` fallaba en Postgres por inferencia de tipo del parámetro (`$1` usado en columnas varchar y en `NOT EXISTS`). Fix: castear `$1::varchar` en ambos usos.
+
+#### Clon de la BD local para pruebas (hecho)
+- Se clonó `crm_local` → **`crm_local_test`** con `pg_dump -Fc` + `pg_restore` (sin tocar la original).
+- En el worktree se crearon `backend/.env` y `project/.env` (copiados del proyecto, **ignorados por git**) apuntando `DATABASE_URL` a `crm_local_test`.
+- Al arrancar el backend del worktree, se aplicaron las 4 migraciones del feature sobre el clon; `SELECT nombre FROM tipos_instrumento` devuelve los 4 tipos. El servidor responde en `:3000`.
+
+#### Cómo activar (cuando llegue el Excel)
+1. Respaldo de BD y confirmar el Excel con cabecera `CODIGO, DESCRIPCION, GLOBALCA, WMS, TOTAL, LOTE, FECHA, VENCIMIENTO`.
+2. `npm run build` (backend) y `npm run build` (frontend); arrancar el backend una vez para aplicar las migraciones.
+3. Cargar el Excel (entradas), cargar el conteo inicial de instrumentos en **Logística → Instrumentos → Entrada**.
+4. Probar flujo completo; al aprobar, `git merge` a `main` y `.\deploy.ps1`.
+
+#### ⚠ Notas / deuda
+- Los pedidos legacy no tienen `almacen` en sus líneas ni instrumentos; no se pueden editar/devolver hasta ese punto.
+- El paso `en_transito → en_cliente` es manual (decisión del usuario).
+- La sección Logística es solo para admin.
