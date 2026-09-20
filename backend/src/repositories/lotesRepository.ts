@@ -36,6 +36,40 @@ export const getLotesFifo = async (
 
 export const getLoteById = async (id: string) => repo().findOneBy({ id });
 
+export const updateFechaVencimiento = async (
+  id: string,
+  fechaVencimiento: string | null,
+) => repo().update(id, { fecha_vencimiento: fechaVencimiento });
+
+/**
+ * Lista de lotes con su producto, filtrable por producto/almacén. Ordena por
+ * vencimiento (nulos al final) y luego por ingreso.
+ */
+export const getLotes = async (filtros?: {
+  productoId?: string;
+  almacen?: AlmacenEnum;
+  soloConStock?: boolean;
+}) => {
+  const qb = repo()
+    .createQueryBuilder('l')
+    .leftJoinAndSelect('l.producto', 'producto')
+    .orderBy('l.fecha_vencimiento', 'ASC', 'NULLS LAST')
+    .addOrderBy('l.fecha_ingreso', 'ASC');
+
+  if (filtros?.productoId) {
+    qb.andWhere('l.producto_id = :productoId', {
+      productoId: filtros.productoId,
+    });
+  }
+  if (filtros?.almacen) {
+    qb.andWhere('l.almacen = :almacen', { almacen: filtros.almacen });
+  }
+  if (filtros?.soloConStock) {
+    qb.andWhere('l.cantidad_actual > 0');
+  }
+  return qb.getMany();
+};
+
 export const updateCantidadActual = async (id: string, cantidad: number) =>
   repo().update(id, { cantidad_actual: cantidad });
 

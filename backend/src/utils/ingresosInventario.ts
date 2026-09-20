@@ -5,11 +5,12 @@ import { AlmacenEnum } from '../enums/AlmacenEnum';
  * Parser del inventario diario usado para INGRESAR mercancía nueva a los
  * almacenes. Formato esperado (con o sin fila de encabezado):
  *
- *   CODIGO | DESCRIPCION | GLOBALCA | WMS | TOTAL | LOTE | FECHA
+ *   CODIGO | DESCRIPCION | GLOBALCA | WMS | TOTAL | LOTE | FECHA | VENCIMIENTO
  *
  * - GLOBALCA / WMS: cantidad del lote en cada almacén (kg).
  * - LOTE: código de lote (único; nunca se reutiliza).
  * - FECHA: fecha de ingreso del lote (para FIFO).
+ * - VENCIMIENTO: fecha de vencimiento del lote (opcional).
  */
 
 export interface FilaIngresoInventario {
@@ -17,6 +18,7 @@ export interface FilaIngresoInventario {
   descripcion: string;
   lote: string;
   fecha: string; // YYYY-MM-DD
+  fechaVencimiento?: string | null;
   cantidades: { almacen: AlmacenEnum; cantidad: number }[];
 }
 
@@ -119,6 +121,7 @@ export const parsearInventarioIngresos = async (
   let colWms = 4;
   let colLote = 6;
   let colFecha = 7;
+  let colVencimiento = 8;
 
   if (esEncabezado) {
     primeraFila.eachCell((cell, colNumber) => {
@@ -130,6 +133,12 @@ export const parsearInventarioIngresos = async (
       else if (h === 'LOTE') colLote = colNumber;
       else if (h === 'FECHA' || h === 'FECHAINGRESO' || h === 'FECHA_INGRESO')
         colFecha = colNumber;
+      else if (
+        h === 'VENCIMIENTO' ||
+        h === 'FECHAVENCIMIENTO' ||
+        h === 'FECHA_VENCIMIENTO'
+      )
+        colVencimiento = colNumber;
     });
   }
 
@@ -148,6 +157,10 @@ export const parsearInventarioIngresos = async (
     const fecha = parsearFechaExcel(row.getCell(colFecha).value);
     if (!fecha) return;
 
+    const fechaVencimiento = parsearFechaExcel(
+      row.getCell(colVencimiento).value,
+    );
+
     const cantidades: { almacen: AlmacenEnum; cantidad: number }[] = [];
     const cantidadGlobalca = parsearNumero(textoCelda(row.getCell(colGlobalca)));
     const cantidadWms = parsearNumero(textoCelda(row.getCell(colWms)));
@@ -158,7 +171,7 @@ export const parsearInventarioIngresos = async (
 
     if (cantidades.length === 0) return;
 
-    filas.push({ codigo, descripcion, lote, fecha, cantidades });
+    filas.push({ codigo, descripcion, lote, fecha, fechaVencimiento, cantidades });
   });
 
   return filas;

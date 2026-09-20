@@ -36,6 +36,10 @@ export class Lote {
   @Column({ name: 'fecha_ingreso', type: 'date' })
   fecha_ingreso: string;
 
+  /** Fecha de vencimiento del lote (opcional; informativa para FIFO). */
+  @Column({ name: 'fecha_vencimiento', type: 'date', nullable: true })
+  fecha_vencimiento?: string | null;
+
   @Column({
     name: 'cantidad_inicial',
     type: 'numeric',

@@ -3,7 +3,14 @@ import {
   createProducto,
   actualizarDisponible,
 } from '../repositories/productosRepository';
-import { createLote, getLote, getStockAgrupado } from '../repositories/lotesRepository';
+import {
+  createLote,
+  getLote,
+  getStockAgrupado,
+  getLotes,
+  updateFechaVencimiento,
+  getLoteById,
+} from '../repositories/lotesRepository';
 import { createMovimiento } from '../repositories/movimientosRepository';
 import { MovimientoInventarioTipoEnum } from '../enums/MovimientoInventarioTipoEnum';
 import { AlmacenEnum } from '../enums/AlmacenEnum';
@@ -121,6 +128,7 @@ export const registrarIngresosDesdeInventario = async (
         almacen,
         codigo_lote: fila.lote,
         fecha_ingreso: fila.fecha,
+        fecha_vencimiento: fila.fechaVencimiento ?? null,
         cantidad_inicial: cantidad,
         cantidad_actual: cantidad,
         activo: true,
@@ -177,6 +185,24 @@ export const getStockProductos = async (): Promise<ProductoConStock[]> => {
 /** Expone las filas parseadas (útil para pruebas). */
 export const parsearIngresoInventario = (buffer: Buffer) =>
   parsearInventarioIngresos(buffer);
+
+/** Lista de lotes (con producto) para la vista de inventario/logística. */
+export const getLotesService = (filtros?: {
+  productoId?: string;
+  almacen?: AlmacenEnum;
+  soloConStock?: boolean;
+}) => getLotes(filtros);
+
+/** Edita la fecha de vencimiento de un lote (admin). */
+export const actualizarVencimientoLoteService = async (
+  loteId: string,
+  fechaVencimiento: string | null,
+) => {
+  const lote = await getLoteById(loteId);
+  if (!lote) throw new ApiError('Lote no encontrado', 404);
+  await updateFechaVencimiento(loteId, fechaVencimiento);
+  return { ...lote, fecha_vencimiento: fechaVencimiento };
+};
 
 const redondear2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 
