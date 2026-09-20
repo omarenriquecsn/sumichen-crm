@@ -16,6 +16,12 @@ class Producto_pedido {
   decimales?: number;
 }
 
+class Instrumento_pedido {
+  tipo_instrumento_id: string;
+  almacen: AlmacenEnum;
+  cantidad: number;
+}
+
 export class CrearPedidoDto {
   cliente_id: string;
   vendedor_id: string;
@@ -34,4 +40,5 @@ export class CrearPedidoDto {
     placa?: string;
   };
   productos: Producto_pedido[];
+  instrumentos?: Instrumento_pedido[];
 }

@@ -28,6 +28,10 @@ import { Lote } from '../entities/Lote';
 import { MovimientoInventario } from '../entities/MovimientoInventario';
 import { Devolucion } from '../entities/Devolucion';
 import { DevolucionDetalle } from '../entities/DevolucionDetalle';
+import { TipoInstrumento } from '../entities/TipoInstrumento';
+import { InstrumentoStock } from '../entities/InstrumentoStock';
+import { MovimientoInstrumento } from '../entities/MovimientoInstrumento';
+import { PedidoInstrumento } from '../entities/PedidoInstrumento';
 dotenv.config();
 
 export const AppDataSource = new DataSource({
@@ -64,6 +68,10 @@ export const AppDataSource = new DataSource({
     MovimientoInventario,
     Devolucion,
     DevolucionDetalle,
+    TipoInstrumento,
+    InstrumentoStock,
+    MovimientoInstrumento,
+    PedidoInstrumento,
   ],
   migrations: ['build/database/migrations/**/*.js'],
   dropSchema: false,

@@ -4,11 +4,17 @@ import { User } from "@supabase/supabase-js";
 import {
   Actividad,
   Cliente,
+  ClienteInstrumentos,
   CotizacionParseada,
   Devolucion,
   formProducto,
+  InstrumentoStock,
+  MovimientoInstrumento,
   Oportunidad,
   Pedido,
+  PedidoData,
+  PedidoInstrumento,
+  TipoInstrumento,
   PedidoDb,
   PedidoEvidencia,
   Producto,
@@ -194,7 +200,7 @@ export const useApi = () => {
   };
 
   type CrearPedidoParams = {
-    pedidoData: Partial<Pedido>;
+    pedidoData: Partial<PedidoData>;
     productosPedido: formProducto[];
     currentUser: User;
     archivoAdjunto: File[] | FileList | File | null;
@@ -256,10 +262,14 @@ export const useApi = () => {
           body: JSON.stringify({
             ...pedidoDB,
             productos: productosFormateados,
+            instrumentos: pedidoData.instrumentos ?? [],
           }),
         });
         if (!response.ok) {
-          throw new Error("Error al crear el pedido");
+          const errData = await response.json().catch(() => null);
+          throw new Error(
+            errData?.message || errData?.error || "Error al crear el pedido",
+          );
         }
         const data = await response.json();
         pedidoId = data.id || data.pedido_id || null;
@@ -442,7 +452,7 @@ export const useApi = () => {
         productosPedido,
       }: {
         id: string;
-        pedidoData: Partial<Pedido>;
+        pedidoData: Partial<PedidoData>;
         productosPedido: formProducto[];
       }) => {
         const productosFormateados = productosPedido.map((p: ProductoDb) => ({
@@ -473,6 +483,7 @@ export const useApi = () => {
                 ? pedidoData.transporte_detalle
                 : undefined,
             productos: productosFormateados,
+            instrumentos: pedidoData.instrumentos ?? [],
           }),
         });
         if (!response.ok) {
@@ -1222,6 +1233,274 @@ export const useApi = () => {
     });
   };
 
+  // ---------- Instrumentos retornables ----------
+
+  const authHeaders = () => ({
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session?.access_token}`,
+  });
+
+  const invalidarInstrumentos = (pedidoId?: string) => {
+    queryClient.invalidateQueries({ queryKey: ["instrumentos", "stock"] });
+    queryClient.invalidateQueries({ queryKey: ["instrumentos", "clientes"] });
+    queryClient.invalidateQueries({ queryKey: ["instrumentos", "kardex"] });
+    if (pedidoId) {
+      queryClient.invalidateQueries({
+        queryKey: ["instrumentos", "pedido", pedidoId],
+      });
+    }
+  };
+
+  const useTiposInstrumento = (todos = false) =>
+    useQuery({
+      queryKey: ["instrumentos", "tipos", todos],
+      queryFn: async () => {
+        const r = await fetch(
+          `${URL}/instrumentos/tipos${todos ? "?todos=true" : ""}`,
+          { headers: authHeaders(), credentials: "include" },
+        );
+        if (!r.ok) throw new Error("Error al cargar los instrumentos");
+        return (await r.json()) as TipoInstrumento[];
+      },
+      staleTime: 1000 * 60 * 5,
+    });
+
+  const useStockInstrumentos = () =>
+    useQuery({
+      queryKey: ["instrumentos", "stock"],
+      queryFn: async () => {
+        const r = await fetch(`${URL}/instrumentos/stock`, {
+          headers: authHeaders(),
+          credentials: "include",
+        });
+        if (!r.ok) throw new Error("Error al cargar el stock de instrumentos");
+        return (await r.json()) as InstrumentoStock[];
+      },
+      staleTime: 1000 * 60 * 2,
+    });
+
+  const useInstrumentosPorCliente = () =>
+    useQuery({
+      queryKey: ["instrumentos", "clientes"],
+      queryFn: async () => {
+        const r = await fetch(`${URL}/instrumentos/clientes`, {
+          headers: authHeaders(),
+          credentials: "include",
+        });
+        if (!r.ok) throw new Error("Error al cargar los instrumentos por cliente");
+        return (await r.json()) as ClienteInstrumentos[];
+      },
+      staleTime: 1000 * 60 * 2,
+    });
+
+  const useInstrumentosKardex = (filtros?: {
+    tipo_instrumento_id?: string;
+    almacen?: string;
+    desde?: string;
+    hasta?: string;
+  }) =>
+    useQuery({
+      queryKey: ["instrumentos", "kardex", filtros],
+      queryFn: async () => {
+        const params = new URLSearchParams();
+        if (filtros?.tipo_instrumento_id)
+          params.append("tipo_instrumento_id", filtros.tipo_instrumento_id);
+        if (filtros?.almacen) params.append("almacen", filtros.almacen);
+        if (filtros?.desde) params.append("desde", filtros.desde);
+        if (filtros?.hasta) params.append("hasta", filtros.hasta);
+        const r = await fetch(`${URL}/instrumentos/kardex?${params}`, {
+          headers: authHeaders(),
+          credentials: "include",
+        });
+        if (!r.ok) throw new Error("Error al cargar el kardex");
+        return (await r.json()) as MovimientoInstrumento[];
+      },
+    });
+
+  const useCrearTipoInstrumento = () =>
+    useMutation({
+      mutationFn: async (nombre: string) => {
+        const r = await fetch(`${URL}/instrumentos/tipos`, {
+          method: "POST",
+          headers: authHeaders(),
+          credentials: "include",
+          body: JSON.stringify({ nombre }),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.message || d?.error || "Error al crear el instrumento");
+        }
+        return r.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["instrumentos", "tipos"] });
+        queryClient.invalidateQueries({ queryKey: ["instrumentos", "stock"] });
+      },
+    });
+
+  const useActualizarTipoInstrumento = () =>
+    useMutation({
+      mutationFn: async ({
+        id,
+        data,
+      }: {
+        id: string;
+        data: { nombre?: string; activo?: boolean };
+      }) => {
+        const r = await fetch(`${URL}/instrumentos/tipos/${id}`, {
+          method: "PUT",
+          headers: authHeaders(),
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.message || d?.error || "Error al actualizar");
+        }
+        return r.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["instrumentos", "tipos"] });
+        queryClient.invalidateQueries({ queryKey: ["instrumentos", "stock"] });
+      },
+    });
+
+  const useRegistrarEntradaInstrumento = () =>
+    useMutation({
+      mutationFn: async (data: {
+        tipo_instrumento_id: string;
+        almacen: string;
+        cantidad: number;
+        observacion?: string;
+      }) => {
+        const r = await fetch(`${URL}/instrumentos/entradas`, {
+          method: "POST",
+          headers: authHeaders(),
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.message || d?.error || "Error al registrar la entrada");
+        }
+        return r.json();
+      },
+      onSuccess: () => invalidarInstrumentos(),
+    });
+
+  const useRegistrarBajaInstrumento = () =>
+    useMutation({
+      mutationFn: async (data: {
+        tipo_instrumento_id: string;
+        almacen: string;
+        cantidad: number;
+        baja: "donacion" | "dano";
+        observacion?: string;
+      }) => {
+        const r = await fetch(`${URL}/instrumentos/bajas`, {
+          method: "POST",
+          headers: authHeaders(),
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.message || d?.error || "Error al registrar la baja");
+        }
+        return r.json();
+      },
+      onSuccess: () => invalidarInstrumentos(),
+    });
+
+  const useRegistrarAjusteInstrumento = () =>
+    useMutation({
+      mutationFn: async (data: {
+        tipo_instrumento_id: string;
+        almacen: string;
+        direccion: "entrada" | "salida";
+        cantidad: number;
+        observacion?: string;
+      }) => {
+        const r = await fetch(`${URL}/instrumentos/ajustes`, {
+          method: "POST",
+          headers: authHeaders(),
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.message || d?.error || "Error al registrar el ajuste");
+        }
+        return r.json();
+      },
+      onSuccess: () => invalidarInstrumentos(),
+    });
+
+  const useInstrumentosPedido = (pedidoId?: string) =>
+    useQuery({
+      queryKey: ["instrumentos", "pedido", pedidoId],
+      queryFn: async () => {
+        const r = await fetch(`${URL}/pedidos/${pedidoId}/instrumentos`, {
+          headers: authHeaders(),
+          credentials: "include",
+        });
+        if (!r.ok) throw new Error("Error al cargar los instrumentos del pedido");
+        return (await r.json()) as PedidoInstrumento[];
+      },
+      enabled: !!pedidoId,
+    });
+
+  const useEntregarInstrumentosPedido = (pedidoId?: string) =>
+    useMutation({
+      mutationFn: async () => {
+        const r = await fetch(
+          `${URL}/pedidos/${pedidoId}/instrumentos/entregar`,
+          {
+            method: "POST",
+            headers: authHeaders(),
+            credentials: "include",
+          },
+        );
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.message || d?.error || "Error al marcar entrega");
+        }
+        return r.json();
+      },
+      onSuccess: () => invalidarInstrumentos(pedidoId),
+    });
+
+  const useAccionInstrumentoLinea = (
+    accion: "devolver" | "donar" | "danar",
+    pedidoId?: string,
+  ) =>
+    useMutation({
+      mutationFn: async (data: {
+        lineaId: string;
+        cantidad: number;
+        origen?: "cliente" | "almacen";
+      }) => {
+        const r = await fetch(
+          `${URL}/pedidos/instrumentos/${data.lineaId}/${accion}`,
+          {
+            method: "PUT",
+            headers: authHeaders(),
+            credentials: "include",
+            body: JSON.stringify({
+              cantidad: data.cantidad,
+              origen: data.origen,
+            }),
+          },
+        );
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.message || d?.error || "Error al actualizar");
+        }
+        return r.json();
+      },
+      onSuccess: () => invalidarInstrumentos(pedidoId),
+    });
+
   // Crear producto
   const useCrearProducto = () => {
     return useMutation({
@@ -1910,6 +2189,18 @@ export const useApi = () => {
     useActualizarOportunidad,
     useProductos,
     useStockProductos,
+    useTiposInstrumento,
+    useStockInstrumentos,
+    useInstrumentosPorCliente,
+    useInstrumentosKardex,
+    useCrearTipoInstrumento,
+    useActualizarTipoInstrumento,
+    useRegistrarEntradaInstrumento,
+    useRegistrarBajaInstrumento,
+    useRegistrarAjusteInstrumento,
+    useInstrumentosPedido,
+    useEntregarInstrumentosPedido,
+    useAccionInstrumentoLinea,
     useMetas,
     useCancelarPedido,
     useTransportePedido,

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
-import { Almacen, formProducto, Pedido, PedidoData, Producto, Transporte } from "../../types";
+import { useEffect, useMemo, useState } from "react";
+import { Almacen, formInstrumento, formProducto, Pedido, PedidoData, Producto, Transporte } from "../../types";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 import { toast } from "react-toastify";
 import { useSupabase } from "../../hooks/useSupabase";
 import SelectorDeProductos from "../ui/SelectProductos";
+import SelectInstrumentos from "../ui/SelectInstrumentos";
 import { decimalesDePrecio } from "../../utils/pedidos";
 
 type EditarPedidoProps = {
@@ -83,6 +84,28 @@ const EditarPedido = ({ onSubmit, accion, dataProps }: EditarPedidoProps) => {
     error: errorProductos,
   } = supabase.useStockProductos();
 
+  const { data: tiposInstrumento } = supabase.useTiposInstrumento();
+  const { data: stockInstrumentos } = supabase.useStockInstrumentos();
+  const { data: instrumentosPedido } = supabase.useInstrumentosPedido(
+    dataProps?.id,
+  );
+
+  const [instrumentos, setInstrumentos] = useState<formInstrumento[]>([]);
+  useEffect(() => {
+    if (instrumentosPedido) {
+      setInstrumentos(
+        instrumentosPedido.map((l) => ({
+          tipo_instrumento_id: l.tipo_instrumento_id,
+          nombre: l.tipo_instrumento?.nombre ?? "Instrumento",
+          almacen: l.almacen,
+          cantidad:
+            Number(l.cantidad_transito) + Number(l.cantidad_cliente) ||
+            Number(l.cantidad),
+        })),
+      );
+    }
+  }, [instrumentosPedido]);
+
   if (errorProductos) {
     toast.error("Error al cargar los productos");
     return;
@@ -116,6 +139,33 @@ const EditarPedido = ({ onSubmit, accion, dataProps }: EditarPedidoProps) => {
   const productosDisponibles = productosConStock.filter(
     (p) => (p.stock?.total ?? 0) > 0,
   );
+
+  const almacenesPedido = Array.from(
+    new Set(
+      productosSeleccionados
+        .map((p) => p.almacen)
+        .filter((a): a is Almacen => !!a),
+    ),
+  );
+
+  // Los instrumentos del pedido están fuera; se suman de vuelta para mostrarlos
+  // disponibles al reasignarlos.
+  const stockInstrumentosAjustado = (stockInstrumentos ?? []).map((s) => ({
+    ...s,
+  }));
+  for (const l of instrumentosPedido ?? []) {
+    const s = stockInstrumentosAjustado.find(
+      (x) =>
+        x.tipo_instrumento_id === l.tipo_instrumento_id &&
+        x.almacen === l.almacen,
+    );
+    if (s) {
+      s.cantidad_disponible =
+        Number(s.cantidad_disponible) +
+        Number(l.cantidad_transito) +
+        Number(l.cantidad_cliente);
+    }
+  }
 
   const handleOnChage = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -155,6 +205,7 @@ const EditarPedido = ({ onSubmit, accion, dataProps }: EditarPedidoProps) => {
     const pedidoConProductos = {
       ...formData,
       productos: productosSeleccionados,
+      instrumentos,
       transporte_detalle:
         formData.transporte === "externo" ? transporte_detalle : undefined,
     } as PedidoData;
@@ -366,6 +417,25 @@ const EditarPedido = ({ onSubmit, accion, dataProps }: EditarPedidoProps) => {
           seleccionInicial={lineasOriginales}
           onSeleccionar={(seleccion) => setProductosSeleccionados(seleccion)}
         />
+
+        <div className="border-t pt-4">
+          <h4 className="font-semibold text-gray-800 mb-1">
+            Instrumentos retornables (opcional)
+          </h4>
+          <p className="text-sm text-gray-500 mb-3">
+            Paletas, tambores, baritanques o carboyas que se prestan con el
+            pedido.
+          </p>
+          <SelectInstrumentos
+            key={instrumentosPedido ? "instrumentos-listas" : "instrumentos-cargando"}
+            tipos={tiposInstrumento ?? []}
+            stock={stockInstrumentosAjustado}
+            almacenes={almacenesPedido}
+            seleccionInicial={instrumentos}
+            onSeleccionar={setInstrumentos}
+          />
+        </div>
+
         <div>
           <label
             htmlFor="notas"

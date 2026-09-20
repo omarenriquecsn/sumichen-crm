@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { formProducto, Pedido, PedidoData, Producto, Transporte } from "../../types";
+import { Almacen, formInstrumento, formProducto, Pedido, PedidoData, Producto, Transporte } from "../../types";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 import { toast } from "react-toastify";
 import { useSupabase } from "../../hooks/useSupabase";
 import SelectorDeProductos from "../ui/SelectProductos";
+import SelectInstrumentos from "../ui/SelectInstrumentos";
 import { X } from "lucide-react";
 
 /** Formatea bytes a un texto legible (KB/MB). */
@@ -30,6 +31,8 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
   const [productosSeleccionados, setProductosSeleccionados] = useState<
     formProducto[]
   >(productosIniciales ?? []);
+
+  const [instrumentos, setInstrumentos] = useState<formInstrumento[]>([]);
 
   const [formData, setFormData] = useState<Partial<Pedido>>({
     vendedor_id: "",
@@ -70,6 +73,9 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
     error: errorProductos,
   } = supabase.useStockProductos();
 
+  const { data: tiposInstrumento } = supabase.useTiposInstrumento();
+  const { data: stockInstrumentos } = supabase.useStockInstrumentos();
+
   if (errorProductos) {
     toast.error("Error al cargar los productos");
     return;
@@ -87,6 +93,16 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
   // Solo se ofrecen productos con stock real (suma de lotes por almacén).
   const productosDisponibles = (productos as Producto[]).filter(
     (p) => p.disponible !== false && (p.stock?.total ?? 0) > 0
+  );
+
+  // Almacenes involucrados según las líneas de producto (el envase sale del
+  // mismo almacén donde se envasa el producto).
+  const almacenesPedido = Array.from(
+    new Set(
+      productosSeleccionados
+        .map((p) => p.almacen)
+        .filter((a): a is Almacen => !!a),
+    ),
   );
 
   const handleOnChage = (
@@ -146,6 +162,7 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
     const pedidoConProductos = {
       ...formData,
       productos: productosSeleccionados,
+      instrumentos,
       transporte_detalle:
         formData.transporte === "externo" ? transporte_detalle : undefined,
       archivoAdjunto: archivoAdjunto.length > 0 ? archivoAdjunto : null,
@@ -375,6 +392,24 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
           seleccionInicial={productosIniciales}
           onSeleccionar={(seleccion) => setProductosSeleccionados(seleccion)}
         />
+
+        <div className="border-t pt-4">
+          <h4 className="font-semibold text-gray-800 mb-1">
+            Instrumentos retornables (opcional)
+          </h4>
+          <p className="text-sm text-gray-500 mb-3">
+            Paletas, tambores, baritanques o carboyas que se prestan con el
+            pedido.
+          </p>
+          <SelectInstrumentos
+            tipos={tiposInstrumento ?? []}
+            stock={stockInstrumentos ?? []}
+            almacenes={almacenesPedido}
+            seleccionInicial={instrumentos}
+            onSeleccionar={setInstrumentos}
+          />
+        </div>
+
         <div>
           <label
             htmlFor="notas"

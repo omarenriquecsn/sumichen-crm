@@ -13,6 +13,10 @@ import {
   restaurarStockPedido,
   confirmarSalidasPedido,
 } from './inventarioServices';
+import {
+  reservarInstrumentosPedido,
+  liberarInstrumentosPedido,
+} from './instrumentosServices';
 import { eliminarEvidenciasDePedidoService } from './pedidoEvidenciasServices';
 import { ApiError } from '../utils/ApiError';
 import {
@@ -75,7 +79,7 @@ export const getPedidosByIdService = async (id: string) => {
 };
 
 export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
-  const { productos, transporte_detalle, ...rest } = pedidoData;
+  const { productos, transporte_detalle, instrumentos, ...rest } = pedidoData;
 
   const subtotal = redondear2(
     productos.reduce(
@@ -132,6 +136,17 @@ export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
         producto_id: p.producto_id,
         almacen: p.almacen,
         cantidad: p.cantidad,
+      })),
+    );
+
+    // Reserva los instrumentos retornables (pasan a tránsito).
+    await reservarInstrumentosPedido(
+      manager,
+      pedidoGuardado.id,
+      (instrumentos ?? []).map((i) => ({
+        tipo_instrumento_id: i.tipo_instrumento_id,
+        almacen: i.almacen,
+        cantidad: Number(i.cantidad) || 0,
       })),
     );
 
@@ -217,7 +232,7 @@ export const editarPedidosService = async (
     throw new ApiError('No puedes editar un pedido de otro vendedor', 403);
   }
 
-  const { productos, transporte_detalle, ...rest } = pedidoData;
+  const { productos, transporte_detalle, instrumentos, ...rest } = pedidoData;
   const subtotal = redondear2(
     productos.reduce(
       (acc, producto) => acc + precioUnitarioDeLinea(producto) * producto.cantidad,
@@ -228,6 +243,7 @@ export const editarPedidosService = async (
   return AppDataSource.transaction(async (manager) => {
     // 1. Devuelve al inventario lo que el pedido tenía reservado.
     await restaurarStockPedido(manager, id, 'Edición de pedido');
+    await liberarInstrumentosPedido(manager, id, 'Edición de pedido');
 
     // 2. Borra las líneas anteriores.
     await manager.getRepository(ProductosPedido).delete({ pedido_id: id });
@@ -284,6 +300,16 @@ export const editarPedidosService = async (
       })),
     );
 
+    await reservarInstrumentosPedido(
+      manager,
+      id,
+      (instrumentos ?? []).map((i) => ({
+        tipo_instrumento_id: i.tipo_instrumento_id,
+        almacen: i.almacen,
+        cantidad: Number(i.cantidad) || 0,
+      })),
+    );
+
     return manager.getRepository(Pedido).findOneBy({ id });
   });
 };
@@ -336,9 +362,10 @@ export const deletePedidosService = async (id: string) => {
     console.error('No se pudieron borrar las evidencias del pedido:', error);
   }
 
-  // Restaura el stock neto y borra líneas + pedido de forma atómica.
+  // Restaura el stock neto, los instrumentos, y borra líneas + pedido atómico.
   await AppDataSource.transaction(async (manager) => {
     await restaurarStockPedido(manager, id, 'Cancelación de pedido');
+    await liberarInstrumentosPedido(manager, id, 'Cancelación de pedido');
     await manager.getRepository(ProductosPedido).delete({ pedido_id: id });
     await manager.getRepository(Pedido).delete(id);
   });

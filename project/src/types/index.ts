@@ -294,6 +294,82 @@ export interface ProductoPedido {
 /** Almacenes físicos (columnas GLOBALCA / WMS del inventario). */
 export type Almacen = "globalca" | "wms";
 
+/** Estados de un instrumento retornable. `donado`/`danado` son terminales. */
+export type EstadoInstrumento =
+  | "en_almacen"
+  | "en_transito"
+  | "en_cliente"
+  | "donado"
+  | "danado";
+
+export interface TipoInstrumento {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  fecha_creacion?: string;
+}
+
+export interface InstrumentoStock {
+  tipo_instrumento_id: string;
+  nombre: string;
+  almacen: Almacen;
+  cantidad_total: number;
+  cantidad_disponible: number;
+}
+
+export interface PedidoInstrumento {
+  id: string;
+  pedido_id: string;
+  tipo_instrumento_id: string;
+  tipo_instrumento?: TipoInstrumento;
+  almacen: Almacen;
+  cantidad: number;
+  cantidad_transito: number;
+  cantidad_cliente: number;
+  cantidad_almacen: number;
+  cantidad_donada: number;
+  cantidad_danada: number;
+  estado: EstadoInstrumento;
+  fecha_creacion: string;
+}
+
+export interface ClienteInstrumentos {
+  cliente_id: string;
+  cliente_nombre: string;
+  en_cliente: number;
+  en_transito: number;
+  detalle: {
+    tipo_instrumento_id: string;
+    nombre: string;
+    en_cliente: number;
+    en_transito: number;
+  }[];
+}
+
+export interface MovimientoInstrumento {
+  id: string;
+  tipo: string;
+  tipo_instrumento_id: string;
+  tipo_instrumento?: TipoInstrumento;
+  almacen?: Almacen | null;
+  cliente_id?: string | null;
+  cliente?: { id: string; nombre?: string; apellido?: string; empresa?: string };
+  pedido_id?: string | null;
+  cantidad: number;
+  saldo_resultante: number;
+  usuario_id?: string | null;
+  observacion?: string | null;
+  fecha_creacion: string;
+}
+
+/** Línea de instrumentos usada en el formulario de pedidos. */
+export type formInstrumento = {
+  tipo_instrumento_id: string;
+  nombre: string;
+  almacen: Almacen;
+  cantidad: number;
+};
+
 export interface Producto {
   id: string;
   nombre: string;
@@ -321,6 +397,7 @@ export type formProducto = {
 
 export interface PedidoData extends Pedido {
   productos: formProducto[];
+  instrumentos?: formInstrumento[];
   archivoAdjunto?: File | File[] | FileList | null;
   transporte_detalle?: Partial<Transporte>;
 }
