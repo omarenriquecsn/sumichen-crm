@@ -181,7 +181,8 @@ export interface Pedido {
   subtotal: number;
   impuestos: number;
   total: number;
-  estado: "pendiente" | "procesado";
+  total_devuelto?: number;
+  estado: "pendiente" | "procesado" | "devuelto" | "devuelto_parcial";
   fecha_entrega: Date;
   notas?: string;
   fecha_creacion: Date;
@@ -268,6 +269,9 @@ export interface ProductoPedido {
   fecha_creacion: string;
 }
 
+/** Almacenes físicos (columnas GLOBALCA / WMS del inventario). */
+export type Almacen = "globalca" | "wms";
+
 export interface Producto {
   id: string;
   nombre: string;
@@ -276,6 +280,8 @@ export interface Producto {
   fecha_creacion: string;
   precio_base?: number
   disponible?: boolean
+  /** Stock real por almacén (`GET /productos/stock`). */
+  stock?: { globalca: number; wms: number; total: number };
 }
 export type formProducto = {
   producto_id: string;
@@ -285,6 +291,8 @@ export type formProducto = {
   descripcion: string;
   precio_base: number;
   porcentaje_negociacion: number;
+  /** Almacén de despacho de la línea (globalca | wms). */
+  almacen?: Almacen;
   /** Decimales del precio: 2 (normal) o 4 (productos especiales). */
   decimales?: number;
 };
@@ -308,6 +316,8 @@ export interface ProductoPedido {
   producto: Producto;
   precio_base?: number;
   porcentaje_negociacion?: number;
+  almacen?: Almacen;
+  cantidad_devuelta?: number;
 }
 
 export interface ProductoDb {
@@ -316,6 +326,7 @@ export interface ProductoDb {
   precio_unitario: number;
   precio_base?: number;
   porcentaje_negociacion?: number;
+  almacen?: Almacen;
   /** 2 (normal) o 4 (producto especial). */
   decimales?: number;
 }

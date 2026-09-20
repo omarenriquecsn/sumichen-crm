@@ -1,3 +1,4 @@
+import { AlmacenEnum } from '../enums/AlmacenEnum';
 import { DiasCreditoEnum } from '../enums/DiasCreditoEnum';
 import { MonedaEnum } from '../enums/MonedaEnum';
 import { TipoPagoEnum } from '../enums/TipoPagoEnum';
@@ -9,6 +10,8 @@ class Producto_pedido {
   precio_unitario: number;
   precio_base: number;
   porcentaje_negociacion: number;
+  /** Almacén del que se descuenta esta línea (globalca | wms). */
+  almacen?: AlmacenEnum;
   /** 2 (normal) o 4 (producto especial, ej. preformas a 0.0091). */
   decimales?: number;
 }

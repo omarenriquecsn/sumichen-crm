@@ -1,21 +1,16 @@
 import { CrearPedidoDto } from '../dtos/CrearPedidoDto';
 import { Pedido } from '../entities/Pedidos';
+import { ProductosPedido } from '../entities/Productos_pedido';
 import { Transporte } from '../entities/Transporte';
 import { AppDataSource } from '../config/dataBaseConfig';
+import { getPedidos, getPedidoById } from '../repositories/pedidosRepository';
 import {
-  getPedidos,
-  getPedidoById,
-  createPedido,
-  updatePedido,
-  deletePedido,
-} from '../repositories/pedidosRepository';
-import { createProductosPedido } from '../repositories/producto_pedidoRepository';
-import {
-  getProductosPedidosByVendedorService,
-  deleteProductos_pedidoService,
-} from './productos_pedidoServices';
-import { createTransporte } from '../repositories/transporteRepository';
+  consumirLineasPedido,
+  restaurarStockPedido,
+  confirmarSalidasPedido,
+} from './inventarioServices';
 import { eliminarEvidenciasDePedidoService } from './pedidoEvidenciasServices';
+import { ApiError } from '../utils/ApiError';
 import {
   enviarPushAUsuario,
   enviarPushAAdmins,
@@ -77,54 +72,67 @@ export const getPedidosByIdService = async (id: string) => {
 
 export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
   const { productos, transporte_detalle, ...rest } = pedidoData;
-  const neuevoPedido: Partial<Pedido> = {
-    ...rest,
-    impuestos: rest.impuestos === 'exento' ? 0 : 0.16,
-    subtotal: redondear2(
-      productos.reduce(
-        (acc, producto) =>
-          acc + precioUnitarioDeLinea(producto) * producto.cantidad,
-        0,
-      ),
+
+  const subtotal = redondear2(
+    productos.reduce(
+      (acc, producto) => acc + precioUnitarioDeLinea(producto) * producto.cantidad,
+      0,
     ),
-    total: 0,
-  };
-
-  neuevoPedido.total = neuevoPedido.subtotal;
-
-  // El transporte se crea EXPLÍCITAMENTE con su repositorio (genera el uuid),
-  // NO con cascade de TypeORM (que insertaba la fila con id NULL y rompía).
-  if (transporte_detalle && rest.transporte === 'externo') {
-    const transporteGuardado = await createTransporte(
-      transporte_detalle as Partial<Transporte>,
-    );
-    neuevoPedido.transporte_detalle = transporteGuardado;
-  }
-
-  const pedido = await createPedido(neuevoPedido);
-
-  if (!pedido) {
-    throw new Error('Error al crear el pedido');
-  }
-
-  const productosPedido = productos.map((producto) => ({
-    producto_id: producto.producto_id,
-    cantidad: producto.cantidad,
-    precio_unitario: producto.precio_unitario,
-    precio_base: producto.precio_base,
-    porcentaje_negociacion: producto.porcentaje_negociacion,
-    pedido_id: pedido.id,
-    total: redondear2(precioUnitarioDeLinea(producto) * producto.cantidad),
-  }));
-
-  await Promise.all(
-    productosPedido.map(async (producto) => {
-      await createProductosPedido(producto);
-    }),
   );
 
-  // Notificación WhatsApp al admin
-  const adminNumber = process.env.ADMIN_WHATSAPP_NUMBER;
+  // Todo el alta (pedido + líneas + transporte + consumo de stock) es atómica:
+  // si el stock es insuficiente, se revierte completo.
+  const pedido = await AppDataSource.transaction(async (manager) => {
+    const nuevoPedido: Partial<Pedido> = {
+      ...rest,
+      impuestos: rest.impuestos === 'exento' ? 0 : 0.16,
+      subtotal,
+      total: subtotal,
+    };
+
+    // El transporte se crea explícitamente (genera el uuid), NO con cascade.
+    if (transporte_detalle && rest.transporte === 'externo') {
+      const transporteRepo = manager.getRepository(Transporte);
+      nuevoPedido.transporte_detalle = await transporteRepo.save(
+        transporteRepo.create(transporte_detalle as Partial<Transporte>),
+      );
+    }
+
+    const pedidoRepo = manager.getRepository(Pedido);
+    const pedidoGuardado = await pedidoRepo.save(
+      pedidoRepo.create(nuevoPedido),
+    );
+    if (!pedidoGuardado) throw new ApiError('Error al crear el pedido', 500);
+
+    const lineaRepo = manager.getRepository(ProductosPedido);
+    for (const producto of productos) {
+      await lineaRepo.save(
+        lineaRepo.create({
+          producto_id: producto.producto_id,
+          cantidad: producto.cantidad,
+          precio_unitario: producto.precio_unitario,
+          precio_base: producto.precio_base,
+          porcentaje_negociacion: producto.porcentaje_negociacion,
+          almacen: producto.almacen,
+          pedido_id: pedidoGuardado.id,
+          total: redondear2(precioUnitarioDeLinea(producto) * producto.cantidad),
+        }),
+      );
+    }
+
+    // Descuenta el stock FIFO del almacén elegido por línea (reserva).
+    await consumirLineasPedido(
+      manager,
+      pedidoGuardado.id,
+      productos.map((p) => ({
+        producto_id: p.producto_id,
+        almacen: p.almacen,
+        cantidad: p.cantidad,
+      })),
+    );
+
+    return pedidoGuardado;
+  });
 
   const cliente = await getClientesByIdAuxiliar(pedido.cliente_id);
   if (cliente && cliente.estado !== 'activo') {
@@ -185,7 +193,15 @@ export const updatePedidosService = async (
   pedidoData: Partial<Pedido>,
 ) => {
   const anterior = await AppDataSource.getRepository(Pedido).findOneBy({ id });
-  const pedidoActualizado = await updatePedido(id, pedidoData);
+
+  const pedidoActualizado = await AppDataSource.transaction(async (manager) => {
+    await manager.getRepository(Pedido).update(id, pedidoData);
+    // Al confirmar (pendiente → procesado) las reservas pasan a salida.
+    if (pedidoData.estado === 'procesado' && anterior?.estado !== 'procesado') {
+      await confirmarSalidasPedido(manager, id);
+    }
+    return manager.getRepository(Pedido).findOneBy({ id });
+  });
 
   // Web Push — evento `pedido_aprobado`: cuando un pedido pasa a "procesado"
   // (confirmado), se notifica al vendedor que lo creó.
@@ -212,13 +228,6 @@ export const updatePedidosService = async (
 export const deletePedidosService = async (id: string) => {
   const pedido = await AppDataSource.getRepository(Pedido).findOneBy({ id });
 
-  const productPedido = await getProductosPedidosByVendedorService(id);
-  await Promise.all(
-    productPedido.map(async (producto) => {
-      await deleteProductos_pedidoService(producto.id);
-    }),
-  );
-
   // Borra los archivos de las evidencias múltiples antes de eliminar el pedido
   // (las filas de `pedido_evidencias` caen por CASCADE).
   try {
@@ -227,7 +236,12 @@ export const deletePedidosService = async (id: string) => {
     console.error('No se pudieron borrar las evidencias del pedido:', error);
   }
 
-  const pedidoBorrado = await deletePedido(id);
+  // Restaura el stock neto y borra líneas + pedido de forma atómica.
+  await AppDataSource.transaction(async (manager) => {
+    await restaurarStockPedido(manager, id, 'Cancelación de pedido');
+    await manager.getRepository(ProductosPedido).delete({ pedido_id: id });
+    await manager.getRepository(Pedido).delete(id);
+  });
 
   // Web Push — evento `pedido_cancelado`: el pedido se elimina (cancelación) y
   // se notifica al vendedor dueño y a los admins.
@@ -249,5 +263,5 @@ export const deletePedidosService = async (id: string) => {
     }
   }
 
-  return pedidoBorrado;
+  return pedido;
 };

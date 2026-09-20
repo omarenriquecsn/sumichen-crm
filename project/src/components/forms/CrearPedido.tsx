@@ -68,7 +68,7 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
     data: productos,
     isLoading: loadingProductos,
     error: errorProductos,
-  } = supabase.useProductos();
+  } = supabase.useStockProductos();
 
   if (errorProductos) {
     toast.error("Error al cargar los productos");
@@ -84,10 +84,9 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
     return;
   }
 
-  // Solo se ofrecen productos con stock (disponible). El flag lo recalcula el
-  // inventario diario (POST /productos/excel, solo admin).
+  // Solo se ofrecen productos con stock real (suma de lotes por almacén).
   const productosDisponibles = (productos as Producto[]).filter(
-    (p) => p.disponible !== false
+    (p) => p.disponible !== false && (p.stock?.total ?? 0) > 0
   );
 
   const handleOnChage = (
@@ -134,6 +133,15 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Cada línea con stock en ambos almacenes debe indicar de cuál despachar.
+    const sinAlmacen = productosSeleccionados.find((p) => !p.almacen);
+    if (sinAlmacen) {
+      toast.error(
+        `Selecciona el almacén para "${sinAlmacen.nombre}" antes de guardar.`,
+      );
+      return;
+    }
 
     const pedidoConProductos = {
       ...formData,

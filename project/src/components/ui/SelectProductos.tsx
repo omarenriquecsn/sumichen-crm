@@ -1,8 +1,28 @@
 import { useState, useEffect } from "react";
-import { formProducto, Producto } from "../../types";
+import { Almacen, formProducto, Producto } from "../../types";
 import { toast } from "react-toastify";
 import Select from 'react-select';
 import { decimalesDePrecio, redondearA } from "../../utils/pedidos";
+
+const ETIQUETA_ALMACEN: Record<Almacen, string> = {
+  globalca: "GLOBALCA",
+  wms: "WMS",
+};
+
+/** Almacenes con stock (> 0) del producto. */
+const almacenesConStock = (producto?: Producto): Almacen[] => {
+  const stock = producto?.stock;
+  if (!stock) return [];
+  const lista: Almacen[] = [];
+  if (Number(stock.globalca) > 0) lista.push("globalca");
+  if (Number(stock.wms) > 0) lista.push("wms");
+  return lista;
+};
+
+const stockDe = (producto: Producto | undefined, almacen?: Almacen): number => {
+  if (!producto?.stock || !almacen) return 0;
+  return Number(producto.stock[almacen]) || 0;
+};
 
 
 // Define el tipo para las opciones que usará react-select.
@@ -30,6 +50,11 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
     onSeleccionar(seleccion);
   }, [seleccion, onSeleccionar]);
 
+  // Lookup para consultar el stock por producto al editar la línea.
+  const productoPorId = new Map<string, Producto>(
+    productos.map((p) => [p.id, p]),
+  );
+
   const toggleProducto = (producto: Producto) => {
     
     if (!producto.id || !producto.nombre || !producto.descripcion) {
@@ -46,16 +71,26 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
       const decimales = decimalesDePrecio(producto.precio_base);
       const base = redondearA(Number(producto.precio_base) || 0, decimales);
 
+      // Si el producto solo tiene stock en un almacén se elige por defecto;
+      // si hay en ambos, el vendedor debe elegirlo.
+      const disponibles = almacenesConStock(producto);
+      const almacen = disponibles.length === 1 ? disponibles[0] : undefined;
+
+      const cantidadInicial = disponibles.length
+        ? Math.min(1, stockDe(producto, almacen))
+        : 1;
+
       setSeleccion((prev) => [
         ...prev,
         {
           producto_id: producto.id,
-          cantidad: 1,
+          cantidad: cantidadInicial > 0 ? cantidadInicial : 1,
           precio_base: base,
           porcentaje_negociacion: 0,
           precio_unitario: base,
           nombre: producto.nombre,
           descripcion: producto.descripcion,
+          almacen,
           decimales,
         },
       ]);
@@ -63,11 +98,36 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
   };
 
   const cambiarCantidad = (id: string, cantidad: number) => {
-    const nuevaCantidad = Math.max(1, cantidad); // Prevent quantity less than 1
+    const producto = productoPorId.get(id);
+    const existencia = Number(cantidad) || 0;
+    let nuevaCantidad = existencia > 0 ? existencia : 1; // mínimo 1 kg
+
+    const linea = seleccion.find((p) => p.producto_id === id);
+    const disponible = stockDe(producto, linea?.almacen);
+    if (disponible > 0 && nuevaCantidad > disponible) {
+      toast.info(
+        `Solo hay ${disponible.toFixed(2)} kg en ${linea?.almacen ? ETIQUETA_ALMACEN[linea.almacen] : "el almacén"}.`,
+      );
+      nuevaCantidad = disponible;
+    }
+
     setSeleccion((prev) =>
       prev.map((p) =>
         p.producto_id === id ? { ...p, cantidad: nuevaCantidad } : p
       )
+    );
+  };
+
+  const cambiarAlmacen = (id: string, almacen: Almacen) => {
+    const producto = productoPorId.get(id);
+    const disponible = stockDe(producto, almacen);
+    setSeleccion((prev) =>
+      prev.map((p) => {
+        if (p.producto_id !== id) return p;
+        const cantidad =
+          disponible > 0 ? Math.min(p.cantidad, disponible) : p.cantidad;
+        return { ...p, almacen, cantidad };
+      }),
     );
   };
 
@@ -166,10 +226,10 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
           <p className="font-semibold mb-2">Productos Seleccionados:</p>
           <div className="space-y-3">
             {seleccion.map((producto) => (
-              <div key={producto.producto_id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center bg-gray-50 p-3 rounded-lg">
-                <span className="md:col-span-3 font-medium text-gray-800">{producto.nombre}</span>
+              <div key={producto.producto_id} className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center bg-gray-50 p-3 rounded-lg">
+                <span className="lg:col-span-3 font-medium text-gray-800">{producto.nombre}</span>
 
-                <div className="md:col-span-2">
+                <div className="lg:col-span-1">
                   <label htmlFor={`cantidad-${producto.producto_id}`} className="text-xs text-gray-500">Cantidad En Kg</label>
                   <input
                     id={`cantidad-${producto.producto_id}`}
@@ -186,6 +246,11 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
                     className="w-full border rounded px-2 py-1 appearance-none"
                     style={{ MozAppearance: 'textfield' }}
                   />
+                  {producto.almacen && (
+                    <p className="text-[10px] text-gray-500">
+                      Disp: {stockDe(productoPorId.get(producto.producto_id), producto.almacen).toFixed(2)} kg
+                    </p>
+                  )}
                   <style>{`
                     input[type=number]::-webkit-inner-spin-button,
                     input[type=number]::-webkit-outer-spin-button {
@@ -198,7 +263,28 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
                   `}</style>
                 </div>
 
-                <div className="md:col-span-2">
+                <div className="lg:col-span-2">
+                  <label htmlFor={`almacen-${producto.producto_id}`} className="text-xs text-gray-500">Almacén</label>
+                  <select
+                    id={`almacen-${producto.producto_id}`}
+                    value={producto.almacen ?? ""}
+                    onChange={(e) =>
+                      cambiarAlmacen(producto.producto_id, e.target.value as Almacen)
+                    }
+                    className="w-full border rounded px-2 py-1 bg-white"
+                  >
+                    <option value="" disabled>
+                      Elegir almacén
+                    </option>
+                    {almacenesConStock(productoPorId.get(producto.producto_id)).map((a) => (
+                      <option key={a} value={a}>
+                        {ETIQUETA_ALMACEN[a]} ({stockDe(productoPorId.get(producto.producto_id), a).toFixed(2)} kg)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="lg:col-span-2">
                   <label htmlFor={`precio-base-${producto.producto_id}`} className="text-xs text-gray-500">Precio Base ($)</label>
                   <input
                     id={`precio-base-${producto.producto_id}`}
@@ -227,7 +313,7 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
                   `}</style>
                 </div>
 
-                <div className="md:col-span-2">
+                <div className="lg:col-span-1">
                   <label htmlFor={`porcentaje-${producto.producto_id}`} className="text-xs text-gray-500">% Negociación</label>
                   <input
                     id={`porcentaje-${producto.producto_id}`}
@@ -256,7 +342,7 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
                   `}</style>
                 </div>
 
-                <div className="md:col-span-2">
+                <div className="lg:col-span-2">
                   <label htmlFor={`precio-${producto.producto_id}`} className="text-xs text-gray-500">Precio Unit. ($)</label>
                   <input
                     id={`precio-${producto.producto_id}`}
@@ -282,7 +368,7 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
                   `}</style>
                 </div>
 
-                <div className="md:col-span-1 flex justify-end">
+                <div className="lg:col-span-1 flex justify-end">
                   <button type="button" onClick={() => eliminarProducto(producto.producto_id)} className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100" aria-label={`Eliminar ${producto.nombre}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>

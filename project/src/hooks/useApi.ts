@@ -239,6 +239,7 @@ export const useApi = () => {
           precio_unitario: p.precio_unitario,
           precio_base: p.precio_base,
           porcentaje_negociacion: p.porcentaje_negociacion,
+          almacen: p.almacen,
           decimales: p.decimales,
         }));
 
@@ -298,6 +299,7 @@ export const useApi = () => {
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+        queryClient.invalidateQueries({ queryKey: ["productos", "stock"] });
       },
 
       onError: (error: unknown) => {
@@ -389,6 +391,7 @@ export const useApi = () => {
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+        queryClient.invalidateQueries({ queryKey: ["productos", "stock"] });
       },
     });
   };
@@ -1081,6 +1084,26 @@ export const useApi = () => {
     });
   };
 
+  // Obtener productos con el stock real por almacén (globalca / wms / total)
+  const useStockProductos = () => {
+    return useQuery({
+      queryKey: ["productos", "stock"],
+      queryFn: async () => {
+        const productos = await fetch(`${URL}/productos/stock`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          credentials: "include",
+        }).then((response) => response.json());
+        return (productos || []) as Producto[];
+      },
+      staleTime: 1000 * 60 * 2,
+      retry: 1,
+    });
+  };
+
   // Crear producto
   const useCrearProducto = () => {
     return useMutation({
@@ -1765,6 +1788,7 @@ export const useApi = () => {
     useActualizarPedido,
     useActualizarOportunidad,
     useProductos,
+    useStockProductos,
     useMetas,
     useCancelarPedido,
     useTransportePedido,
