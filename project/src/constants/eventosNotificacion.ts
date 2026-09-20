@@ -59,6 +59,12 @@ export const CATEGORIAS_NOTIFICACIONES: CategoriaNotificaciones[] = [
         icono: XCircle,
       },
       {
+        evento: "pedido_devuelto",
+        etiqueta: "Pedido devuelto",
+        descripcion: "Se avisa al vendedor y a los admins cuando se registra una devolución (total o parcial).",
+        icono: RefreshCw,
+      },
+      {
         evento: "transporte_editado",
         etiqueta: "Transporte actualizado",
         descripcion: "Se avisa a los administradores cuando un vendedor edita los datos del transporte de un pedido.",

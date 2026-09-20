@@ -9,6 +9,8 @@ import {
   subirEvidencia,
   parsearCotizacion,
   editarPedido,
+  registrarDevolucion,
+  getDevoluciones,
 } from '../controllers/pedidosControllers';
 import {
   subirEvidencias,
@@ -37,6 +39,18 @@ router.delete(
   '/pedidos/:id/evidencias/:evidenciaId',
   verificarToken,
   eliminarEvidencia,
+);
+
+// Devoluciones (total/parcial) de pedidos confirmados
+router.post(
+  '/pedidos/:id/devoluciones',
+  verificarToken,
+  asyncHandler(registrarDevolucion),
+);
+router.get(
+  '/pedidos/:id/devoluciones',
+  verificarToken,
+  asyncHandler(getDevoluciones),
 );
 
 router.put('/pedidos/:id/editar', verificarToken, asyncHandler(editarPedido));

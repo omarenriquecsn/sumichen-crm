@@ -474,6 +474,8 @@ export const PedidosModal: React.FC<PedidosProps> = ({
                   <option value="todos">Todos los estados</option>
                   <option value="pendiente">Pendientes</option>
                   <option value="procesado">procesado</option>
+                  <option value="devuelto_parcial">Devuelto parcial</option>
+                  <option value="devuelto">Devuelto</option>
                 </select>
               </div>
             </div>

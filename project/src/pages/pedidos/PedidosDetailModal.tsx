@@ -33,6 +33,7 @@ import {
 } from "../../utils/pedidos";
 import useVendedores from "../../hooks/useVendedores";
 import EvidenciaViewerModal from "../../components/ui/EvidenciaViewerModal";
+import DevolucionModal from "../../components/forms/DevolucionModal";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import utc from "dayjs/plugin/utc";
 import { useCrearNotificacion } from "../../hooks/useNotificaciones";
@@ -75,6 +76,7 @@ export const PedidosDetailModal: React.FC<PedidosDetailProps> = ({
   const { data: evidencias } = supabase.useEvidenciasPedido(pedido?.id);
   const { mutate: eliminarEvidencia } = supabase.useEliminarEvidencia();
   const [evidenciaIndice, setEvidenciaIndice] = useState<number | null>(null);
+  const [modalDevolucionVisible, setModalDevolucionVisible] = useState(false);
 
   // Clientes
   const {
@@ -261,7 +263,15 @@ export const PedidosDetailModal: React.FC<PedidosDetailProps> = ({
                         <p className="text-sm text-gray-600">
                           Cantidad: {producto.cantidad} x $
                           {producto.precio_unitario}
+                          {producto.almacen
+                            ? ` · Almacén: ${producto.almacen.toUpperCase()}`
+                            : ""}
                         </p>
+                        {Number(producto.cantidad_devuelta ?? 0) > 0 && (
+                          <p className="text-xs text-red-600">
+                            Devuelto: {Number(producto.cantidad_devuelta).toFixed(2)} kg
+                          </p>
+                        )}
                       </div>
                       <p className="font-semibold text-gray-900">
                         $
@@ -456,31 +466,51 @@ export const PedidosDetailModal: React.FC<PedidosDetailProps> = ({
                 Acciones del Pedido
               </h3>
               <div className="space-y-3">
-                {session?.user.user_metadata.rol === "admin" && (
-                  <button
-                    onClick={() => handleAprobarPedido()}
-                    className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <Check className="h-4 w-4" />
-                    <span>Aprobar Pedido</span>
-                  </button>
-                )}
+                {session?.user.user_metadata.rol === "admin" &&
+                  pedido.estado === "pendiente" && (
+                    <button
+                      onClick={() => handleAprobarPedido()}
+                      className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <Check className="h-4 w-4" />
+                      <span>Aprobar Pedido</span>
+                    </button>
+                  )}
+                {(pedido.estado === "procesado" ||
+                  pedido.estado === "devuelto_parcial") &&
+                  (currentUser.rol === "admin" ||
+                    currentUser.id === pedido.vendedor_id) && (
+                    <button
+                      onClick={() => setModalDevolucionVisible(true)}
+                      className="w-full bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <Package className="h-4 w-4" />
+                      <span>Registrar Devolución</span>
+                    </button>
+                  )}
               </div>
               <div className="space-y-3 mt-1">
-                {session?.user.user_metadata.rol === "admin" && (
-                  <button
-                    onClick={handleCancelarPedido}
-                    className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <X className="h-4 w-4" />
-                    <span>Cancelar Pedido</span>
-                  </button>
-                )}
+                {session?.user.user_metadata.rol === "admin" &&
+                  pedido.estado === "pendiente" && (
+                    <button
+                      onClick={handleCancelarPedido}
+                      className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <X className="h-4 w-4" />
+                      <span>Cancelar Pedido</span>
+                    </button>
+                  )}
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <DevolucionModal
+        pedido={pedido}
+        isOpen={modalDevolucionVisible}
+        onClose={() => setModalDevolucionVisible(false)}
+      />
 
       {evidenciaIndice !== null && evidencias && evidencias.length > 0 && (
         <EvidenciaViewerModal

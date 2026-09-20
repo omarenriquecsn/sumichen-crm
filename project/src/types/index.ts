@@ -196,6 +196,28 @@ export interface Pedido {
   productos_pedido: ProductoPedido[];
 }
 
+export interface DevolucionDetalle {
+  id: string;
+  devolucion_id: string;
+  productos_pedido_id?: string;
+  producto_id: string;
+  almacen: Almacen;
+  lote_id?: string;
+  cantidad: number;
+}
+
+export interface Devolucion {
+  id: string;
+  pedido_id: string;
+  tipo: "total" | "parcial";
+  motivo?: string;
+  notas?: string;
+  usuario_id?: string;
+  total_devuelto: number;
+  fecha_creacion: string;
+  detalles?: DevolucionDetalle[];
+}
+
 export enum MesEnum {
   Enero = "Enero",
   Febrero = "Febrero",

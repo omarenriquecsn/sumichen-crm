@@ -16,6 +16,10 @@ import { ApiError } from '../utils/ApiError';
 import convertirArchivo from '../utils/ConvertirArchivo';
 import unirPDFS from '../utils/UnirArchivos';
 import { parsearCotizacionPdf } from '../utils/cotizacionPdf';
+import {
+  registrarDevolucionService,
+  getDevolucionesPorPedidoService,
+} from '../services/devolucionesServices';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -149,6 +153,24 @@ export const editarPedido = async (req: Request, res: Response) => {
   const actualizado = await editarPedidosService(id, req.body, req.user);
   if (!actualizado) throw new ApiError('No se pudo editar el pedido', 400);
   res.json(actualizado);
+};
+
+/** Registra una devolución (total o parcial) de un pedido confirmado. */
+export const registrarDevolucion = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const devolucion = await registrarDevolucionService(
+    id,
+    req.body,
+    req.user,
+  );
+  res.status(201).json(devolucion);
+};
+
+/** Historial de devoluciones de un pedido. */
+export const getDevoluciones = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const devoluciones = await getDevolucionesPorPedidoService(id);
+  res.json(devoluciones);
 };
 
 export const deletePedido = async (req: Request, res: Response) => {

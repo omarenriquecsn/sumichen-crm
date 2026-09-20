@@ -281,6 +281,14 @@ export const construirPedidoDesdeCotizacion = (
 
 export const getEstadoColor = (estado: string) => {
   switch (estado) {
+    case "pendiente":
+      return "bg-yellow-100 text-yellow-800";
+    case "procesado":
+      return "bg-green-100 text-green-800";
+    case "devuelto":
+      return "bg-red-100 text-red-800";
+    case "devuelto_parcial":
+      return "bg-orange-100 text-orange-800";
     case "borrador":
       return "bg-gray-100 text-gray-800";
     case "enviado":

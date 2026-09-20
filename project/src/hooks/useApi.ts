@@ -5,6 +5,7 @@ import {
   Actividad,
   Cliente,
   CotizacionParseada,
+  Devolucion,
   formProducto,
   Oportunidad,
   Pedido,
@@ -368,6 +369,66 @@ export const useApi = () => {
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+      },
+    });
+  };
+
+  // Devoluciones de un pedido (historial)
+  const useDevolucionesPedido = (pedidoId?: string) => {
+    return useQuery({
+      queryKey: ["devoluciones", pedidoId],
+      queryFn: async () => {
+        const response = await fetch(`${URL}/pedidos/${pedidoId}/devoluciones`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          credentials: "include",
+        });
+        if (!response.ok) throw new Error("Error al cargar las devoluciones");
+        return (await response.json()) as Devolucion[];
+      },
+      enabled: !!pedidoId,
+    });
+  };
+
+  // Registrar una devolución (total o parcial)
+  const useCrearDevolucion = () => {
+    return useMutation({
+      mutationFn: async ({
+        pedidoId,
+        motivo,
+        notas,
+        productos,
+      }: {
+        pedidoId: string;
+        motivo?: string;
+        notas?: string;
+        productos: { productos_pedido_id: string; cantidad: number }[];
+      }) => {
+        const response = await fetch(`${URL}/pedidos/${pedidoId}/devoluciones`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ motivo, notas, productos }),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(
+            data?.message || data?.error || "Error al registrar la devolución",
+          );
+        }
+        return response.json();
+      },
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+        queryClient.invalidateQueries({ queryKey: ["productos", "stock"] });
+        queryClient.invalidateQueries({
+          queryKey: ["devoluciones", variables.pedidoId],
+        });
       },
     });
   };
@@ -1844,6 +1905,8 @@ export const useApi = () => {
     useActualizarTicket,
     useActualizarPedido,
     useEditarPedido,
+    useDevolucionesPedido,
+    useCrearDevolucion,
     useActualizarOportunidad,
     useProductos,
     useStockProductos,
