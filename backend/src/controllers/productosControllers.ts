@@ -13,7 +13,10 @@ import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
 import { enviarPushATodos } from '../services/pushServices';
 import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
-import { sincronizarDisponibilidadDesdeInventario } from '../utils/inventarioDisponibilidad';
+import {
+  registrarIngresosDesdeInventario,
+  getStockProductos,
+} from '../services/inventarioServices';
 import {
   getCarpetaProductos,
   NOMBRE_LISTA,
@@ -78,19 +81,17 @@ export const subirInventario = [
       return res.status(500).json({ error: 'Error al subir el archivo' });
     }
 
-    // Sincroniza `productos.disponible` según el stock del inventario recién
-    // subido (col 1 = código, col 5 = TOTAL). Si falla, el archivo ya quedó en
-    // Storage pero respondemos error para que el usuario lo sepa y reintente.
-    let sincronizacion;
+    // Registra el ingreso de mercancía nueva: crea lotes (uno por producto,
+    // almacén y código de lote) y recalcula la disponibilidad. Los lotes
+    // repetidos se reportan; los códigos nuevos crean el producto.
+    let ingresos;
     try {
-      sincronizacion = await sincronizarDisponibilidadDesdeInventario(
-        req.file.buffer,
-      );
+      ingresos = await registrarIngresosDesdeInventario(req.file.buffer);
     } catch (syncErr) {
-      console.error('No se pudo sincronizar la disponibilidad:', syncErr);
+      console.error('No se pudieron registrar los ingresos:', syncErr);
       return res.status(500).json({
         error:
-          'El archivo se subió pero falló la sincronización de disponibilidad',
+          'El archivo se subió pero falló el registro de ingresos de inventario',
         fileName,
       });
     }
@@ -111,12 +112,18 @@ export const subirInventario = [
     }
 
     res.status(200).json({
-      message: 'Archivo subido exitosamente',
+      message: 'Ingresos de inventario registrados correctamente',
       fileName,
-      sincronizacion,
+      ingresos,
     });
   },
 ];
+
+/** Catálogo con el stock real por almacén (globalca / wms / total). */
+export const getStock = async (req: Request, res: Response) => {
+  const productos = await getStockProductos();
+  res.json(productos);
+};
 
 /**
  * Sube la lista de precios en PDF (Área de Ventas). Solo admins.

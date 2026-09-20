@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Producto } from './Productos';
 import { Pedido } from './Pedidos';
+import { AlmacenEnum } from '../enums/AlmacenEnum';
 
 @Entity('productos_pedido')
 export class ProductosPedido {
@@ -36,6 +37,26 @@ export class ProductosPedido {
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   cantidad: number;
+
+  // Almacén del que se descuenta esta línea (elegido por el vendedor).
+  // Nullable para pedidos legacy creados antes del control de inventario.
+  @Column({
+    type: 'enum',
+    enum: AlmacenEnum,
+    enumName: 'almacen_enum',
+    nullable: true,
+  })
+  almacen?: AlmacenEnum;
+
+  // Kg ya devueltos de esta línea (cache; el detalle está en devoluciones_detalle).
+  @Column({
+    name: 'cantidad_devuelta',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
+  cantidad_devuelta: number;
 
   @Column({ name: 'pedido_id' })
   pedido_id: string;

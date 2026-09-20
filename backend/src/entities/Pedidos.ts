@@ -101,6 +101,16 @@ export class Pedido {
   })
   estado: EstadoPedidoEnum;
 
+  // Monto (USD) ya devuelto del pedido. La venta neta = total - total_devuelto.
+  @Column({
+    name: 'total_devuelto',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
+  total_devuelto: number;
+
    @OneToOne(() => Transporte, (transporte) => transporte.pedido, {
     nullable: true,
     cascade: true,
