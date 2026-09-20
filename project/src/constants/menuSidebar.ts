@@ -15,6 +15,7 @@ import {
   MapPin,
   MessageSquare,
   BarChart2,
+  Warehouse,
   LucideIcon,
 } from 'lucide-react';
 
@@ -47,6 +48,7 @@ export const adminLinks: MenuLink[] = [
   { to: '/crearProductos', icon: Plus, label: 'Crear Productos' },
   { to: '/excel', icon: Sheet, label: 'Excel de Productos' },
   { to: '/productos', icon: ShoppingCart, label: 'Productos' },
+  { to: '/logistica', icon: Warehouse, label: 'Logística' },
   { to: '/descargas', icon: Download, label: 'Descargas DB' },
   { to: '/zonas', icon: MapPin, label: 'Zonas' },
   { to: '/leads', icon: Users, label: 'Todos los Leads' },

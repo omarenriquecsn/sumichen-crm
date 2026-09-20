@@ -29,6 +29,7 @@ import Vendedores from "./pages/vendedores/Vendedores";
 import { VendedorPanel } from "./pages/vendedores/VendedorPanel";
 import AgregarProducto from "./components/forms/AgregarProducto";
 import DescargasDB from "./pages/descargas/DescargasDB";
+import Logistica from "./pages/logistica/Logistica";
 import RegistrarUsuarios from "./pages/usuarios/RegistrarUsuarios";
 import Zonas from "./pages/zonas/Zonas";
 import Leads from "./pages/leads/Leads";
@@ -217,6 +218,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <DescargasDB />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/logistica"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <Logistica />
                   </ProtectedRoute>
                 }
               />

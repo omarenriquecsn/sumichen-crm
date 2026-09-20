@@ -294,6 +294,46 @@ export interface ProductoPedido {
 /** Almacenes físicos (columnas GLOBALCA / WMS del inventario). */
 export type Almacen = "globalca" | "wms";
 
+export interface Lote {
+  id: string;
+  producto_id: string;
+  producto?: Producto;
+  almacen: Almacen;
+  codigo_lote: string;
+  fecha_ingreso: string;
+  fecha_vencimiento?: string | null;
+  cantidad_inicial: number;
+  cantidad_actual: number;
+  activo: boolean;
+  fecha_creacion?: string;
+}
+
+export type MotivoAjuste =
+  | "conteo_fisico"
+  | "merma"
+  | "dano"
+  | "vencimiento"
+  | "correccion"
+  | "otro";
+
+export interface MovimientoInventario {
+  id: string;
+  tipo: string;
+  producto_id: string;
+  producto?: Producto;
+  lote_id?: string | null;
+  lote?: Lote;
+  almacen?: Almacen | null;
+  pedido_id?: string | null;
+  devolucion_id?: string | null;
+  cantidad: number;
+  saldo_resultante: number;
+  usuario_id?: string | null;
+  motivo_categoria?: MotivoAjuste | null;
+  observacion?: string | null;
+  fecha_creacion: string;
+}
+
 /** Estados de un instrumento retornable. `donado`/`danado` son terminales. */
 export type EstadoInstrumento =
   | "en_almacen"

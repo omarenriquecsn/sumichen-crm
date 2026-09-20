@@ -9,6 +9,8 @@ import {
   Devolucion,
   formProducto,
   InstrumentoStock,
+  Lote,
+  MovimientoInventario,
   MovimientoInstrumento,
   Oportunidad,
   Pedido,
@@ -1233,6 +1235,126 @@ export const useApi = () => {
     });
   };
 
+  // ---------- Inventario: lotes, kardex y ajustes ----------
+
+  const useLotes = (filtros?: {
+    producto_id?: string;
+    almacen?: string;
+    con_stock?: boolean;
+  }) =>
+    useQuery({
+      queryKey: ["inventario", "lotes", filtros],
+      queryFn: async () => {
+        const params = new URLSearchParams();
+        if (filtros?.producto_id) params.append("producto_id", filtros.producto_id);
+        if (filtros?.almacen) params.append("almacen", filtros.almacen);
+        if (filtros?.con_stock) params.append("con_stock", "true");
+        const r = await fetch(`${URL}/inventario/lotes?${params}`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          credentials: "include",
+        });
+        if (!r.ok) throw new Error("Error al cargar los lotes");
+        return (await r.json()) as Lote[];
+      },
+      staleTime: 1000 * 60 * 2,
+    });
+
+  const useActualizarVencimientoLote = () =>
+    useMutation({
+      mutationFn: async ({
+        loteId,
+        fecha_vencimiento,
+      }: {
+        loteId: string;
+        fecha_vencimiento: string | null;
+      }) => {
+        const r = await fetch(
+          `${URL}/inventario/lotes/${loteId}/vencimiento`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+            credentials: "include",
+            body: JSON.stringify({ fecha_vencimiento }),
+          },
+        );
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.message || d?.error || "Error al actualizar");
+        }
+        return r.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
+      },
+    });
+
+  const useKardex = (filtros?: {
+    producto_id?: string;
+    almacen?: string;
+    tipo?: string;
+    desde?: string;
+    hasta?: string;
+  }) =>
+    useQuery({
+      queryKey: ["inventario", "kardex", filtros],
+      queryFn: async () => {
+        const params = new URLSearchParams();
+        if (filtros?.producto_id) params.append("producto_id", filtros.producto_id);
+        if (filtros?.almacen) params.append("almacen", filtros.almacen);
+        if (filtros?.tipo) params.append("tipo", filtros.tipo);
+        if (filtros?.desde) params.append("desde", filtros.desde);
+        if (filtros?.hasta) params.append("hasta", filtros.hasta);
+        const r = await fetch(`${URL}/inventario/kardex?${params}`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          credentials: "include",
+        });
+        if (!r.ok) throw new Error("Error al cargar el kardex");
+        return (await r.json()) as MovimientoInventario[];
+      },
+    });
+
+  const useAjusteInventario = () =>
+    useMutation({
+      mutationFn: async (data: {
+        producto_id: string;
+        almacen: string;
+        lote_id: string;
+        direccion: "entrada" | "salida";
+        cantidad: number;
+        motivo_categoria: string;
+        motivo?: string;
+      }) => {
+        const r = await fetch(`${URL}/inventario/ajustes`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          throw new Error(d?.message || d?.error || "Error al registrar el ajuste");
+        }
+        return r.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
+        queryClient.invalidateQueries({ queryKey: ["inventario", "kardex"] });
+        queryClient.invalidateQueries({ queryKey: ["productos", "stock"] });
+      },
+    });
+
   // ---------- Instrumentos retornables ----------
 
   const authHeaders = () => ({
@@ -2189,6 +2311,10 @@ export const useApi = () => {
     useActualizarOportunidad,
     useProductos,
     useStockProductos,
+    useLotes,
+    useActualizarVencimientoLote,
+    useKardex,
+    useAjusteInventario,
     useTiposInstrumento,
     useStockInstrumentos,
     useInstrumentosPorCliente,

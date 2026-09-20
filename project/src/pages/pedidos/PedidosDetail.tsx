@@ -38,6 +38,7 @@ import utc from "dayjs/plugin/utc";
 import { useCrearNotificacion } from "../../hooks/useNotificaciones";
 import EditarTransporteModal from "../../components/forms/EditarTransporteModal";
 import DevolucionModal from "../../components/forms/DevolucionModal";
+import GestionInstrumentosModal from "../../components/forms/GestionInstrumentosModal";
 import EvidenciaViewerModal from "../../components/ui/EvidenciaViewerModal";
 dayjs.extend(utc);
 
@@ -62,8 +63,12 @@ const PedidosDetail = () => {
   const { data: evidencias } = supabase.useEvidenciasPedido(id);
   const { mutate: eliminarEvidencia } = supabase.useEliminarEvidencia();
 
+  const { data: instrumentosPedido } = supabase.useInstrumentosPedido(id);
+
   const [modalTransporteVisible, setModalTransporteVisible] = useState(false);
   const [modalDevolucionVisible, setModalDevolucionVisible] = useState(false);
+  const [modalInstrumentosVisible, setModalInstrumentosVisible] =
+    useState(false);
   const [evidenciaIndice, setEvidenciaIndice] = useState<number | null>(null);
 
   // Clientes
@@ -437,6 +442,48 @@ const PedidosDetail = () => {
               </div>
             </div>
           </div>
+
+          {instrumentosPedido && instrumentosPedido.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Instrumentos retornables
+                </h3>
+                {(currentUser.rol === "admin" ||
+                  currentUser.id === pedido.vendedor_id) && (
+                  <button
+                    onClick={() => setModalInstrumentosVisible(true)}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  >
+                    Gestionar
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {instrumentosPedido.map((l) => (
+                  <div
+                    key={l.id}
+                    className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-800">
+                        {l.tipo_instrumento?.nombre ?? "Instrumento"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {l.almacen.toUpperCase()} · Entregado:{" "}
+                        {Number(l.cantidad).toFixed(0)} · Cliente:{" "}
+                        {Number(l.cantidad_cliente).toFixed(0)} · Tránsito:{" "}
+                        {Number(l.cantidad_transito).toFixed(0)}
+                      </p>
+                    </div>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-white border text-gray-700">
+                      {l.estado}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Panel lateral */}
@@ -557,6 +604,15 @@ const PedidosDetail = () => {
         isOpen={modalDevolucionVisible}
         onClose={() => setModalDevolucionVisible(false)}
       />
+
+      {instrumentosPedido && instrumentosPedido.length > 0 && (
+        <GestionInstrumentosModal
+          pedidoId={pedido.id}
+          lineas={instrumentosPedido}
+          isOpen={modalInstrumentosVisible}
+          onClose={() => setModalInstrumentosVisible(false)}
+        />
+      )}
 
       {evidenciaIndice !== null && evidencias && evidencias.length > 0 && (
         <EvidenciaViewerModal
