@@ -18,16 +18,33 @@ export const getMovimientosPorPedido = async (pedidoId: string) =>
 
 export const getMovimientos = async (filtros?: {
   productoId?: string;
+  almacen?: string;
   tipo?: string;
+  desde?: string;
+  hasta?: string;
 }) => {
-  const qb = repo().createQueryBuilder('m').orderBy('m.fecha_creacion', 'DESC');
+  const qb = repo()
+    .createQueryBuilder('m')
+    .leftJoinAndSelect('m.lote', 'lote')
+    .leftJoinAndSelect('m.producto', 'producto')
+    .orderBy('m.fecha_creacion', 'DESC');
+
   if (filtros?.productoId) {
     qb.andWhere('m.producto_id = :productoId', {
       productoId: filtros.productoId,
     });
   }
+  if (filtros?.almacen) {
+    qb.andWhere('m.almacen = :almacen', { almacen: filtros.almacen });
+  }
   if (filtros?.tipo) {
     qb.andWhere('m.tipo = :tipo', { tipo: filtros.tipo });
   }
-  return qb.take(500).getMany();
+  if (filtros?.desde) {
+    qb.andWhere('m.fecha_creacion >= :desde', { desde: filtros.desde });
+  }
+  if (filtros?.hasta) {
+    qb.andWhere('m.fecha_creacion <= :hasta', { hasta: filtros.hasta });
+  }
+  return qb.take(1000).getMany();
 };

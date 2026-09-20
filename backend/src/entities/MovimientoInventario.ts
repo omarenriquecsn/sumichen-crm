@@ -11,6 +11,7 @@ import { Lote } from './Lote';
 import { Pedido } from './Pedidos';
 import { AlmacenEnum } from '../enums/AlmacenEnum';
 import { MovimientoInventarioTipoEnum } from '../enums/MovimientoInventarioTipoEnum';
+import { MotivoAjusteEnum } from '../enums/MotivoAjusteEnum';
 
 /**
  * Ledger de inventario: cada cambio de stock (entrada, reserva, salida,
@@ -75,6 +76,16 @@ export class MovimientoInventario {
 
   @Column({ name: 'usuario_id', type: 'uuid', nullable: true })
   usuario_id?: string;
+
+  /** Categoría del motivo (solo en ajustes manuales). */
+  @Column({
+    name: 'motivo_categoria',
+    type: 'enum',
+    enum: MotivoAjusteEnum,
+    enumName: 'motivo_ajuste_enum',
+    nullable: true,
+  })
+  motivo_categoria?: MotivoAjusteEnum;
 
   @Column({ type: 'text', nullable: true })
   observacion?: string;

@@ -10,9 +10,14 @@ import {
   getLotes,
   updateFechaVencimiento,
   getLoteById,
+  updateCantidadActual,
 } from '../repositories/lotesRepository';
-import { createMovimiento } from '../repositories/movimientosRepository';
+import {
+  createMovimiento,
+  getMovimientos,
+} from '../repositories/movimientosRepository';
 import { MovimientoInventarioTipoEnum } from '../enums/MovimientoInventarioTipoEnum';
+import { MotivoAjusteEnum } from '../enums/MotivoAjusteEnum';
 import { AlmacenEnum } from '../enums/AlmacenEnum';
 import { Producto } from '../entities/Productos';
 import { Lote } from '../entities/Lote';
@@ -365,3 +370,76 @@ export const getStockDisponible = async (
     .getRawOne();
   return Number(row?.total ?? 0);
 };
+
+export interface AjusteInventarioInput {
+  producto_id: string;
+  almacen: AlmacenEnum;
+  lote_id: string;
+  direccion: 'entrada' | 'salida';
+  cantidad: number;
+  motivo_categoria: MotivoAjusteEnum;
+  motivo?: string;
+}
+
+/**
+ * Ajuste manual de inventario (admin). Siempre sobre un lote existente:
+ * - `entrada` suma kg al lote; `salida` resta (no puede quedar negativo).
+ * - Registra el movimiento con categoría de motivo y nota.
+ */
+export const registrarAjusteService = async (
+  input: AjusteInventarioInput,
+  usuarioId?: string,
+) => {
+  const cantidad = redondear2(input.cantidad);
+  if (!(cantidad > 0)) {
+    throw new ApiError('La cantidad debe ser mayor a 0', 400);
+  }
+
+  const lote = await getLoteById(input.lote_id);
+  if (!lote) throw new ApiError('Lote no encontrado', 404);
+  if (lote.producto_id !== input.producto_id) {
+    throw new ApiError('El lote no pertenece al producto indicado', 400);
+  }
+  if (lote.almacen !== input.almacen) {
+    throw new ApiError('El lote no pertenece al almacén indicado', 400);
+  }
+
+  const esEntrada = input.direccion === 'entrada';
+  const actual = Number(lote.cantidad_actual) || 0;
+  if (!esEntrada && cantidad > actual + 0.0001) {
+    throw new ApiError(
+      `El lote solo tiene ${actual.toFixed(2)} kg disponibles`,
+      400,
+    );
+  }
+
+  const nuevoSaldo = redondear2(esEntrada ? actual + cantidad : actual - cantidad);
+  await updateCantidadActual(lote.id, nuevoSaldo);
+
+  const movimiento = await createMovimiento({
+    tipo: esEntrada
+      ? MovimientoInventarioTipoEnum.AJUSTE_POSITIVO
+      : MovimientoInventarioTipoEnum.AJUSTE_NEGATIVO,
+    producto_id: lote.producto_id,
+    lote_id: lote.id,
+    almacen: lote.almacen,
+    cantidad,
+    saldo_resultante: nuevoSaldo,
+    usuario_id: usuarioId,
+    motivo_categoria: input.motivo_categoria,
+    observacion: input.motivo,
+  });
+
+  await recalcularDisponibilidadProductos();
+
+  return movimiento;
+};
+
+/** Kardex: historial de movimientos de inventario con filtros. */
+export const getKardexService = (filtros?: {
+  productoId?: string;
+  almacen?: string;
+  tipo?: string;
+  desde?: string;
+  hasta?: string;
+}) => getMovimientos(filtros);

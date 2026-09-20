@@ -2,6 +2,8 @@ import { Router } from 'express';
 import {
   getLotes,
   actualizarVencimiento,
+  registrarAjuste,
+  getKardex,
 } from '../controllers/inventarioControllers';
 import { asyncHandler } from '../middlewares/asyncHandler';
 import verificarToken from '../middlewares/jwtHandler';
@@ -15,5 +17,9 @@ router.put(
   verificarToken,
   asyncHandler(actualizarVencimiento),
 );
+
+router.post('/inventario/ajustes', verificarToken, asyncHandler(registrarAjuste));
+
+router.get('/inventario/kardex', verificarToken, asyncHandler(getKardex));
 
 export default router;

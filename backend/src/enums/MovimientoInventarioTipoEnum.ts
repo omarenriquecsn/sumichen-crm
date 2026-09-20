@@ -16,4 +16,6 @@ export enum MovimientoInventarioTipoEnum {
   LIBERACION = 'liberacion',
   DEVOLUCION = 'devolucion',
   AJUSTE = 'ajuste',
+  AJUSTE_POSITIVO = 'ajuste_positivo',
+  AJUSTE_NEGATIVO = 'ajuste_negativo',
 }
