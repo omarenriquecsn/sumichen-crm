@@ -3,9 +3,10 @@ import multer from 'multer';
 import { enviarCorreoCliente } from '../services/correosServices';
 import { ApiError } from '../utils/ApiError';
 
-// Recibe hasta 10 adjuntos. Se guardan en memoria (buffer) y se pasan a Resend.
+// Recibe hasta 10 adjuntos (máx. 20 MB en total). Se guardan en memoria (buffer)
+// y se pasan al servicio, que valida la suma total.
 const upload = multer({
-  limits: { fileSize: 10 * 1024 * 1024, files: 10 },
+  limits: { fileSize: 20 * 1024 * 1024, files: 10 },
 });
 
 export interface ArchivoSubido extends Express.Multer.File {}

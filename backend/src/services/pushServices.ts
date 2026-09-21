@@ -74,8 +74,8 @@ export const guardarSuscripcion = (data: {
   dispositivo?: string;
 }) => guardarSuscripcionRepository(data);
 
-export const eliminarSuscripcion = (endpoint: string) =>
-  eliminarSuscripcionRepository(endpoint);
+export const eliminarSuscripcion = (endpoint: string, vendedorId?: string) =>
+  eliminarSuscripcionRepository(endpoint, vendedorId);
 
 export const obtenerSuscripciones = (vendedorDbId: string) =>
   obtenerSuscripcionesPorVendedorRepository(vendedorDbId);

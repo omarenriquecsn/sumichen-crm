@@ -27,7 +27,7 @@ const toolbar = [
 ];
 
 const MAX_ADJUNTOS = 10;
-const MAX_TAMANO_ADJUNTO = 10 * 1024 * 1024; // 10 MB
+const MAX_TOTAL_ADJUNTOS = 20 * 1024 * 1024; // 20 MB (suma total)
 
 const formatearTamaño = (bytes: number): string => {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -77,9 +77,11 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
       toast.error(`Máximo ${MAX_ADJUNTOS} archivos adjuntos por correo.`);
       return;
     }
-    const sobreLimite = nuevos.find((f) => f.size > MAX_TAMANO_ADJUNTO);
-    if (sobreLimite) {
-      toast.error(`El archivo "${sobreLimite.name}" supera el límite de 10 MB.`);
+    const sumaBytes =
+      adjuntos.reduce((acc, f) => acc + f.size, 0) +
+      nuevos.reduce((acc, f) => acc + f.size, 0);
+    if (sumaBytes > MAX_TOTAL_ADJUNTOS) {
+      toast.error("La suma de los adjuntos no puede superar 20 MB.");
       return;
     }
     setAdjuntos((prev) => [...prev, ...nuevos]);
@@ -134,7 +136,8 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
             <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-500" />
             <p>
               No conectaste tu Gmail. Este correo se enviará desde el correo del
-              CRM y no quedará en tus Enviados.{" "}
+              CRM y no quedará en tus Enviados. Puedes adjuntar hasta 20 MB en
+              total.{" "}
               <Link
                 to="/configuracion"
                 onClick={onClose}
@@ -236,6 +239,7 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
             <Paperclip className="h-5 w-5" />
             Adjuntar
           </button>
+          <span className="text-xs text-gray-400">Máx. 20 MB en total</span>
           <div className="ml-auto text-right">
             <span className="text-xs text-gray-500">
               Se enviará desde:{" "}

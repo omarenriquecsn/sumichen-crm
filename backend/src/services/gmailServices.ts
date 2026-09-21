@@ -122,6 +122,12 @@ export const enviarCorreoConGmail = async ({
         400,
       );
     }
+    if (/message too large|exceeds the limit|payload size|size exceeds|too big|413/i.test(mensaje)) {
+      throw new ApiError(
+        'El correo supera el tamaño máximo permitido por Gmail (20 MB). Reduce los adjuntos e inténtalo de nuevo.',
+        400,
+      );
+    }
     throw new ApiError(`No se pudo enviar el correo con Gmail: ${mensaje}`, 400);
   }
 };

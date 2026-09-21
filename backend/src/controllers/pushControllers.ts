@@ -35,10 +35,14 @@ export const guardarSuscripcionController = async (req: Request, res: Response) 
 };
 
 export const eliminarSuscripcionController = async (req: Request, res: Response) => {
+  const vendedorId = vendedorDbId(req);
+  if (!vendedorId) return res.status(401).json({ error: 'No autorizado' });
+
   const { endpoint } = req.body || {};
   if (!endpoint) return res.status(400).json({ error: 'endpoint requerido' });
 
-  await eliminarSuscripcion(endpoint);
+  // Solo se pueden borrar suscripciones propias.
+  await eliminarSuscripcion(endpoint, vendedorId);
   res.json({ success: true });
 };
 

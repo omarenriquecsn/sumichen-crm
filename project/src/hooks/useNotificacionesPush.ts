@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   listarSuscripciones,
@@ -7,6 +7,7 @@ import {
   enviarPushDePruebaFront,
   listarPreferencias,
   guardarPreferencias,
+  obtenerEndpointActual,
   permisoOtorgado,
   tipoEstadoPermiso,
 } from "../lib/push";
@@ -30,6 +31,7 @@ export function useNotificacionesPush() {
   const queryClient = useQueryClient();
   const [accionando, setAccionando] = useState(false);
   const [suscripcionDePrueba, setSuscripcionDePrueba] = useState(false);
+  const [endpointActual, setEndpointActual] = useState<string | null>(null);
 
   const { data: suscripciones = [], refetch: refetchSuscripciones } = useQuery({
     queryKey: ["push", "suscripciones"],
@@ -47,10 +49,28 @@ export function useNotificacionesPush() {
           ? "activado"
           : "pendiente";
 
+  const refrescarEndpoint = useCallback(async () => {
+    const ep = await obtenerEndpointActual();
+    setEndpointActual(ep);
+    return ep;
+  }, []);
+
+  // Carga el endpoint del navegador actual (para saber si ESTE dispositivo
+  // está registrado, incluso si el permiso sigue concedido y la DB no lo tiene).
+  useEffect(() => {
+    void refrescarEndpoint();
+  }, [estado, refrescarEndpoint]);
+
+  const esteDispositivoRegistrado = useMemo(
+    () => !!endpointActual && suscripciones.some((s) => s.endpoint === endpointActual),
+    [endpointActual, suscripciones]
+  );
+
   const activar = useCallback(async () => {
     setAccionando(true);
     try {
       await suscribirPush();
+      await refrescarEndpoint();
       await refetchSuscripciones();
       queryClient.invalidateQueries({ queryKey: ["push", "suscripciones"] });
       return { ok: true };
@@ -62,13 +82,14 @@ export function useNotificacionesPush() {
     } finally {
       setAccionando(false);
     }
-  }, [queryClient, refetchSuscripciones]);
+  }, [queryClient, refetchSuscripciones, refrescarEndpoint]);
 
   const desactivar = useCallback(
     async (endpoint: string, desuscribirNavegador = false) => {
       setAccionando(true);
       try {
         await desuscribirPush(endpoint, desuscribirNavegador);
+        await refrescarEndpoint();
         await refetchSuscripciones();
         queryClient.invalidateQueries({ queryKey: ["push", "suscripciones"] });
         return { ok: true };
@@ -78,7 +99,7 @@ export function useNotificacionesPush() {
         setAccionando(false);
       }
     },
-    [queryClient, refetchSuscripciones]
+    [queryClient, refetchSuscripciones, refrescarEndpoint]
   );
 
   const enviarPrueba = useCallback(async () => {
@@ -101,6 +122,8 @@ export function useNotificacionesPush() {
     accionando,
     suscripcionDePrueba,
     suscripciones,
+    endpointActual,
+    esteDispositivoRegistrado,
     activar,
     desactivar,
     enviarPrueba,
