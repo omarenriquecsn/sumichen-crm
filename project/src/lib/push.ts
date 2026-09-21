@@ -66,6 +66,84 @@ async function obtenerRegistration(): Promise<ServiceWorkerRegistration> {
   return reg;
 }
 
+/** Devuelve el endpoint de la suscripción push de este navegador (o null). */
+export async function obtenerEndpointActual(): Promise<string | null> {
+  if (!("serviceWorker" in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    return sub?.endpoint ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Guarda (upsert) una suscripción push en el backend para el usuario actual. */
+async function guardarSuscripcionEnBackend(
+  pushSub: PushSubscription,
+  dispositivo?: string
+): Promise<SuscripcionGuardada> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error("Sesión no válida");
+
+  const body = {
+    subscription: {
+      endpoint: pushSub.endpoint,
+      keys: {
+        p256dh: pushSub.toJSON().keys?.p256dh || "",
+        auth: pushSub.toJSON().keys?.auth || "",
+      },
+    },
+    dispositivo: dispositivo || navigator.userAgent,
+  };
+
+  const res = await fetch(`${URL}/push/suscripcion`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Error guardando la suscripción push");
+  }
+
+  const data = await res.json();
+  return data.suscripcion;
+}
+
+/**
+ * Auto-sanación: si el permiso está otorgado y este navegador tiene una
+ * suscripción push, la vuelve a guardar en el backend (upsert). Recupera
+ * endpoints rotados o filas borradas. NO crea una suscripción nueva si no
+ * existe (respeta un borrado intencional del usuario).
+ */
+export async function sincronizarSuscripcionExistente(
+  dispositivo?: string
+): Promise<string | null> {
+  if (!soportaPush()) return null;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") {
+    return null;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    const pushSub = await registration?.pushManager.getSubscription();
+    if (!pushSub) return null;
+    await guardarSuscripcionEnBackend(pushSub, dispositivo);
+    return pushSub.endpoint;
+  } catch (error) {
+    console.error("Error sincronizando la suscripción push:", error);
+    return null;
+  }
+}
+
 /**
  * Pide permiso y suscribe este dispositivo a Web Push, guardando la
  * suscripción en el backend (asociada al vendedor autenticado).
@@ -101,39 +179,8 @@ export async function suscribirPush(dispositivo?: string): Promise<{
     });
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  if (!token) throw new Error("Sesión no válida");
-
-  const body = {
-    subscription: {
-      endpoint: pushSub.endpoint,
-      keys: {
-        p256dh: pushSub.toJSON().keys?.p256dh || "",
-        auth: pushSub.toJSON().keys?.auth || "",
-      },
-    },
-    dispositivo: dispositivo || navigator.userAgent,
-  };
-
-  const res = await fetch(`${URL}/push/suscripcion`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Error guardando la suscripción push");
-  }
-
-  const data = await res.json();
-  return { suscripcion: data.suscripcion, permiso };
+  const suscripcion = await guardarSuscripcionEnBackend(pushSub, dispositivo);
+  return { suscripcion, permiso };
 }
 
 /** Desuscribe el dispositivo del backend (y de Web Push si se indica). */

@@ -38,6 +38,14 @@ export const obtenerSuscripcionesPorVendedoresRepository = async (vendedorIds: s
     .getMany();
 };
 
-export const eliminarSuscripcionRepository = async (endpoint: string) => {
-  return await PushSuscripcionRepository.delete({ endpoint });
+export const eliminarSuscripcionRepository = async (
+  endpoint: string,
+  vendedorId?: string,
+) => {
+  // Con vendedorId solo se borra una suscripción propia (endpoint del usuario
+  // autenticado). Sin él se usa para la limpieza automática de endpoints
+  // inválidos (404/410) al enviar.
+  return await PushSuscripcionRepository.delete(
+    vendedorId ? { endpoint, vendedor_id: vendedorId } : { endpoint },
+  );
 };

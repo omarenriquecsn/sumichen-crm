@@ -337,7 +337,9 @@ export const procesarRespuestaEstado = async (lead: any, cuerpo: string) => {
   const vendedor = getVendedorNombre(leadActual);
   const opciones = formatearOpciones((config.opciones_intencion || []).map((o) => o.etiqueta));
   const texto = config.pregunta_intencion
+    .replace('{nombre}', nombre)
     .replace('{vendedor}', vendedor)
+    .replace('{telefono_vendedor}', getVendedorTelefono(leadActual))
     .replace('{zona}', zona.nombre)
     .replace('{opciones}', opciones);
 
@@ -367,7 +369,9 @@ export const procesarRespuestaIntencion = async (lead: any, cuerpo: string) => {
   if (!opcion) {
     const leadActual = await getLeadById(lead.id);
     const texto = config.pregunta_intencion
+      .replace('{nombre}', nombre)
       .replace('{vendedor}', getVendedorNombre(leadActual))
+      .replace('{telefono_vendedor}', getVendedorTelefono(leadActual))
       .replace('{zona}', leadActual?.zona?.nombre || lead?.metadata?.zona_seleccionada || '')
       .replace('{opciones}', formatearOpciones(opciones.map((o) => o.etiqueta)));
     await enviarSeguro(telefono, texto, phoneNumberId);

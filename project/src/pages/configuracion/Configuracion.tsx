@@ -6,6 +6,7 @@ import { useAuth } from "../../context/useAuth";
 import {
   User,
   Bell,
+  BellPlus,
   Shield,
   // Database,
   // Palette,
@@ -819,62 +820,113 @@ export const Configuracion: React.FC = () => {
 
                     {push.estado === "activado" && (
                       <div className="space-y-4">
-                        <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
-                          <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
-                          Notificaciones activas en este dispositivo
-                        </div>
-                        <button
-                          onClick={async () => {
-                            const res = await push.enviarPrueba();
-                            if (res.ok) {
-                              toast.success("Notificación de prueba enviada. Revisa tu dispositivo.");
-                            } else {
-                              toast.error(res.error || "No se pudo enviar la prueba.");
-                            }
-                          }}
-                          disabled={push.suscripcionDePrueba}
-                          className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-900 disabled:opacity-50 text-white font-medium px-4 py-2.5 rounded-lg transition-colors"
-                        >
-                          {push.suscripcionDePrueba ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Send className="h-4 w-4" />
-                          )}
-                          Enviar notificación de prueba
-                        </button>
+                        {push.esteDispositivoRegistrado ? (
+                          <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                            <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                            Notificaciones activas en este dispositivo
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-amber-700 text-sm font-medium">
+                              <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                              Este dispositivo no está registrado
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              El permiso está concedido, pero este dispositivo no
+                              está vinculado para recibir notificaciones.
+                              Regístralo para volver a activarlas.
+                            </p>
+                            <button
+                              onClick={async () => {
+                                const res = await push.activar();
+                                if (res.ok) {
+                                  toast.success("Dispositivo registrado. Ya recibirás notificaciones.");
+                                } else {
+                                  toast.error(res.error || "No se pudo registrar este dispositivo.");
+                                }
+                              }}
+                              disabled={push.accionando}
+                              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium px-4 py-2.5 rounded-lg transition-colors"
+                            >
+                              {push.accionando ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <BellPlus className="h-4 w-4" />
+                              )}
+                              Registrar este dispositivo
+                            </button>
+                          </div>
+                        )}
+
+                        {push.esteDispositivoRegistrado && (
+                          <button
+                            onClick={async () => {
+                              const res = await push.enviarPrueba();
+                              if (res.ok) {
+                                toast.success("Notificación de prueba enviada. Revisa tu dispositivo.");
+                              } else {
+                                toast.error(res.error || "No se pudo enviar la prueba.");
+                              }
+                            }}
+                            disabled={push.suscripcionDePrueba}
+                            className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-900 disabled:opacity-50 text-white font-medium px-4 py-2.5 rounded-lg transition-colors"
+                          >
+                            {push.suscripcionDePrueba ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4" />
+                            )}
+                            Enviar notificación de prueba
+                          </button>
+                        )}
 
                         {push.suscripciones.length > 0 && (
                           <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
-                            {push.suscripciones.map((s) => (
-                              <div
-                                key={s.endpoint}
-                                className="flex items-center justify-between px-4 py-3"
-                              >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <Smartphone className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                                  <div className="min-w-0">
-                                    <p className="text-sm text-gray-800 truncate">
-                                      {s.dispositivo || "Dispositivo"}
-                                    </p>
-                                    <p className="text-xs text-gray-400">
-                                      {new Date(s.fecha_creacion).toLocaleDateString("es-VE")}
-                                    </p>
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() =>
-                                    push.desactivar(s.endpoint).then(() =>
-                                      toast.info("Dispositivo desvinculado.")
-                                    )
-                                  }
-                                  disabled={push.accionando}
-                                  className="text-gray-400 hover:text-red-600 disabled:opacity-50"
-                                  title="Desactivar notificaciones en este dispositivo"
+                            {push.suscripciones.map((s) => {
+                              const esEste = s.endpoint === push.endpointActual;
+                              return (
+                                <div
+                                  key={s.endpoint}
+                                  className="flex items-center justify-between px-4 py-3"
                                 >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ))}
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <Smartphone className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="text-sm text-gray-800 truncate">
+                                        {s.dispositivo || "Dispositivo"}
+                                        {esEste && (
+                                          <span className="ml-2 text-[11px] font-semibold text-blue-600">
+                                            Este dispositivo
+                                          </span>
+                                        )}
+                                      </p>
+                                      <p className="text-xs text-gray-400">
+                                        {new Date(s.fecha_creacion).toLocaleDateString("es-VE")}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={async () => {
+                                      const res = await push.desactivar(s.endpoint, esEste);
+                                      if (res.ok) {
+                                        toast.info(
+                                          esEste
+                                            ? "Notificaciones desactivadas en este dispositivo."
+                                            : "Dispositivo desvinculado."
+                                        );
+                                      } else {
+                                        toast.error(res.error || "No se pudo desvincular el dispositivo.");
+                                      }
+                                    }}
+                                    disabled={push.accionando}
+                                    className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+                                    title="Desactivar notificaciones en este dispositivo"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>

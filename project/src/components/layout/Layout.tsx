@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { UserData } from '../../context/types';
+import { useSincronizarPush } from '../../hooks/useSincronizarPush';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,8 +13,9 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children, title, subtitle, userDataProp }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  useSincronizarPush();
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-dvh bg-gray-50">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} userDataProp={userDataProp} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title={title} subtitle={subtitle} onMenuClick={() => setSidebarOpen(true)} />

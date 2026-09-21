@@ -7,6 +7,8 @@ import { toast } from "react-toastify";
 import { MessageSquare, Clock, Check, Search, MapPin, Users, MessageCircle, UserPlus, XCircle } from "lucide-react";
 import { Conversacion, Lead } from "../../types";
 import ConvertirLeadModal from "../../components/forms/ConvertirLeadModal";
+import { ConversacionTarjeta } from "../../components/ui/ConversacionTarjeta";
+import { LeadSinConversacionTarjeta } from "../../components/ui/LeadSinConversacionTarjeta";
 
 const estadoColors: Record<string, string> = {
   abierta: "bg-green-100 text-green-800",
@@ -32,11 +34,11 @@ const ConversacionItem: React.FC<{ conv: Conversacion; onRegistrar: (lead: Lead)
     : "Sin mensajes aún";
 
   return (
-    <div className="flex items-center gap-1 sm:gap-2">
+    <div className="flex items-center gap-1 sm:gap-2 min-w-0">
       <NavLink
         to={`/chat/${conv.id}`}
         className={({ isActive }) =>
-          `flex-1 flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 sm:py-4 rounded-lg transition-all duration-200 border ${
+          `flex-1 min-w-0 flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 sm:py-4 rounded-lg transition-all duration-200 border ${
             isActive
               ? "border-blue-300 bg-blue-50"
               : "border-transparent hover:border-gray-200 hover:bg-gray-50"
@@ -49,7 +51,7 @@ const ConversacionItem: React.FC<{ conv: Conversacion; onRegistrar: (lead: Lead)
               {conv.lead?.datos_contacto?.nombre?.charAt(0).toUpperCase() || "?"}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 min-w-0">
                 <span className="font-medium text-gray-900 truncate">
                   {conv.lead?.datos_contacto?.nombre || "Sin nombre"}
                 </span>
@@ -60,7 +62,7 @@ const ConversacionItem: React.FC<{ conv: Conversacion; onRegistrar: (lead: Lead)
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5 min-w-0">
+              <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5 min-w-0 overflow-hidden">
                 <span className="truncate">{preview}</span>
                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full shrink-0 ${estadoColors[conv.estado] || "bg-gray-100 text-gray-700"}`}>
                   {conv.estado}
@@ -119,12 +121,12 @@ const LeadSinConversacion: React.FC<{ lead: Lead; onAbrir: (leadId: string) => v
     : 0;
 
   return (
-    <div className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 transition-all">
+    <div className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 transition-all min-w-0">
       <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold shrink-0">
         {lead.datos_contacto?.nombre?.charAt(0).toUpperCase() || "?"}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 min-w-0">
           <span className="font-medium text-gray-900 truncate">
             {lead.datos_contacto?.nombre || "Sin nombre"}
           </span>
@@ -300,7 +302,20 @@ const ChatLista: React.FC = () => {
                     <MessageCircle className="h-4 w-4 text-amber-500" />
                     Leads asignados esperando chat
                   </h3>
-                  <div className="space-y-2">
+                  {/* Móvil: tarjetas */}
+                  <div className="sm:hidden space-y-2">
+                    {leadsSinConversacion.map((lead) => (
+                      <LeadSinConversacionTarjeta
+                        key={lead.id}
+                        lead={lead}
+                        onAbrir={handleAbrir}
+                        onRegistrar={handleRegistrarCliente}
+                        onPerder={handlePerder}
+                      />
+                    ))}
+                  </div>
+                  {/* Escritorio: filas */}
+                  <div className="hidden sm:block space-y-2">
                     {leadsSinConversacion.map((lead) => (
                       <LeadSinConversacion
                         key={lead.id}
@@ -331,7 +346,20 @@ const ChatLista: React.FC = () => {
                           {grupo.conversaciones.length}
                         </span>
                       </div>
-                      <div className="space-y-2">
+                      {/* Móvil: tarjetas */}
+                      <div className="sm:hidden space-y-2">
+                        {grupo.conversaciones.map((conv) => (
+                          <ConversacionTarjeta
+                            key={conv.id}
+                            conv={conv}
+                            esAdmin
+                            onRegistrar={handleRegistrarCliente}
+                            onPerder={handlePerder}
+                          />
+                        ))}
+                      </div>
+                      {/* Escritorio: filas */}
+                      <div className="hidden sm:block space-y-2">
                         {grupo.conversaciones.map((conv) => (
                           <ConversacionItem
                             key={conv.id}
@@ -345,16 +373,31 @@ const ChatLista: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {conversacionesFiltradas.map((conv) => (
-                    <ConversacionItem
-                      key={conv.id}
-                      conv={conv}
-                      onRegistrar={handleRegistrarCliente}
-                      onPerder={handlePerder}
-                    />
-                  ))}
-                </div>
+                <>
+                  {/* Móvil: tarjetas */}
+                  <div className="sm:hidden space-y-2">
+                    {conversacionesFiltradas.map((conv) => (
+                      <ConversacionTarjeta
+                        key={conv.id}
+                        conv={conv}
+                        esAdmin={esAdmin}
+                        onRegistrar={handleRegistrarCliente}
+                        onPerder={handlePerder}
+                      />
+                    ))}
+                  </div>
+                  {/* Escritorio: filas */}
+                  <div className="hidden sm:block space-y-2">
+                    {conversacionesFiltradas.map((conv) => (
+                      <ConversacionItem
+                        key={conv.id}
+                        conv={conv}
+                        onRegistrar={handleRegistrarCliente}
+                        onPerder={handlePerder}
+                      />
+                    ))}
+                  </div>
+                </>
               )}
             </>
           )}

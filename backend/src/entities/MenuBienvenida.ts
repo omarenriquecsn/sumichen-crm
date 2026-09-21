@@ -29,7 +29,7 @@ export class MenuBienvenida {
   @Column({ type: 'text', default: 'Gracias por tu información, {nombre}. Un asesor te contactará muy pronto.' })
   mensaje_sin_vendedor: string;
 
-  @Column({ type: 'text', default: '{vendedor} de la zona {zona} te atenderá. ¿Qué necesitas?\n{opciones}' })
+  @Column({ type: 'text', default: '{vendedor} ({telefono_vendedor}) de la zona {zona} te atenderá. ¿Qué necesitas?\n{opciones}' })
   pregunta_intencion: string;
 
   @Column({ type: 'text', default: '¡Listo, {nombre}! {vendedor} ({telefono_vendedor}) te contactará por este medio.' })

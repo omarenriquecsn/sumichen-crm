@@ -40,7 +40,7 @@ export interface EnviarCorreoParams {
 }
 
 const LIMITE_ADJUNTOS = 10;
-const LIMITE_TAMANO_ADJUNTO = 10 * 1024 * 1024; // 10 MB por archivo
+const LIMITE_TOTAL_ADJUNTOS = 20 * 1024 * 1024; // 20 MB en total
 
 /** Normaliza el nombre para el local-part del email: minúsculas, sin tildes,
  *  sin espacios (→ puntos), sin caracteres especiales. */
@@ -129,13 +129,9 @@ export const enviarCorreoCliente = async ({
   if (adjuntos.length > LIMITE_ADJUNTOS) {
     throw new ApiError(`Máximo ${LIMITE_ADJUNTOS} archivos adjuntos por correo`, 400);
   }
-  for (const adj of adjuntos) {
-    if (adj.buffer.length > LIMITE_TAMANO_ADJUNTO) {
-      throw new ApiError(
-        `El archivo "${adj.filename}" supera el límite de 10 MB`,
-        400,
-      );
-    }
+  const totalAdjuntos = adjuntos.reduce((acc, adj) => acc + adj.buffer.length, 0);
+  if (totalAdjuntos > LIMITE_TOTAL_ADJUNTOS) {
+    throw new ApiError('La suma de los adjuntos no puede superar 20 MB', 400);
   }
 
   // Perfil del vendedor que envía (id de tabla vendedores). Se incluyen los
@@ -257,13 +253,9 @@ export const enviarCorreoMantenimiento = async ({
   if (!to) {
     throw new ApiError('El destinatario (to) es obligatorio', 400);
   }
-  for (const adj of adjuntos) {
-    if (adj.buffer.length > LIMITE_TAMANO_ADJUNTO) {
-      throw new ApiError(
-        `El archivo "${adj.filename}" supera el límite de 10 MB`,
-        400,
-      );
-    }
+  const totalAdjuntos = adjuntos.reduce((acc, adj) => acc + adj.buffer.length, 0);
+  if (totalAdjuntos > LIMITE_TOTAL_ADJUNTOS) {
+    throw new ApiError('La suma de los adjuntos no puede superar 20 MB', 400);
   }
 
   const dominio = process.env.RESEND_DOMAIN || 'ventas.crmsumichen.com';

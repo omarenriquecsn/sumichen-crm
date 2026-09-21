@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
       <div
         className={`fixed lg:relative inset-y-0 left-0 transform ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 transition-transform duration-300 ease-in-out bg-white h-screen w-64 shadow-lg flex flex-col border-r border-gray-200 z-40`}
+        } lg:translate-x-0 transition-transform duration-300 ease-in-out bg-white h-dvh w-64 shadow-lg flex flex-col border-r border-gray-200 z-40`}
       >
       {/* Logo y título */}
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
@@ -133,8 +133,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
       </nav>
 
       {/* Botón de instalar app (solo si la app no está instalada) */}
-      <div className="px-4 pb-2 border-t border-gray-200">
-        {disponible && (
+      {disponible && (
+        <div className="px-4 pb-2 border-t border-gray-200">
           <button
             onClick={handleInstalar}
             className="flex items-center space-x-3 px-4 py-3 w-full text-left text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
@@ -142,11 +142,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, userDataProp 
             <Smartphone className="h-5 w-5" />
             <span className="font-medium">Instalar app</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Botón de cerrar sesión */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-gray-200">
         <button
           onClick={handleLogout}
           className="flex items-center space-x-3 px-4 py-3 w-full text-left text-gray-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200"

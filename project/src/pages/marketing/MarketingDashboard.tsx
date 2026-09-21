@@ -380,15 +380,17 @@ const MarketingDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Pregunta de intención</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Confirmación del vendedor (con teléfono)</label>
                 <textarea
                   value={menuForm.pregunta_intencion}
                   onChange={(e) => setMenuForm((prev) => ({ ...prev, pregunta_intencion: e.target.value }))}
                   rows={3}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="{vendedor} de la zona {zona} te atenderá. ¿Qué necesitas?\n{opciones}"
+                  placeholder="{vendedor} ({telefono_vendedor}) de la zona {zona} te atenderá. ¿Qué necesitas?\n{opciones}"
                 />
-                <p className="text-xs text-gray-400 mt-1">Variables: {"{vendedor}"}, {"{zona}"}, {"{opciones}"}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Variables: {"{nombre}"}, {"{vendedor}"}, {"{telefono_vendedor}"}, {"{zona}"}, {"{opciones}"}
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Mensaje de confirmación</label>
