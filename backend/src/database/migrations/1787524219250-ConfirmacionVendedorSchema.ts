@@ -14,8 +14,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * Idempotente.
  */
-export class ConfirmacionVendedorSchema1787524219000 implements MigrationInterface {
-  name = 'ConfirmacionVendedorSchema1787524219000';
+export class ConfirmacionVendedorSchema1787524219250 implements MigrationInterface {
+  name = 'ConfirmacionVendedorSchema1787524219250';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     const nuevo =
