@@ -46,6 +46,7 @@ const Leads: React.FC = () => {
     zona_id: "",
     search: "",
   });
+  const [searchInput, setSearchInput] = React.useState("");
   const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
   const [reasignandoLead, setReasignandoLead] = React.useState<string | null>(null);
   const [convertirLeadSel, setConvertirLeadSel] = React.useState<Lead | null>(null);
@@ -53,10 +54,21 @@ const Leads: React.FC = () => {
   const [motivoReasignacion, setMotivoReasignacion] = React.useState("");
   const [zonaParaLead, setZonaParaLead] = React.useState<Record<string, string>>({});
 
+  // Búsqueda en vivo (debounced): el término se aplica 400 ms después de la
+  // última tecla para no disparar una consulta por cada pulsación.
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setFiltros((prev) => (prev.search === searchInput ? prev : { ...prev, search: searchInput }));
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   const { data, isLoading, refetch } = useLeads(undefined, {
     estado: filtros.estado || undefined,
     origen: filtros.origen || undefined,
     zona_id: filtros.zona_id || undefined,
+    search: filtros.search || undefined,
     page,
     limit: 10,
   });
@@ -150,8 +162,8 @@ const Leads: React.FC = () => {
               <input
                 type="text"
                 placeholder="Buscar por nombre, teléfono, email..."
-                value={filtros.search}
-                onChange={(e) => handleFiltroChange("search", e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

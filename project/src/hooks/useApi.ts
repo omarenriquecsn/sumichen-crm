@@ -1259,6 +1259,7 @@ export const useApi = () => {
   zona_id?: string;
   estado?: string;
   origen?: string;
+  search?: string;
   desde?: string;
   hasta?: string;
   page?: number;
@@ -1275,6 +1276,7 @@ export const useApi = () => {
         if (filtros?.zona_id) params.append("zona_id", filtros.zona_id);
         if (filtros?.estado) params.append("estado", filtros.estado);
         if (filtros?.origen) params.append("origen", filtros.origen);
+        if (filtros?.search) params.append("search", filtros.search);
         if (filtros?.desde) params.append("desde", filtros.desde);
         if (filtros?.hasta) params.append("hasta", filtros.hasta);
         if (filtros?.page) params.append("page", String(filtros.page));

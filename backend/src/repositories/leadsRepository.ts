@@ -9,6 +9,7 @@ export const getLeads = async (filtros: {
   zona_id?: string;
   estado?: string;
   origen?: string;
+  search?: string;
   desde?: Date;
   hasta?: Date;
   page?: number;
@@ -28,6 +29,23 @@ export const getLeads = async (filtros: {
   // Los leads perdidos solo los ven los admins (evita doble contacto).
   if (filtros.excluir_perdido) qb.andWhere('lead.estado != :perdido', { perdido: 'perdido' });
   if (filtros.origen) qb.andWhere('lead.origen = :origen', { origen: filtros.origen });
+  // Búsqueda de texto libre sobre los datos de contacto (nombre/apellido/email/teléfono).
+  if (filtros.search && filtros.search.trim()) {
+    const term = `%${filtros.search.trim()}%`;
+    const digitos = filtros.search.replace(/\D/g, '');
+    // Si el término trae dígitos, además se compara el teléfono normalizado
+    // (sin +/espacios/guiones) para que "58412..." encuentre "+58 412...".
+    const telefonoNormalizado = digitos.length >= 2
+      ? ` OR regexp_replace(COALESCE(lead.datos_contacto->>'telefono',''), '\\D', '', 'g') LIKE :digitos`
+      : '';
+    qb.andWhere(
+      `(COALESCE(lead.datos_contacto->>'nombre','') ILIKE :term
+        OR COALESCE(lead.datos_contacto->>'apellido','') ILIKE :term
+        OR COALESCE(lead.datos_contacto->>'email','') ILIKE :term
+        OR COALESCE(lead.datos_contacto->>'telefono','') ILIKE :term${telefonoNormalizado})`,
+      digitos.length >= 2 ? { term, digitos: `%${digitos}%` } : { term }
+    );
+  }
   if (filtros.desde) qb.andWhere('lead.fecha_creacion >= :desde', { desde: filtros.desde });
   if (filtros.hasta) qb.andWhere('lead.fecha_creacion <= :hasta', { hasta: filtros.hasta });
 
@@ -68,7 +86,7 @@ export const getLeadByTelefono = async (telefono: string) => {
   const sufijo = normalizado.slice(-10); // últimos 10 dígitos
   const lead = await repo
     .createQueryBuilder('lead')
-    .where(`regexp_replace(COALESCE(lead.datos_contacto->>'telefono',''), '\D', '', 'g') LIKE :sufijo`, {
+    .where(`regexp_replace(COALESCE(lead.datos_contacto->>'telefono',''), '\\D', '', 'g') LIKE :sufijo`, {
       sufijo: `%${sufijo}`,
     })
     .orderBy('lead.fecha_creacion', 'DESC')
