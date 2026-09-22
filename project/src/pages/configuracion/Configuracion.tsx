@@ -311,29 +311,36 @@ export const Configuracion: React.FC = () => {
           cambiado = true;
         }
       }
-      if (cambiado) prefsLocalesRef.current = next;
       return cambiado ? next : prev;
     });
   }, [prefs.preferencias]);
 
+  // Mantiene el ref sincronizado con el estado (fuente para armar el PUT).
+  useEffect(() => {
+    prefsLocalesRef.current = prefsLocales;
+  }, [prefsLocales]);
+
   const handleToggleEvento = async (evento: string, habilitado: boolean) => {
-    setPrefsLocales((prev) => {
-      const actualizado = { ...prev, [evento]: habilitado };
-      prefsLocalesRef.current = actualizado;
-      return actualizado;
-    });
+    // Actualiza el ref de forma SÍNCRONA (no dentro del updater de useState,
+    // que React puede ejecutar después): el payload del PUT se arma con el
+    // valor nuevo, no con el anterior.
+    const actualizado = { ...prefsLocalesRef.current, [evento]: habilitado };
+    prefsLocalesRef.current = actualizado;
+    setPrefsLocales(actualizado);
+
     const nuevas = EVENTOS_NOTIFICACIONES.map((e) => ({
       evento: e.evento,
-      habilitado: prefsLocalesRef.current[e.evento] ?? prefs.habilitado(e.evento),
+      habilitado:
+        e.evento === evento
+          ? habilitado
+          : actualizado[e.evento] ?? prefs.habilitado(e.evento),
     }));
     const res = await prefs.guardar(nuevas);
     if (!res.ok) {
       toast.error(res.error || "Error guardando preferencias.");
-      setPrefsLocales((prev) => {
-        const actualizado = { ...prev, [evento]: !habilitado };
-        prefsLocalesRef.current = actualizado;
-        return actualizado;
-      });
+      const revertido = { ...prefsLocalesRef.current, [evento]: !habilitado };
+      prefsLocalesRef.current = revertido;
+      setPrefsLocales(revertido);
     } else {
       toast.success("Preferencias de notificación actualizadas.");
     }
