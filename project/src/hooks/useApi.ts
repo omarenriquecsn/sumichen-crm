@@ -298,6 +298,7 @@ export const useApi = () => {
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+        queryClient.invalidateQueries({ queryKey: ["clientes"] });
       },
 
       onError: (error: unknown) => {

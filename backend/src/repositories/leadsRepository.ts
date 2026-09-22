@@ -243,7 +243,7 @@ export const getLeadsPorVencerSLA = async (horas: number) => {
   const limite = new Date(Date.now() - horas * 60 * 60 * 1000);
   return await repo.find({
     where: {
-      estado: In(['asignado', 'contactado'] as EstadoLeadEnum[]),
+      estado: In(['asignado', 'reasignado'] as EstadoLeadEnum[]),
       asignado_en: new Date(limite.getTime()) as any, // TypeORM no soporta < directamente en find, usar QB
     },
   });
@@ -274,9 +274,11 @@ export const getLeadsSLAVencido = async (horas: number) => {
   const limite = new Date(Date.now() - horas * 60 * 60 * 1000);
   // ⚠ Incluir 'reasignado': tras una reasignación el lead queda en ese estado
   // (con asignado_en reiniciado) y debe seguir monitoreándose para el nuevo vendedor.
+  // ⚠ NO incluir 'contactado': un lead ya atendido (el vendedor lo marcó en
+  // gestión desde "Atender por WhatsApp") no debe reasignarse por SLA.
   return await repo
     .createQueryBuilder('lead')
-    .where('lead.estado IN (:...estados)', { estados: ['asignado', 'contactado', 'reasignado'] })
+    .where('lead.estado IN (:...estados)', { estados: ['asignado', 'reasignado'] })
     .andWhere('lead.asignado_en < :limite', { limite })
     .andWhere('lead.ultima_actividad_en < :limite', { limite })
     // Los leads de proveedor/trabajo se asignan a un usuario específico y NO

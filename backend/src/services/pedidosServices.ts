@@ -25,7 +25,7 @@ import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 // import { sendWhatsappNotification } from '../utils/whatsapp';
 import dotenv from 'dotenv';
 import { getClientesByIdAuxiliar } from '../repositories/clientesRepository';
-import { updateCliente } from '../repositories/clientesRepository';
+import { updateClientesService } from './clientesServices';
 // import sendWhatsAppMessage from '../utils/sendWhatsapp';
 import { EstadoClienteEnum } from '../enums/EstadoClienteEnum';
 import { EtapaDeVentaEnum } from '../enums/EtapaDeVentaEnum';
@@ -128,9 +128,12 @@ export const createPedidosService = async (pedidoData: CrearPedidoDto) => {
 
   const cliente = await getClientesByIdAuxiliar(pedido.cliente_id);
   if (cliente && cliente.estado !== 'activo') {
-    cliente.estado = EstadoClienteEnum.ACTIVO;
-    cliente.etapa_venta = EtapaDeVentaEnum.CERRADO;
-    await updateCliente(cliente.id, cliente);
+    // Se pasa por el servicio para que registre estado_anterior y fecha_estado
+    // (la analítica cuenta como "nuevo cliente del mes" por esos campos).
+    await updateClientesService(cliente.id, {
+      estado: EstadoClienteEnum.ACTIVO,
+      etapa_venta: EtapaDeVentaEnum.CERRADO,
+    });
   }
 
   // const mensaje = `Nuevo pedido creado: Nro ${pedido.numero}, Cliente: ${cliente?.empresa}, Total: ${pedido.total}`;

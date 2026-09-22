@@ -326,7 +326,7 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 #### ⚠ Notas / deuda
 - El mapeo de estados por zona es **seed editable**; estados sin zona no aparecen en el menú. Zonas duplicadas (Guarenas/Guatire/Maracay sin estados) quedan fuera hasta configurarlas.
 - Los envíos de Meta dependen de `META_PHONE_ID`/`META_TOKEN` y de la ventana de 24h; el asistente no bloquea por eso.
-- El estado del lead `nuevo` mientras no elige estado NO lo monitorea el SLA (solo asignado/contactado/reasignado).
+- El estado del lead `nuevo` mientras no elige estado NO lo monitorea el SLA (solo asignado/reasignado; `contactado` se quitó en el Punto 38).
 
 ### Feature — Tipo de contacto en el asistente (Cliente/Proveedor/Busca trabajo) ✅ (30/08; build/lint/typecheck OK backend y frontend)
 
@@ -474,7 +474,7 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 2. **🔴 → ✅ RESUELTO — Confusión de ids (supabase_id vs id de tabla) en leads/conversaciones/mensajes.** `jwtHandler` ahora expone `req.user.vendedor_db_id` (id de tabla `vendedores.id`) al leer el perfil. Todos los filtros/ownership de vendedor en leads y conversaciones usan `reqUser.vendedor_db_id` (antes `reqUser.id` = supabase_id). `enviarMensaje`/`abrirConversacion` guardan `vendedor_db_id` como `remitente_id`/`vendedor_id` → el frontend `ChatVentana` (`esMio = msg.remitente_id === currentUser?.id`) ahora funciona. `recibirMensajeExternoService` ya guardaba `lead.vendedor_asignado_id` (id de tabla, correcto).
 3. **🔴 → ✅ RESUELTO — HMAC Meta roto.** `server.ts` captura el body crudo (`express.json({ verify })` → `req.rawBody`) y `validarHMACMeta` firma `req.rawBody` (bytes exactos del request), no `JSON.stringify(req.body)`.
 4. **🔴 → ✅ RESUELTO — Sin rate limiting.** Instalado `express-rate-limit`. Nuevo `middlewares/rateLimiter.ts` con `limiterPublico` (30 req/15min) para `POST /leads/web` y `limiterWebhook` (60 req/15min) para `POST /leads/instagram` y `POST /conversaciones/webhook/:leadId`.
-5. **🔴 → ✅ RESUELTO — SLA excluía `reasignado`.** `getLeadsSLAVencido` ahora monitorea `['asignado','contactado','reasignado']`. Las consultas de carga (`asignarLeadAutomatico` y `procesarSLAVencidos`) también cuentan `reasignado` como activo para reparto justo.
+5. **🔴 → ✅ RESUELTO — SLA excluía `reasignado`.** `getLeadsSLAVencido` ahora monitorea `['asignado','reasignado']` (⚠ `contactado` se quitó en el Punto 38: un lead ya atendido no se reasigna). Las consultas de carga (`asignarLeadAutomatico` y `procesarSLAVencidos`) siguen contando `contactado`/`reasignado` como activo para reparto justo.
 6. **🟡 → ✅ RESUELTO — `useLeads` (frontend) no enviaba `desde`/`hasta`.** Ahora el hook acepta `desde`/`hasta` en los filtros, los agrega a los query params y su tipo de retorno es `LeadsResponse` (`{ data: Lead[], total, page, limit, totalPages }`). El `MarketingDashboard` los envía y el filtro de fechas funciona. (Resuelto con el tipado del dashboard.)
 7. **🟡 → ✅ RESUELTO (21/08) — Selects de zonas/vendedores en `Leads.tsx` y `Zonas.tsx` eran placeholders** (opciones vacías con comentarios "vendrían de otro hook"). Se conectaron: `Zonas.tsx` usa `useVendedores` (lista de vendedores del backend) en el select de asignación y `useDesasignarVendedorZona` en el botón X de cada vendedor; `Leads.tsx` usa `useZonas` (select por lead para asignar + filtro por zona) y `useVendedores` en el modal de reasignar.
 8. **🟡 → ✅ RESUELTO (menor) — `enviarMensajeService` no validaba ownership.** Ahora recibe `reqUser` y rechaza (403) si un vendedor escribe en una conversación ajena (aislamiento de chat, igual que `getMensajesService`).
@@ -1306,3 +1306,20 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - Los `BACKUP_*` tienen defaults, así que funciona sin añadirlos al `.env` del VPS; `RESEND_API_KEY` y `MAINTENANCE_EMAIL` ya estaban.
 - Al desplegar, el espejo borrará de `backups/evidencias/` los archivos de dev que subió la prueba (no existen en el folder local del servidor) y subirá los reales.
 - Deploy: `.\deploy.ps1` (no requiere cambios; `crm-clean` ya está en `$Pm2Workers`).
+
+### Punto 38 — Un lead ya atendido (`contactado`) deja de reasignarse por SLA (22/09) ✅ (build/lint/typecheck OK backend)
+
+> **Resumen**: al tocar "Atender por WhatsApp" el lead pasa a `contactado` (atendido), pero el worker SLA seguía vigilándolo y lo reasignaba a las 12h sin actividad. Ese botón **no reasigna**; la reasignación la hacía `getLeadsSLAVencido`, que incluía `contactado` en los estados elegibles. Se quitó `contactado`: en cuanto un vendedor atiende un lead, deja de ser candidato a reasignación por SLA. Solo se reasignan los que siguen `asignado` (nunca atendidos) o `reasignado`.
+
+#### Cambios (solo backend, sin migración)
+- **`repositories/leadsRepository.ts` → `getLeadsSLAVencido`**: estados elegibles pasan de `['asignado', 'contactado', 'reasignado']` a `['asignado', 'reasignado']` (+ comentario explicando que `contactado` queda excluido a propósito).
+- **`repositories/leadsRepository.ts` → `getLeadsPorVencerSLA`** (código muerto): alineado a `['asignado', 'reasignado']` por consistencia.
+
+#### Decisiones / efectos
+- Los **conteos de carga** de `asignarLeadAutomatico` y `procesarSLAVencidos` **se mantienen** con `contactado`: un lead atendido sigue contando como trabajo activo del vendedor para el reparto de nuevos leads.
+- Un lead `contactado` ya no se reasigna aunque el vendedor lo abandone; solo sale del flujo si se **convierte** o se marca **perdido**.
+- `contactarLeadService` no se tocó: sigue marcando `contactado` la primera vez. El early-return para `contactado`/`calificado` ya no afecta al SLA (ese estado quedó fuera del monitor).
+
+#### Verificación
+- `npm run build`, `npm run typecheck` y `npm run lint` en `backend/` → OK (0 errores).
+- Deploy: recompilar/desplegar el backend (`npm run build`). No requiere migración.
