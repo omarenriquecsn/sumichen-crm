@@ -3,6 +3,10 @@ import { Layout } from "../../components/layout/Layout";
 import { useSupabase } from "../../hooks/useSupabase";
 import ProductosLogistica from "./ProductosLogistica";
 import InstrumentoMovimientoModal from "../../components/forms/InstrumentoMovimientoModal";
+import { MovimientoKardexTarjeta } from "../../components/ui/MovimientoKardexTarjeta";
+import { InstrumentoStockTarjeta } from "../../components/ui/InstrumentoStockTarjeta";
+import { ClienteInstrumentosTarjeta } from "../../components/ui/ClienteInstrumentosTarjeta";
+import { MovimientoInstrumentoTarjeta } from "../../components/ui/MovimientoInstrumentoTarjeta";
 import {
   AlertTriangle,
   Boxes,
@@ -187,7 +191,18 @@ const Logistica = () => {
             ))}
           </select>
 
-          <div className="overflow-x-auto bg-white rounded-xl border">
+          <div className="grid grid-cols-1 gap-3 lg:hidden">
+            {(kardex ?? []).map((m) => (
+              <MovimientoKardexTarjeta key={m.id} movimiento={m} />
+            ))}
+            {(kardex ?? []).length === 0 && (
+              <p className="text-center text-gray-500 py-6 bg-white rounded-xl border">
+                Sin movimientos.
+              </p>
+            )}
+          </div>
+
+          <div className="hidden lg:block overflow-x-auto bg-white rounded-xl border">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
@@ -266,7 +281,16 @@ const Logistica = () => {
             <h4 className="font-semibold text-gray-800 mb-2">
               Existencias por instrumento y almacén
             </h4>
-            <div className="overflow-x-auto bg-white rounded-xl border">
+            <div className="grid grid-cols-1 gap-3 lg:hidden">
+              {(stockInstrumentos ?? []).map((s) => (
+                <InstrumentoStockTarjeta
+                  key={`${s.tipo_instrumento_id}-${s.almacen}`}
+                  stock={s}
+                />
+              ))}
+            </div>
+
+            <div className="hidden lg:block overflow-x-auto bg-white rounded-xl border">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 text-gray-600">
                   <tr>
@@ -301,7 +325,18 @@ const Logistica = () => {
             <h4 className="font-semibold text-gray-800 mb-2">
               Clientes con instrumentos
             </h4>
-            <div className="overflow-x-auto bg-white rounded-xl border">
+            <div className="grid grid-cols-1 gap-3 lg:hidden">
+              {(instrumentosPorCliente ?? []).map((c) => (
+                <ClienteInstrumentosTarjeta key={c.cliente_id} cliente={c} />
+              ))}
+              {(instrumentosPorCliente ?? []).length === 0 && (
+                <p className="text-center text-gray-500 py-6 bg-white rounded-xl border">
+                  Ningún cliente tiene instrumentos.
+                </p>
+              )}
+            </div>
+
+            <div className="hidden lg:block overflow-x-auto bg-white rounded-xl border">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 text-gray-600">
                   <tr>
@@ -352,7 +387,18 @@ const Logistica = () => {
             <h4 className="font-semibold text-gray-800 mb-2">
               Kardex de instrumentos
             </h4>
-            <div className="overflow-x-auto bg-white rounded-xl border">
+            <div className="grid grid-cols-1 gap-3 lg:hidden">
+              {(kardexInstrumentos ?? []).map((m) => (
+                <MovimientoInstrumentoTarjeta key={m.id} movimiento={m} />
+              ))}
+              {(kardexInstrumentos ?? []).length === 0 && (
+                <p className="text-center text-gray-500 py-6 bg-white rounded-xl border">
+                  Sin movimientos.
+                </p>
+              )}
+            </div>
+
+            <div className="hidden lg:block overflow-x-auto bg-white rounded-xl border">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 text-gray-600">
                   <tr>

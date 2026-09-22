@@ -11,6 +11,7 @@ import { Request } from 'express';
 const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://localhost:5174',
   'https://crm-sumichen.vercel.app',
   'https://crm-sumichen-back.vercel.app',
   'https://crmsumichem.vps.webdock.cloud',
