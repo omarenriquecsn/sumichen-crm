@@ -4,10 +4,11 @@ import { useAuth } from "../../context/useAuth";
 import { useSupabase } from "../../hooks/useSupabase";
 import useVendedores from "../../hooks/useVendedores";
 import { toast } from "react-toastify";
-import { Users, MapPin, AlertCircle, CheckCircle, X, RotateCcw, ArrowRight, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, MapPin, AlertCircle, CheckCircle, X, RotateCcw, ArrowRight, Search, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { Lead, Zona, Vendedor, Campana } from "../../types";
 import ConvertirLeadModal from "../../components/forms/ConvertirLeadModal";
 import { BotonAtenderWhatsApp } from "../../components/ui/BotonAtenderWhatsApp";
+import VerMensajesLeadModal from "../../components/ui/VerMensajesLeadModal";
 
 const estadoColors: Record<string, string> = {
   nuevo: "bg-gray-100 text-gray-800",
@@ -53,6 +54,7 @@ const Leads: React.FC = () => {
   const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
   const [reasignandoLead, setReasignandoLead] = React.useState<string | null>(null);
   const [convertirLeadSel, setConvertirLeadSel] = React.useState<Lead | null>(null);
+  const [verMensajesLead, setVerMensajesLead] = React.useState<Lead | null>(null);
   const [nuevoVendedorId, setNuevoVendedorId] = React.useState("");
   const [motivoReasignacion, setMotivoReasignacion] = React.useState("");
   const [zonaParaLead, setZonaParaLead] = React.useState<Record<string, string>>({});
@@ -387,6 +389,12 @@ const Leads: React.FC = () => {
                   lead={lead}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700"
                 />
+                <button
+                  onClick={() => setVerMensajesLead(lead)}
+                  className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium"
+                >
+                  <MessageSquare className="h-3 w-3" /> Ver msjs
+                </button>
                 {lead.estado !== 'convertido' && lead.estado !== 'perdido' && (
                   <button
                     onClick={() => handlePerder(lead.id)}
@@ -521,6 +529,12 @@ const Leads: React.FC = () => {
                         lead={lead}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 whitespace-nowrap"
                       />
+                      <button
+                        onClick={() => setVerMensajesLead(lead)}
+                        className="text-blue-600 hover:text-blue-800 text-xs font-medium whitespace-nowrap"
+                      >
+                        <MessageSquare className="h-3 w-3 inline mr-1" /> Ver msjs
+                      </button>
                       {lead.estado !== 'convertido' && lead.estado !== 'perdido' && (
                         <button
                           onClick={() => handlePerder(lead.id)}
@@ -629,6 +643,13 @@ const Leads: React.FC = () => {
             refetch();
           }}
         />
+        {/* Modal Ver Mensajes */}
+        {verMensajesLead && (
+          <VerMensajesLeadModal
+            lead={verMensajesLead}
+            onClose={() => setVerMensajesLead(null)}
+          />
+        )}
       </div>
     </Layout>
   );
