@@ -49,7 +49,7 @@ const MarketingDashboard: React.FC = () => {
   const eliminarCampana = useEliminarCampana();
   const [fechaDesde, setFechaDesde] = React.useState(() => {
     const d = new Date();
-    d.setMonth(d.getMonth() - 1);
+    d.setDate(1);
     return toLocalDateStr(d);
   });
   const [fechaHasta, setFechaHasta] = React.useState(() => toLocalDateStr(new Date()));
@@ -190,8 +190,8 @@ const MarketingDashboard: React.FC = () => {
   };
 
   const { data, isLoading, refetch } = useLeads(undefined, {
-    desde: fechaDesde || undefined,
-    hasta: fechaHasta || undefined,
+    desde: fechaDesde ? new Date(`${fechaDesde}T00:00:00`).toISOString() : undefined,
+    hasta: fechaHasta ? new Date(`${fechaHasta}T23:59:59.999`).toISOString() : undefined,
     limit: 1000,
   });
 
