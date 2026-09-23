@@ -33,7 +33,6 @@ export const vendedorLinks: MenuLink[] = [
   { to: '/pedidos', icon: ShoppingCart, label: 'Pedidos' },
   { to: '/productos', icon: ShoppingCart, label: 'Productos' },
   { to: '/leads', icon: Users, label: 'Mis Leads' },
-  { to: '/chat', icon: MessageSquare, label: 'Chats' },
   { to: '/analitica', icon: BarChart3, label: 'Analítica' },
   { to: '/configuracion', icon: Settings, label: 'Configuración' },
 ];

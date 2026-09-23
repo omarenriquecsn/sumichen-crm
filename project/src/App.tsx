@@ -248,7 +248,7 @@ function App() {
               <Route
                 path="/chat"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="admin" redirectTo="/leads">
                     <ChatLista />
                   </ProtectedRoute>
                 }
@@ -256,7 +256,7 @@ function App() {
               <Route
                 path="/chat/:id"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="admin" redirectTo="/leads">
                     <ChatVentana />
                   </ProtectedRoute>
                 }
