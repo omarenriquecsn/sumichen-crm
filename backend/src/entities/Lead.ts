@@ -19,6 +19,7 @@ export enum OrigenLeadEnum {
   INSTAGRAM = 'instagram',
   WEB = 'web',
   WHATSAPP = 'whatsapp',
+  DESCONOCIDO = 'desconocido',
 }
 
 export enum TipoWebEnum {
@@ -76,6 +77,13 @@ export class Lead {
 
   @Column({ name: 'cliente_id', type: 'uuid', nullable: true })
   cliente_id: string | null;
+
+  /**
+   * Palabra clave de campaña detectada en el primer mensaje del lead. Null si
+   * el mensaje no coincidió con ninguna campaña configurada.
+   */
+  @Column({ name: 'palabra_clave', type: 'varchar', length: 255, nullable: true })
+  palabra_clave: string | null;
 
   @Column({ name: 'datos_contacto', type: 'jsonb' })
   datos_contacto: {

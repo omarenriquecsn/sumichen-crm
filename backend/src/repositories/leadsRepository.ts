@@ -9,6 +9,7 @@ export const getLeads = async (filtros: {
   zona_id?: string;
   estado?: string;
   origen?: string;
+  palabra_clave?: string;
   search?: string;
   desde?: Date;
   hasta?: Date;
@@ -29,6 +30,7 @@ export const getLeads = async (filtros: {
   // Los leads perdidos solo los ven los admins (evita doble contacto).
   if (filtros.excluir_perdido) qb.andWhere('lead.estado != :perdido', { perdido: 'perdido' });
   if (filtros.origen) qb.andWhere('lead.origen = :origen', { origen: filtros.origen });
+  if (filtros.palabra_clave) qb.andWhere('lead.palabra_clave = :palabra_clave', { palabra_clave: filtros.palabra_clave });
   // Búsqueda de texto libre sobre los datos de contacto (nombre/apellido/email/teléfono).
   if (filtros.search && filtros.search.trim()) {
     const term = `%${filtros.search.trim()}%`;

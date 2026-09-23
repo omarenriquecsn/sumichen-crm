@@ -5,7 +5,7 @@ import { useSupabase } from "../../hooks/useSupabase";
 import useVendedores from "../../hooks/useVendedores";
 import { toast } from "react-toastify";
 import { Users, MapPin, AlertCircle, CheckCircle, X, RotateCcw, ArrowRight, Search, ChevronLeft, ChevronRight } from "lucide-react";
-import { Lead, Zona, Vendedor } from "../../types";
+import { Lead, Zona, Vendedor, Campana } from "../../types";
 import ConvertirLeadModal from "../../components/forms/ConvertirLeadModal";
 import { BotonAtenderWhatsApp } from "../../components/ui/BotonAtenderWhatsApp";
 
@@ -23,6 +23,7 @@ const origenLabels: Record<string, string> = {
   instagram: "Instagram",
   web: "Web",
   whatsapp: "WhatsApp",
+  desconocido: "Desconocido",
 };
 
 const tipoWebLabels: Record<string, string> = {
@@ -36,13 +37,15 @@ const tipoWebLabels: Record<string, string> = {
 
 const Leads: React.FC = () => {
   const { userData } = useAuth();
-  const { useLeads, useAsignarLead, useReasignarLead, usePerderLead, useZonas } = useSupabase();
+  const { useLeads, useAsignarLead, useReasignarLead, usePerderLead, useZonas, useCampanas } = useSupabase();
   const { data: vendedores } = useVendedores();
   const { data: zonas } = useZonas();
+  const { data: campanas } = useCampanas();
   const [page, setPage] = React.useState(1);
   const [filtros, setFiltros] = React.useState({
     estado: "",
     origen: "",
+    palabra_clave: "",
     zona_id: "",
     search: "",
   });
@@ -67,6 +70,7 @@ const Leads: React.FC = () => {
   const { data, isLoading, refetch } = useLeads(undefined, {
     estado: filtros.estado || undefined,
     origen: filtros.origen || undefined,
+    palabra_clave: filtros.palabra_clave || undefined,
     zona_id: filtros.zona_id || undefined,
     search: filtros.search || undefined,
     page,
@@ -192,6 +196,19 @@ const Leads: React.FC = () => {
               <option value="instagram">Instagram</option>
               <option value="web">Web</option>
               <option value="whatsapp">WhatsApp</option>
+              <option value="desconocido">Desconocido</option>
+            </select>
+            <select
+              value={filtros.palabra_clave}
+              onChange={(e) => handleFiltroChange("palabra_clave", e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Todas las campañas</option>
+              {campanas?.map((c: Campana) => (
+                <option key={c.id} value={c.palabra_clave}>
+                  {c.palabra_clave}
+                </option>
+              ))}
             </select>
             <select
               value={filtros.zona_id}
@@ -289,6 +306,11 @@ const Leads: React.FC = () => {
                 {lead.tipo_web && (
                   <span className="inline-flex items-center px-2 py-1 rounded font-medium bg-gray-100 text-gray-700">
                     {tipoWebLabels[lead.tipo_web] || lead.tipo_web}
+                  </span>
+                )}
+                {lead.palabra_clave && (
+                  <span className="inline-flex items-center px-2 py-1 rounded font-medium bg-fuchsia-100 text-fuchsia-800">
+                    Campaña: {lead.palabra_clave}
                   </span>
                 )}
                 {lead.zona?.nombre && (
@@ -410,6 +432,11 @@ const Leads: React.FC = () => {
                     {lead.tipo_web && (
                       <span className="ml-1 inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
                         {tipoWebLabels[lead.tipo_web] || lead.tipo_web}
+                      </span>
+                    )}
+                    {lead.palabra_clave && (
+                      <span className="ml-1 inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-fuchsia-100 text-fuchsia-800">
+                        Campaña: {lead.palabra_clave}
                       </span>
                     )}
                   </td>

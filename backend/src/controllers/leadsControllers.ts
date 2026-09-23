@@ -20,6 +20,7 @@ export const getLeads = asyncHandler(async (req: Request, res: Response) => {
     zona_id: req.query.zona_id as string,
     estado: req.query.estado as string,
     origen: req.query.origen as string,
+    palabra_clave: req.query.palabra_clave as string,
     search: req.query.search as string,
     desde: req.query.desde ? new Date(req.query.desde as string) : undefined,
     hasta: req.query.hasta

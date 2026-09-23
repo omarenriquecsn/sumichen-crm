@@ -412,7 +412,7 @@ export type Mes = {
 
 // ===== MARKETING / LEADS / CHAT =====
 
-export type OrigenLead = 'instagram' | 'web' | 'whatsapp';
+export type OrigenLead = 'instagram' | 'web' | 'whatsapp' | 'desconocido';
 export type TipoWeb = 'cotizacion' | 'informacion' | 'soporte' | 'catalogo' | 'proveedor' | 'trabajo';
 export type CanalEntrada = 'instagram_boton' | 'web_formulario' | 'whatsapp_mensaje';
 export type EstadoLead =
@@ -433,6 +433,7 @@ export interface Lead {
   estado: EstadoLead;
   vendedor_asignado_id: string | null;
   cliente_id: string | null;
+  palabra_clave: string | null;
   datos_contacto: {
     nombre: string;
     apellido?: string;
@@ -518,6 +519,15 @@ export interface OpcionIntencion {
   numero: number;
   etiqueta: string;
   tipo_web: "cotizacion" | "informacion" | "soporte" | "catalogo";
+}
+
+export interface Campana {
+  id: string;
+  palabra_clave: string;
+  descripcion: string | null;
+  activa: boolean;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
 }
 
 export interface MenuBienvenida {

@@ -10,7 +10,9 @@ import {
 } from '../repositories/conversacionesRepository';
 import { createMensaje, mensajeExistePorWamid } from '../repositories/mensajesRepository';
 import { ApiError } from '../utils/ApiError';
-import { EstadoLeadEnum, CanalEntradaEnum, OrigenLeadEnum } from '../entities/Lead';
+import { EstadoLeadEnum, CanalEntradaEnum } from '../entities/Lead';
+import { getCampanas } from '../repositories/campanasRepository';
+import { detectarOrigenPorPalabras, detectarPalabraClave } from '../utils/deteccionCampanas';
 import { EstadoConversacionEnum, CanalConversacionEnum } from '../entities/Conversacion';
 import { RemitenteTipoEnum, TipoMensajeEnum } from '../entities/Mensaje';
 import { procesarAsistente } from './asistenteMenuServices';
@@ -138,12 +140,18 @@ const procesarMensajeWhatsApp = async (msg: any, value: any, _payload: any) => {
   }
 
   if (!lead) {
-    // Nuevo lead desde WhatsApp
+    // Nuevo lead desde WhatsApp. Se detecta el origen real (instagram/web/
+    // desconocido) y la palabra clave de campaña a partir del primer mensaje.
+    const campanasActivas = await getCampanas({ activa: true });
+    const origen = detectarOrigenPorPalabras(cuerpo);
+    const palabraClave = detectarPalabraClave(cuerpo, campanasActivas);
+
     lead = await createLead({
-      origen: OrigenLeadEnum.WHATSAPP,
+      origen,
       tipo_web: null,
       canal_entrada: CanalEntradaEnum.WHATSAPP_MENSAJE,
       estado: EstadoLeadEnum.NUEVO,
+      palabra_clave: palabraClave,
       datos_contacto: {
         nombre,
         telefono,
@@ -177,7 +185,7 @@ const procesarMensajeWhatsApp = async (msg: any, value: any, _payload: any) => {
       console.error('No se pudo enviar push de nuevo lead sin asignar:', err);
     }
 
-    return { wamid, leadId: lead.id, accion: 'lead_creado', nombre, telefono, mensaje: cuerpo };
+    return { wamid, leadId: lead.id, accion: 'lead_creado', nombre, telefono, mensaje: cuerpo, origen, palabra_clave: palabraClave };
   }
 
   // Lead existente

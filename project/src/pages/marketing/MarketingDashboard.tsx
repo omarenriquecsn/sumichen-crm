@@ -17,10 +17,17 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { Users, TrendingUp, Target, Clock, RefreshCw, Globe, Check, AlertCircle, MessageSquare, Bot, Plus, Trash2, Save } from "lucide-react";
-import { Lead, OpcionIntencion, Vendedor } from "../../types";
+import { Users, TrendingUp, Target, Clock, RefreshCw, Globe, Check, AlertCircle, MessageSquare, Bot, Plus, Trash2, Save, Megaphone } from "lucide-react";
+import { Lead, OpcionIntencion, Vendedor, Campana } from "../../types";
 
 const COLORS = ["#16A34A", "#2563EB", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"];
+
+const ORIGEN_META: Record<string, { label: string; color: string }> = {
+  instagram: { label: "Instagram", color: "#E1306C" },
+  web: { label: "Web", color: "#2563EB" },
+  whatsapp: { label: "WhatsApp", color: "#16A34A" },
+  desconocido: { label: "Desconocido", color: "#9CA3AF" },
+};
 
 const toLocalDateStr = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -32,10 +39,14 @@ interface PieLabelProps {
 }
 
 const MarketingDashboard: React.FC = () => {
-  const { useLeads, useMenuBienvenida, useActualizarMenuBienvenida } = useSupabase();
+  const { useLeads, useMenuBienvenida, useActualizarMenuBienvenida, useCampanas, useCrearCampana, useActualizarCampana, useEliminarCampana } = useSupabase();
   const { data: vendedores } = useUsuariosTodos();
   const { data: menuConfig, isLoading: menuLoading } = useMenuBienvenida();
   const actualizarMenu = useActualizarMenuBienvenida();
+  const { data: campanas } = useCampanas();
+  const crearCampana = useCrearCampana();
+  const actualizarCampana = useActualizarCampana();
+  const eliminarCampana = useEliminarCampana();
   const [fechaDesde, setFechaDesde] = React.useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -116,6 +127,68 @@ const MarketingDashboard: React.FC = () => {
     }));
   };
 
+  // Campañas publicitarias (palabras clave de origen)
+  const [nuevaCampana, setNuevaCampana] = React.useState({ palabra_clave: "", descripcion: "" });
+  const [campanaEdits, setCampanaEdits] = React.useState<Record<string, { palabra_clave: string; descripcion: string }>>({});
+
+  const valorCampana = (c: Campana) =>
+    campanaEdits[c.id] ?? { palabra_clave: c.palabra_clave, descripcion: c.descripcion || "" };
+
+  const setCampanaEdit = (c: Campana, patch: Partial<{ palabra_clave: string; descripcion: string }>) =>
+    setCampanaEdits((prev) => ({ ...prev, [c.id]: { ...valorCampana(c), ...patch } }));
+
+  const handleAgregarCampana = () => {
+    const palabra = nuevaCampana.palabra_clave.trim();
+    if (!palabra) {
+      toast.error("Escribe una palabra clave");
+      return;
+    }
+    crearCampana.mutate(
+      { palabra_clave: palabra, descripcion: nuevaCampana.descripcion.trim() || undefined },
+      {
+        onSuccess: () => {
+          toast.success("Campaña agregada");
+          setNuevaCampana({ palabra_clave: "", descripcion: "" });
+        },
+        onError: (err) => toast.error(err.message || "Error al crear la campaña"),
+      }
+    );
+  };
+
+  const handleGuardarCampana = (c: Campana) => {
+    const edit = campanaEdits[c.id];
+    if (!edit) return;
+    actualizarCampana.mutate(
+      { id: c.id, palabra_clave: edit.palabra_clave.trim(), descripcion: edit.descripcion.trim() || null },
+      {
+        onSuccess: () => {
+          toast.success("Campaña actualizada");
+          setCampanaEdits((prev) => {
+            const next = { ...prev };
+            delete next[c.id];
+            return next;
+          });
+        },
+        onError: (err) => toast.error(err.message || "Error al actualizar la campaña"),
+      }
+    );
+  };
+
+  const handleToggleCampana = (c: Campana) => {
+    actualizarCampana.mutate(
+      { id: c.id, activa: !c.activa },
+      { onError: (err) => toast.error(err.message || "Error al actualizar la campaña") }
+    );
+  };
+
+  const handleEliminarCampana = (c: Campana) => {
+    if (!window.confirm(`¿Eliminar la campaña "${c.palabra_clave}"?`)) return;
+    eliminarCampana.mutate(c.id, {
+      onSuccess: () => toast.success("Campaña eliminada"),
+      onError: (err) => toast.error(err.message || "Error al eliminar la campaña"),
+    });
+  };
+
   const { data, isLoading, refetch } = useLeads(undefined, {
     desde: fechaDesde || undefined,
     hasta: fechaHasta || undefined,
@@ -147,12 +220,23 @@ const MarketingDashboard: React.FC = () => {
 
   // Datos para gráficas
   const datosOrigen = Object.entries(leadsPorOrigen).map(([origen, valor]) => ({
-    origen: origen === "instagram" ? "Instagram" : "Web",
+    origen: ORIGEN_META[origen]?.label || origen,
     valor,
-    color: origen === "instagram" ? "#E1306C" : "#2563EB",
+    color: ORIGEN_META[origen]?.color || "#9CA3AF",
   }));
   const datosEstado = Object.entries(leadsPorEstado).map(([estado, valor]) => ({ estado, valor }));
   const datosZona = Object.entries(leadsPorZona).map(([zona, valor]) => ({ zona, valor }));
+
+  // Leads por palabra clave de campaña (incluye los que no coincidieron)
+  const sinPalabraClave = leads.filter((l) => !l.palabra_clave).length;
+  const datosPalabraClave = [
+    ...(campanas || []).map((c) => ({
+      palabra_clave: c.palabra_clave,
+      valor: leads.filter((l) => l.palabra_clave === c.palabra_clave).length,
+      activa: c.activa,
+    })),
+    { palabra_clave: "Sin palabra clave", valor: sinPalabraClave, activa: true },
+  ].sort((a, b) => b.valor - a.valor);
 
   // Leads por día (últimos 30 días)
   const leadsPorDia = leads.reduce((acc, l) => {
@@ -469,6 +553,99 @@ const MarketingDashboard: React.FC = () => {
           )}
         </div>
 
+        {/* Campañas publicitarias (palabras clave de origen) */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Megaphone className="h-5 w-5 text-purple-600" /> Campañas publicitarias — Palabras clave
+            </h3>
+            <p className="text-sm text-gray-500">
+              Si el <b>primer mensaje</b> de un lead de WhatsApp contiene una de estas palabras clave, el lead queda
+              atribuido a esa campaña. También se detecta el origen: <b>instagram</b> si menciona "instagram",{" "}
+              <b>web</b> si incluye "https"/"www"/"web", y <b>desconocido</b> si no coincide ninguna.
+            </p>
+          </div>
+
+          {/* Agregar campaña */}
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <input
+              value={nuevaCampana.palabra_clave}
+              onChange={(e) => setNuevaCampana((prev) => ({ ...prev, palabra_clave: e.target.value }))}
+              placeholder="Palabra clave (ej. promo verano)"
+              className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <input
+              value={nuevaCampana.descripcion}
+              onChange={(e) => setNuevaCampana((prev) => ({ ...prev, descripcion: e.target.value }))}
+              placeholder="Descripción (opcional, ej. Facebook julio)"
+              className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <button
+              onClick={handleAgregarCampana}
+              disabled={crearCampana.isPending}
+              className="flex items-center justify-center gap-2 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-sm font-medium shrink-0"
+            >
+              <Plus className="h-4 w-4" /> Agregar
+            </button>
+          </div>
+
+          {/* Lista de campañas */}
+          {!(campanas || []).length ? (
+            <p className="text-sm text-gray-400 py-4 text-center">Aún no hay campañas configuradas.</p>
+          ) : (
+            <div className="space-y-2">
+              {(campanas || []).map((c) => {
+                const edit = valorCampana(c);
+                const dirty =
+                  !!campanaEdits[c.id] &&
+                  (edit.palabra_clave !== c.palabra_clave || edit.descripcion !== (c.descripcion || ""));
+                return (
+                  <div key={c.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg bg-gray-50">
+                    <input
+                      value={edit.palabra_clave}
+                      onChange={(e) => setCampanaEdit(c, { palabra_clave: e.target.value })}
+                      className="w-full sm:flex-1 sm:min-w-0 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <input
+                      value={edit.descripcion}
+                      onChange={(e) => setCampanaEdit(c, { descripcion: e.target.value })}
+                      placeholder="Descripción"
+                      className="w-full sm:flex-1 sm:min-w-0 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <button
+                      onClick={() => handleGuardarCampana(c)}
+                      disabled={!dirty || actualizarCampana.isPending}
+                      className={`shrink-0 flex items-center justify-center gap-1 px-3 py-2 rounded text-sm font-medium ${
+                        dirty ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      }`}
+                      title="Guardar cambios"
+                    >
+                      <Save className="h-4 w-4" /> Guardar
+                    </button>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0 self-end sm:self-auto">
+                      <input
+                        type="checkbox"
+                        checked={c.activa}
+                        onChange={() => handleToggleCampana(c)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                      <span className="ml-2 text-xs text-gray-600">{c.activa ? "Activa" : "Inactiva"}</span>
+                    </label>
+                    <button
+                      onClick={() => handleEliminarCampana(c)}
+                      className="text-red-500 hover:text-red-700 shrink-0 self-end sm:self-auto"
+                      title="Eliminar campaña"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* KPIs Principales */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl shadow-lg p-6">
@@ -627,6 +804,22 @@ const MarketingDashboard: React.FC = () => {
             </div>
           </div>
 
+          {/* Leads por Palabra Clave - Bar */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Leads por Palabra Clave</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={datosPalabraClave.length > 0 ? datosPalabraClave : [{ palabra_clave: "Sin datos", valor: 0, activa: true }]}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="palabra_clave" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={60} />
+                  <YAxis />
+                  <Tooltip formatter={(valor) => [valor, "leads"]} />
+                  <Bar dataKey="valor" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           {/* Leads temporales - Line */}
           <div className="bg-white rounded-xl shadow-lg p-6 lg:col-span-2">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Leads por Día (últimos 30 días)</h3>
@@ -669,6 +862,18 @@ const MarketingDashboard: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+        {/* Contador por palabra clave de campaña */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Leads por Campaña (Palabra clave)</h3>
+          <div className="flex flex-wrap gap-4">
+            {datosPalabraClave.map((d) => (
+              <div key={d.palabra_clave} className="flex-1 min-w-[150px] bg-gray-50 p-4 rounded-lg text-center">
+                <p className="text-2xl font-bold text-gray-900">{d.valor}</p>
+                <p className="text-sm text-gray-500 break-words">{d.palabra_clave}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

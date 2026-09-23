@@ -1323,3 +1323,40 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 #### Verificación
 - `npm run build`, `npm run typecheck` y `npm run lint` en `backend/` → OK (0 errores).
 - Deploy: recompilar/desplegar el backend (`npm run build`). No requiere migración.
+
+### Punto 39 — Origen por palabras clave + campañas publicitarias por palabra clave (22/09) ✅ (build/lint/typecheck OK backend y frontend; migración pendiente de aplicar en dev)
+
+> **Resumen**: al crearse un lead **por WhatsApp** (primer mensaje) se detecta el **origen real** y la **palabra clave de campaña**. Origen (prioridad Instagram > Web > Desconocido): contiene "instagram" → `instagram`; si no, contiene "https"/"www"/"web" (esta última con límite de palabra) → `web`; si no → **`desconocido`** (valor nuevo del enum). La **palabra clave** se busca entre las campañas activas configuradas por el admin y se guarda en `leads.palabra_clave`. El dashboard de marketing (`/marketing`) tiene una sección de **campañas publicitarias** (alta/edición/activar/eliminar), **cuadros contadores por palabra clave** y un **gráfico de barras "Leads por Palabra Clave"**.
+
+#### Decisiones (confirmadas con el usuario)
+- Config en **tabla dedicada `campanas`** (no jsonb en menu_bienvenida).
+- Prioridad `Instagram > Web > Desconocido`.
+- Detección **solo en WhatsApp entrante** (web/Instagram ya llegan con origen fijo).
+- Se evalúa **solo en el primer mensaje** del lead (al crearse), nunca se sobrescribe.
+- `whatsapp` queda como valor legacy para datos históricos; los leads nuevos de WhatsApp pasan a `instagram`/`web`/`desconocido`.
+
+#### Backend
+- **Migración** `1787524220000-CampanasKeywordsSchema.ts` (idempotente): agrega `'desconocido'` a `leads_origen_enum` (check en `pg_enum`), `leads.palabra_clave varchar(255)` e índice, y crea la tabla `campanas` (`id`, `palabra_clave` UNIQUE, `descripcion`, `activa`, fechas) + índice. ⚠ **Aplicar en dev** compilando (`npm run build`) y arrancando el backend una vez.
+- **Entidad** `Campana.ts`; registrada en `dataBaseConfig.ts`. `Lead.ts`: `OrigenLeadEnum.DESCONOCIDO` + columna `palabra_clave`.
+- **Módulo `/campanas`** (routes→controller→service→repository): `GET /campanas` (JWT), `POST/PUT/DELETE /campanas/:id` (solo admin con `esAdmin`). Valida palabra no vacía y unicidad.
+- **Util** `utils/deteccionCampanas.ts`: `normalizarTexto` (minúsculas + sin tildes), `detectarOrigenPorPalabras(texto)` y `detectarPalabraClave(texto, campanas)` (prioriza la palabra más larga).
+- **Webhook** `services/whatsappWebhookServices.ts`: en la rama de **lead nuevo** calcula `origen` y `palabraClave` (cargando `getCampanas({activa:true})`) y los guarda en `createLead`. El resto del flujo (asistente, push, mensajes) no cambia.
+- **Filtro** `palabra_clave` en `repositories/leadsRepository.getLeads` + `controllers/leadsControllers.getLeads` (query param).
+- **Export** `utils/exportLeads.ts`: nueva columna "Palabra Clave".
+
+#### Frontend
+- **`types/index.ts`**: `OrigenLead` agrega `'desconocido'`; `Lead.palabra_clave`; nueva interfaz `Campana`.
+- **`hooks/useApi.ts`**: `useCampanas`, `useCrearCampana`, `useActualizarCampana`, `useEliminarCampana` (query `["campanas"]`, invalidan al mutar); filtro `palabra_clave` en `useLeads`. Exportados.
+- **`pages/marketing/MarketingDashboard.tsx`**: sección "Campañas publicitarias — Palabras clave" (agregar + editar con guardar por fila + toggle activa + eliminar), cuadros contadores "Leads por Campaña (Palabra clave)" (incluye "Sin palabra clave") y gráfico de barras "Leads por Palabra Clave". "Leads por Origen" ahora usa `ORIGEN_META` (Instagram/Web/WhatsApp/Desconocido con color propio).
+- **`pages/leads/Leads.tsx`**: label `desconocido`, badge "Campaña: X" en tarjeta y tabla, y select de filtro "Todas las campañas" (poblado con `useCampanas`).
+
+#### Cómo probar
+- Aplicar la migración (compilar + arrancar backend). En `/marketing` crear una campaña (ej. `promo verano`).
+- Simular `POST /webhook/whatsapp` con teléfono nuevo cuyo primer mensaje contenga la palabra clave → verificar `origen` y `palabra_clave` en `leads`; otro teléfono sin palabras → `origen = desconocido`.
+- En `/leads` filtrar por campaña; en `/marketing` ver contadores y gráfico.
+
+#### ⚠ Notas / deuda
+- La detección es por **texto del mensaje**; aún no se leen los `referral` de Click-to-WhatsApp de Meta (mejora futura).
+- `web` se detecta con límite de palabra para no capturar "webinar"; `https`/`www` son subcadena.
+- Solo se evalúa al crear el lead: un lead existente que luego mencione una campaña no se re-atribuye.
+

@@ -24,6 +24,7 @@ import utilidadesRoutes from './utilidadesRoutes';
 import firmaRoutes from './firmaRoutes';
 import correosRoutes from './correosRoutes';
 import googleAuthRoutes from './googleAuthRoutes';
+import campanasRoutes from './campanasRoutes';
 
 // import turnRoutes from "./turnRoutes"
 const router: Router = Router();
@@ -53,5 +54,6 @@ router.use('/', utilidadesRoutes);
 router.use('/', firmaRoutes);
 router.use('/', correosRoutes);
 router.use('/', googleAuthRoutes);
+router.use('/', campanasRoutes);
 
 export default router;
