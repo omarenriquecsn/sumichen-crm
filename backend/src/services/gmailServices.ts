@@ -25,6 +25,8 @@ export interface EnviarCorreoGmailParams {
   googleEmail: string;
   refreshToken: string;
   to: string;
+  cc?: string[];
+  cco?: string[];
   asunto: string;
   html: string;
   firma?: { buffer: Buffer; mime: string; ext: string } | null;
@@ -46,6 +48,8 @@ export const enviarCorreoConGmail = async ({
   googleEmail,
   refreshToken,
   to,
+  cc = [],
+  cco = [],
   asunto,
   html,
   firma,
@@ -74,6 +78,8 @@ export const enviarCorreoConGmail = async ({
   const composer = new MailComposer({
     from: { name: nombreCompleto || googleEmail, address: googleEmail },
     to,
+    ...(cc.length ? { cc } : {}),
+    ...(cco.length ? { bcc: cco } : {}),
     subject: asunto || 'Contacto desde Sumichem',
     html,
     attachments: [

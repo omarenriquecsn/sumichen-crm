@@ -1056,6 +1056,7 @@ Una página: cabecera con RIF/nombre/dirección del cliente, cotización, fechas
 - Para cualquier cambio de API: seguir el patrón routes → controllers → services → repositories → entity.
 - Para cambios de UI: mantener Tailwind + MUI y el patrón de hooks agregadores + React Query.
 - **Punto 37 / Respaldo diario (DB + evidencias) a Supabase Storage + correo** ✅ (18/09): `ejecutarBackup()` en `services/backupServices.ts` corre dentro de `crm-clean` a las **03:30**; sube el `pg_dump` a `backups/db/` (retención **7 diarios + 4 semanales**), lo adjunta por correo (Resend) y hace **espejo incremental** de las evidencias a `backups/evidencias/`. Restore con `node build/scripts/restoreBackup.js --list` / `[fecha] --yes`. Env `BACKUP_*`. Ver Punto 37 en §8.
+- **Punto 40 / CC/CCO manual al enviar correo a clientes** ✅ (25/09): el modal "Nuevo mensaje" ahora tiene campos **CC** y **CCO** funcionales (texto libre separado por comas); el backend los valida y los envía por Gmail (`cc`/`bcc`) o Resend (`cc`/`bcc`). **Sin tabla de contactos ni migración** (decisión del usuario). Ver Punto 40 en §8.
 ### Punto 27 � Firma en Configuraci�n + correo al cliente v�a Resend con adjuntos (01/09) ? (build/lint/typecheck OK backend y frontend)
 
 > **Resumen**: (1) cada vendedor/admin sube desde **Configuraci�n ? Perfil** una **imagen de firma/logo �nica** (subir otra la sustituye; se identifica por el id de la tabla endedores). (2) El bot�n **"Enviar Email"** del detalle de cliente ya NO abre Gmail/mailto (cuerpo de texto plano que no renderiza im�genes): ahora abre un **modal de redacci�n estilo Gmail** (ComponerCorreoModal) con editor enriquecido (Quill) y **adjuntos**, y el backend env�a el correo **desde el servidor v�a Resend** con cuerpo HTML que incrusta la firma del vendedor como <img> en el pie (por eso s� se ve la imagen).
@@ -1359,4 +1360,27 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - La detección es por **texto del mensaje**; aún no se leen los `referral` de Click-to-WhatsApp de Meta (mejora futura).
 - `web` se detecta con límite de palabra para no capturar "webinar"; `https`/`www` son subcadena.
 - Solo se evalúa al crear el lead: un lead existente que luego mencione una campaña no se re-atribuye.
+
+### Punto 40 — CC/CCO manual al enviar correo a clientes (sin tabla de contactos) ✅ (build/lint/typecheck OK backend y frontend)
+
+> **Resumen**: el modal "Nuevo mensaje" (`ComponerCorreoModal`) ahora tiene campos **CC** y **CCO** funcionales (antes solo eran etiquetas decorativas "C"/"CCO"). El vendedor escribe los correos a mano, separados por coma o punto y coma. Las copias se envían de verdad por **Gmail API** (`cc`/`bcc` del `MailComposer`) o por **Resend** (`cc`/`bcc`). **No se creó tabla de contactos ni migración**: decisión del usuario (todo manual).
+
+#### Backend (3 archivos)
+- **`controllers/correosControllers.ts`**: lee `cc` y `cco` del body y los pasa a `enviarCorreoCliente`.
+- **`services/correosServices.ts`**: `EnviarCorreoParams` con `cc?`/`cco?`; helper `parsearDestinatarios(texto, etiqueta)` (separa por `,`/`;`, recorta, valida con `REGEX_EMAIL`, tope `LIMITE_COPIAS = 20` por campo; lanza `ApiError 400` con mensaje claro si hay correo inválido o se supera el tope). En la rama **Resend** agrega `cc`/`bcc` solo si hay destinatarios; en la rama **Gmail** pasa `cc`/`cco`.
+- **`services/gmailServices.ts`**: `EnviarCorreoGmailParams` con `cc?: string[]`/`cco?: string[]`; agrega `cc`/`bcc` al `MailComposer` solo si hay destinatarios.
+
+#### Frontend (2 archivos)
+- **`hooks/useEnviarCorreo.ts`**: `EnviarCorreoArgs` con `cc?`/`cco?`; se hacen `append` al `FormData` solo si vienen con valor.
+- **`components/forms/ComponerCorreoModal.tsx`**: filas **CC** ("correo1@x.com, correo2@y.com") y **CCO** ("Copia oculta (separa con comas)") debajo de "Para"; estado `cc`/`cco`; se envían en `handleEnviar` y se limpian tras el envío exitoso. Sin selector de contactos (manual).
+
+#### Cómo probar
+- En el detalle de un cliente → "Enviar Email" → escribir uno o varios correos en CC (y CCO) separados por comas → enviar.
+- Verificar que las copias llegan y que en Gmail el correo queda en "Enviados". Probar un correo inválido en CC → el backend responde 400 con el mensaje.
+- No requiere migración. Deploy: recompilar/reiniciar backend y subir `dist/` del frontend.
+
+#### ⚠ Notas / deuda
+- No existe **agenda de contactos** (se evaluó y se descartó): ella escribe los correos manualmente cada vez.
+- El campo "Para" sigue fijo a `cliente.email`; solo se habilitaron CC/CCO.
+- Límite de 20 destinatarios por campo (backend).
 

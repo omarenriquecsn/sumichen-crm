@@ -5,6 +5,8 @@ const URL = (import.meta.env.VITE_BACKEND_URL ?? "").toString();
 
 export interface EnviarCorreoArgs {
   to: string;
+  cc?: string;
+  cco?: string;
   asunto: string;
   cuerpo: string;
   adjuntos?: File[];
@@ -19,10 +21,12 @@ export function useEnviarCorreo() {
   const queryClient = useQueryClient();
 
   return useMutation<{ message: string; id?: string }, Error, EnviarCorreoArgs>({
-    mutationFn: async ({ to, asunto, cuerpo, adjuntos = [] }) => {
+    mutationFn: async ({ to, cc, cco, asunto, cuerpo, adjuntos = [] }) => {
       if (!session?.access_token) throw new Error("Sin token");
       const formData = new FormData();
       formData.append("to", to);
+      if (cc?.trim()) formData.append("cc", cc.trim());
+      if (cco?.trim()) formData.append("cco", cco.trim());
       formData.append("asunto", asunto);
       formData.append("cuerpo", cuerpo);
       for (const file of adjuntos) {

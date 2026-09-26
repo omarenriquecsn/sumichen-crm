@@ -34,6 +34,8 @@ export interface AdjuntoCorreo {
 export interface EnviarCorreoParams {
   vendedorDbId: string;
   to: string;
+  cc?: string;
+  cco?: string;
   asunto: string;
   cuerpoHtml: string;
   adjuntos?: AdjuntoCorreo[];
@@ -41,6 +43,32 @@ export interface EnviarCorreoParams {
 
 const LIMITE_ADJUNTOS = 10;
 const LIMITE_TOTAL_ADJUNTOS = 20 * 1024 * 1024; // 20 MB en total
+const LIMITE_COPIAS = 20; // máximo de destinatarios por CC/CCO
+
+const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Divide el texto de CC/CCO (correos separados por coma o punto y coma) en una
+ * lista de direcciones válidas. Lanza ApiError 400 si alguna no tiene formato de
+ * correo o si se supera el máximo permitido.
+ */
+const parsearDestinatarios = (texto: string | undefined, etiqueta: string): string[] => {
+  if (!texto) return [];
+  const partes = texto
+    .split(/[,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!partes.length) return [];
+  if (partes.length > LIMITE_COPIAS) {
+    throw new ApiError(`Máximo ${LIMITE_COPIAS} destinatarios en ${etiqueta}`, 400);
+  }
+  for (const correo of partes) {
+    if (!REGEX_EMAIL.test(correo)) {
+      throw new ApiError(`Correo inválido en ${etiqueta}: "${correo}"`, 400);
+    }
+  }
+  return partes;
+};
 
 /** Normaliza el nombre para el local-part del email: minúsculas, sin tildes,
  *  sin espacios (→ puntos), sin caracteres especiales. */
@@ -118,6 +146,8 @@ const armarHtmlConPie = (
 export const enviarCorreoCliente = async ({
   vendedorDbId,
   to,
+  cc,
+  cco,
   asunto,
   cuerpoHtml,
   adjuntos = [],
@@ -125,6 +155,9 @@ export const enviarCorreoCliente = async ({
   if (!to) {
     throw new ApiError('El destinatario (to) es obligatorio', 400);
   }
+
+  const destinatariosCc = parsearDestinatarios(cc, 'CC');
+  const destinatariosCco = parsearDestinatarios(cco, 'CCO');
 
   if (adjuntos.length > LIMITE_ADJUNTOS) {
     throw new ApiError(`Máximo ${LIMITE_ADJUNTOS} archivos adjuntos por correo`, 400);
@@ -158,6 +191,8 @@ export const enviarCorreoCliente = async ({
       googleEmail: vendedor.google_email,
       refreshToken: vendedor.google_refresh_token,
       to,
+      cc: destinatariosCc,
+      cco: destinatariosCco,
       asunto: asunto || 'Contacto desde Sumichem',
       html,
       firma,
@@ -192,6 +227,8 @@ export const enviarCorreoCliente = async ({
   const { data, error } = await resend.emails.send({
     from,
     to,
+    ...(destinatariosCc.length ? { cc: destinatariosCc } : {}),
+    ...(destinatariosCco.length ? { bcc: destinatariosCco } : {}),
     subject: asunto || 'Contacto desde Sumichem',
     html,
     attachments: [
