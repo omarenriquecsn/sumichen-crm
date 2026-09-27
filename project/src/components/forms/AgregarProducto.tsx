@@ -68,12 +68,15 @@ const AgregarProducto = () => {
             </div>
             <div>
               <label className="block text-gray-700 font-medium mb-1">
-                Precio Unitario
+                Precio Base
               </label>
               <input
                 type="number"
                 name="precio_base"
+                value={formData.precio_base}
                 onChange={handleChange}
+                min="0"
+                step="0.0001"
                 className="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mt-2"
                 placeholder="Precio del producto"
                 required

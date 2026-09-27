@@ -2,7 +2,7 @@ import React from "react";
 import { toast } from "react-toastify";
 import { X, UserPlus, ShoppingCart } from "lucide-react";
 import { useSupabase } from "../../hooks/useSupabase";
-import { Lead } from "../../types";
+import { Lead, CustomerSector } from "../../types";
 
 interface ConvertirLeadModalProps {
   lead: Lead | null;
@@ -21,7 +21,6 @@ const ConvertirLeadModal: React.FC<ConvertirLeadModalProps> = ({ lead, onClose, 
     telefono: "",
     empresa: "",
     direccion: "",
-    ciudad: "",
     direccion_entrega: "",
     google_maps: "",
     sector: "",
@@ -39,7 +38,6 @@ const ConvertirLeadModal: React.FC<ConvertirLeadModalProps> = ({ lead, onClose, 
         telefono: lead.datos_contacto?.telefono || "",
         empresa: lead.datos_contacto?.nombre || "",
         direccion: (md.direccion as string) || "",
-        ciudad: (md.ciudad as string) || "",
         direccion_entrega: (md.direccion_entrega as string) || "",
         google_maps: (md.google_maps as string) || "",
         sector: (md.sector as string) || "",
@@ -66,7 +64,6 @@ const ConvertirLeadModal: React.FC<ConvertirLeadModalProps> = ({ lead, onClose, 
       telefono: form.telefono.trim(),
       empresa: form.empresa.trim() || form.nombre.trim(),
       direccion: form.direccion.trim() || undefined,
-      ciudad: form.ciudad.trim() || undefined,
       direccion_entrega: form.direccion_entrega.trim() || undefined,
       google_maps: form.google_maps.trim() || undefined,
       sector: form.sector.trim() || undefined,
@@ -167,23 +164,19 @@ const ConvertirLeadModal: React.FC<ConvertirLeadModalProps> = ({ lead, onClose, 
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Ciudad</label>
-              <input
-                type="text"
-                value={form.ciudad}
-                onChange={(e) => set("ciudad", e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Sector</label>
-              <input
-                type="text"
+              <select
                 value={form.sector}
                 onChange={(e) => set("sector", e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ej: Construcción, Farmacéutico, Alimenticio"
-              />
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Seleccione un sector (Opcional)</option>
+                {Object.values(CustomerSector).map((sector) => (
+                  <option key={sector} value={sector}>
+                    {sector}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-gray-500 mb-1">Dirección de entrega</label>
@@ -195,7 +188,9 @@ const ConvertirLeadModal: React.FC<ConvertirLeadModalProps> = ({ lead, onClose, 
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Notas</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Notas <span className="text-gray-400">(si lo dejas vacío se marcará como cliente proveniente de marketing)</span>
+              </label>
               <textarea
                 value={form.notas}
                 onChange={(e) => set("notas", e.target.value)}

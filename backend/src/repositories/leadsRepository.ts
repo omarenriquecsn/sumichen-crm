@@ -198,7 +198,9 @@ export const reasignarLead = async (leadId: string, nuevoVendedorId: string | nu
 export const convertirLeadACliente = async (leadId: string, datos?: any) => {
   const leadRepo = AppDataSource.getRepository(Lead);
   const clienteRepo = AppDataSource.getRepository('clientes');
-  const lead = await leadRepo.findOne({ where: { id: leadId } });
+  // Se carga la zona para usar su nombre como ciudad del cliente (la zona que
+  // eligió el lead en el asistente de bienvenida).
+  const lead = await leadRepo.findOne({ where: { id: leadId }, relations: ['zona'] });
   if (!lead) throw new Error('Lead no encontrado');
 
   const cliente = clienteRepo.create({
@@ -209,14 +211,18 @@ export const convertirLeadACliente = async (leadId: string, datos?: any) => {
     email: datos?.email || lead.datos_contacto.email || '',
     telefono: datos?.telefono || lead.datos_contacto.telefono,
     empresa: datos?.empresa || lead.datos_contacto.nombre,
-    estado: datos?.estado || 'activo',
+    // Un lead convertido nace como prospecto hasta que cierre una venta.
+    estado: datos?.estado || 'prospecto',
     etapa_venta: datos?.etapa_venta || 'inicial',
     direccion: datos?.direccion || lead.metadata?.direccion || '',
-    ciudad: datos?.ciudad || lead.metadata?.ciudad || '',
+    // La ciudad es la zona que eligió el lead; si el lead no tiene zona
+    // (proveedor/trabajo) se usa el valor manual o el de metadata.
+    ciudad: lead.zona?.nombre || datos?.ciudad || lead.metadata?.ciudad || '',
     direccion_entrega: datos?.direccion_entrega || undefined,
     google_maps: datos?.google_maps || undefined,
     sector: datos?.sector ?? lead.metadata?.sector ?? null,
-    notas: datos?.notas || undefined,
+    // Si el usuario no escribió notas, se marca el origen del cliente.
+    notas: datos?.notas?.trim() || 'Cliente proveniente de marketing',
   });
 
   const clienteGuardado = await clienteRepo.save(cliente);
