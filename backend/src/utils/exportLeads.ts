@@ -14,6 +14,7 @@ async function exportLeadsToExcel() {
 
   sheet.columns = [
     { header: 'Origen', key: 'origen', width: 12 },
+    { header: 'Palabra Clave', key: 'palabra_clave', width: 20 },
     { header: 'Tipo de Solicitud', key: 'tipo_web', width: 15 },
     { header: 'Canal de Entrada', key: 'canal_entrada', width: 20 },
     { header: 'Estado', key: 'estado', width: 12 },
@@ -39,6 +40,7 @@ async function exportLeadsToExcel() {
 
     sheet.addRow({
       origen: lead.origen,
+      palabra_clave: lead.palabra_clave || 'N/A',
       tipo_web: lead.tipo_web || 'N/A',
       canal_entrada: lead.canal_entrada,
       estado: lead.estado,

@@ -326,7 +326,7 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 #### ⚠ Notas / deuda
 - El mapeo de estados por zona es **seed editable**; estados sin zona no aparecen en el menú. Zonas duplicadas (Guarenas/Guatire/Maracay sin estados) quedan fuera hasta configurarlas.
 - Los envíos de Meta dependen de `META_PHONE_ID`/`META_TOKEN` y de la ventana de 24h; el asistente no bloquea por eso.
-- El estado del lead `nuevo` mientras no elige estado NO lo monitorea el SLA (solo asignado/contactado/reasignado).
+- El estado del lead `nuevo` mientras no elige estado NO lo monitorea el SLA (solo asignado/reasignado; `contactado` se quitó en el Punto 38).
 
 ### Feature — Tipo de contacto en el asistente (Cliente/Proveedor/Busca trabajo) ✅ (30/08; build/lint/typecheck OK backend y frontend)
 
@@ -474,7 +474,7 @@ Sesión enfocada en probar WhatsApp local (Cloudflare tunnel) y corregir bugs de
 2. **🔴 → ✅ RESUELTO — Confusión de ids (supabase_id vs id de tabla) en leads/conversaciones/mensajes.** `jwtHandler` ahora expone `req.user.vendedor_db_id` (id de tabla `vendedores.id`) al leer el perfil. Todos los filtros/ownership de vendedor en leads y conversaciones usan `reqUser.vendedor_db_id` (antes `reqUser.id` = supabase_id). `enviarMensaje`/`abrirConversacion` guardan `vendedor_db_id` como `remitente_id`/`vendedor_id` → el frontend `ChatVentana` (`esMio = msg.remitente_id === currentUser?.id`) ahora funciona. `recibirMensajeExternoService` ya guardaba `lead.vendedor_asignado_id` (id de tabla, correcto).
 3. **🔴 → ✅ RESUELTO — HMAC Meta roto.** `server.ts` captura el body crudo (`express.json({ verify })` → `req.rawBody`) y `validarHMACMeta` firma `req.rawBody` (bytes exactos del request), no `JSON.stringify(req.body)`.
 4. **🔴 → ✅ RESUELTO — Sin rate limiting.** Instalado `express-rate-limit`. Nuevo `middlewares/rateLimiter.ts` con `limiterPublico` (30 req/15min) para `POST /leads/web` y `limiterWebhook` (60 req/15min) para `POST /leads/instagram` y `POST /conversaciones/webhook/:leadId`.
-5. **🔴 → ✅ RESUELTO — SLA excluía `reasignado`.** `getLeadsSLAVencido` ahora monitorea `['asignado','contactado','reasignado']`. Las consultas de carga (`asignarLeadAutomatico` y `procesarSLAVencidos`) también cuentan `reasignado` como activo para reparto justo.
+5. **🔴 → ✅ RESUELTO — SLA excluía `reasignado`.** `getLeadsSLAVencido` ahora monitorea `['asignado','reasignado']` (⚠ `contactado` se quitó en el Punto 38: un lead ya atendido no se reasigna). Las consultas de carga (`asignarLeadAutomatico` y `procesarSLAVencidos`) siguen contando `contactado`/`reasignado` como activo para reparto justo.
 6. **🟡 → ✅ RESUELTO — `useLeads` (frontend) no enviaba `desde`/`hasta`.** Ahora el hook acepta `desde`/`hasta` en los filtros, los agrega a los query params y su tipo de retorno es `LeadsResponse` (`{ data: Lead[], total, page, limit, totalPages }`). El `MarketingDashboard` los envía y el filtro de fechas funciona. (Resuelto con el tipado del dashboard.)
 7. **🟡 → ✅ RESUELTO (21/08) — Selects de zonas/vendedores en `Leads.tsx` y `Zonas.tsx` eran placeholders** (opciones vacías con comentarios "vendrían de otro hook"). Se conectaron: `Zonas.tsx` usa `useVendedores` (lista de vendedores del backend) en el select de asignación y `useDesasignarVendedorZona` en el botón X de cada vendedor; `Leads.tsx` usa `useZonas` (select por lead para asignar + filtro por zona) y `useVendedores` en el modal de reasignar.
 8. **🟡 → ✅ RESUELTO (menor) — `enviarMensajeService` no validaba ownership.** Ahora recibe `reqUser` y rechaza (403) si un vendedor escribe en una conversación ajena (aislamiento de chat, igual que `getMensajesService`).
@@ -1056,6 +1056,7 @@ Una página: cabecera con RIF/nombre/dirección del cliente, cotización, fechas
 - Para cualquier cambio de API: seguir el patrón routes → controllers → services → repositories → entity.
 - Para cambios de UI: mantener Tailwind + MUI y el patrón de hooks agregadores + React Query.
 - **Punto 37 / Respaldo diario (DB + evidencias) a Supabase Storage + correo** ✅ (18/09): `ejecutarBackup()` en `services/backupServices.ts` corre dentro de `crm-clean` a las **03:30**; sube el `pg_dump` a `backups/db/` (retención **7 diarios + 4 semanales**), lo adjunta por correo (Resend) y hace **espejo incremental** de las evidencias a `backups/evidencias/`. Restore con `node build/scripts/restoreBackup.js --list` / `[fecha] --yes`. Env `BACKUP_*`. Ver Punto 37 en §8.
+- **Punto 40 / CC/CCO manual al enviar correo a clientes** ✅ (25/09): el modal "Nuevo mensaje" ahora tiene campos **CC** y **CCO** funcionales (texto libre separado por comas); el backend los valida y los envía por Gmail (`cc`/`bcc`) o Resend (`cc`/`bcc`). **Sin tabla de contactos ni migración** (decisión del usuario). Ver Punto 40 en §8.
 ### Punto 27 � Firma en Configuraci�n + correo al cliente v�a Resend con adjuntos (01/09) ? (build/lint/typecheck OK backend y frontend)
 
 > **Resumen**: (1) cada vendedor/admin sube desde **Configuraci�n ? Perfil** una **imagen de firma/logo �nica** (subir otra la sustituye; se identifica por el id de la tabla endedores). (2) El bot�n **"Enviar Email"** del detalle de cliente ya NO abre Gmail/mailto (cuerpo de texto plano que no renderiza im�genes): ahora abre un **modal de redacci�n estilo Gmail** (ComponerCorreoModal) con editor enriquecido (Quill) y **adjuntos**, y el backend env�a el correo **desde el servidor v�a Resend** con cuerpo HTML que incrusta la firma del vendedor como <img> en el pie (por eso s� se ve la imagen).
@@ -1307,7 +1308,84 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - Al desplegar, el espejo borrará de `backups/evidencias/` los archivos de dev que subió la prueba (no existen en el folder local del servidor) y subirá los reales.
 - Deploy: `.\deploy.ps1` (no requiere cambios; `crm-clean` ya está en `$Pm2Workers`).
 
-### Punto 38 — Inventario por lotes/almacenes + devoluciones + edición de pedidos ⏸️ (18/09, EN STANDBY hasta tener el Excel real)
+### Punto 38 — Un lead ya atendido (`contactado`) deja de reasignarse por SLA (22/09) ✅ (build/lint/typecheck OK backend)
+
+> **Resumen**: al tocar "Atender por WhatsApp" el lead pasa a `contactado` (atendido), pero el worker SLA seguía vigilándolo y lo reasignaba a las 12h sin actividad. Ese botón **no reasigna**; la reasignación la hacía `getLeadsSLAVencido`, que incluía `contactado` en los estados elegibles. Se quitó `contactado`: en cuanto un vendedor atiende un lead, deja de ser candidato a reasignación por SLA. Solo se reasignan los que siguen `asignado` (nunca atendidos) o `reasignado`.
+
+#### Cambios (solo backend, sin migración)
+- **`repositories/leadsRepository.ts` → `getLeadsSLAVencido`**: estados elegibles pasan de `['asignado', 'contactado', 'reasignado']` a `['asignado', 'reasignado']` (+ comentario explicando que `contactado` queda excluido a propósito).
+- **`repositories/leadsRepository.ts` → `getLeadsPorVencerSLA`** (código muerto): alineado a `['asignado', 'reasignado']` por consistencia.
+
+#### Decisiones / efectos
+- Los **conteos de carga** de `asignarLeadAutomatico` y `procesarSLAVencidos` **se mantienen** con `contactado`: un lead atendido sigue contando como trabajo activo del vendedor para el reparto de nuevos leads.
+- Un lead `contactado` ya no se reasigna aunque el vendedor lo abandone; solo sale del flujo si se **convierte** o se marca **perdido**.
+- `contactarLeadService` no se tocó: sigue marcando `contactado` la primera vez. El early-return para `contactado`/`calificado` ya no afecta al SLA (ese estado quedó fuera del monitor).
+
+#### Verificación
+- `npm run build`, `npm run typecheck` y `npm run lint` en `backend/` → OK (0 errores).
+- Deploy: recompilar/desplegar el backend (`npm run build`). No requiere migración.
+
+### Punto 39 — Origen por palabras clave + campañas publicitarias por palabra clave (22/09) ✅ (build/lint/typecheck OK backend y frontend; migración pendiente de aplicar en dev)
+
+> **Resumen**: al crearse un lead **por WhatsApp** (primer mensaje) se detecta el **origen real** y la **palabra clave de campaña**. Origen (prioridad Instagram > Web > Desconocido): contiene "instagram" → `instagram`; si no, contiene "https"/"www"/"web" (esta última con límite de palabra) → `web`; si no → **`desconocido`** (valor nuevo del enum). La **palabra clave** se busca entre las campañas activas configuradas por el admin y se guarda en `leads.palabra_clave`. El dashboard de marketing (`/marketing`) tiene una sección de **campañas publicitarias** (alta/edición/activar/eliminar), **cuadros contadores por palabra clave** y un **gráfico de barras "Leads por Palabra Clave"**.
+
+#### Decisiones (confirmadas con el usuario)
+- Config en **tabla dedicada `campanas`** (no jsonb en menu_bienvenida).
+- Prioridad `Instagram > Web > Desconocido`.
+- Detección **solo en WhatsApp entrante** (web/Instagram ya llegan con origen fijo).
+- Se evalúa **solo en el primer mensaje** del lead (al crearse), nunca se sobrescribe.
+- `whatsapp` queda como valor legacy para datos históricos; los leads nuevos de WhatsApp pasan a `instagram`/`web`/`desconocido`.
+
+#### Backend
+- **Migración** `1787524220000-CampanasKeywordsSchema.ts` (idempotente): agrega `'desconocido'` a `leads_origen_enum` (check en `pg_enum`), `leads.palabra_clave varchar(255)` e índice, y crea la tabla `campanas` (`id`, `palabra_clave` UNIQUE, `descripcion`, `activa`, fechas) + índice. ⚠ **Aplicar en dev** compilando (`npm run build`) y arrancando el backend una vez.
+- **Entidad** `Campana.ts`; registrada en `dataBaseConfig.ts`. `Lead.ts`: `OrigenLeadEnum.DESCONOCIDO` + columna `palabra_clave`.
+- **Módulo `/campanas`** (routes→controller→service→repository): `GET /campanas` (JWT), `POST/PUT/DELETE /campanas/:id` (solo admin con `esAdmin`). Valida palabra no vacía y unicidad.
+- **Util** `utils/deteccionCampanas.ts`: `normalizarTexto` (minúsculas + sin tildes), `detectarOrigenPorPalabras(texto)` y `detectarPalabraClave(texto, campanas)` (prioriza la palabra más larga).
+- **Webhook** `services/whatsappWebhookServices.ts`: en la rama de **lead nuevo** calcula `origen` y `palabraClave` (cargando `getCampanas({activa:true})`) y los guarda en `createLead`. El resto del flujo (asistente, push, mensajes) no cambia.
+- **Filtro** `palabra_clave` en `repositories/leadsRepository.getLeads` + `controllers/leadsControllers.getLeads` (query param).
+- **Export** `utils/exportLeads.ts`: nueva columna "Palabra Clave".
+
+#### Frontend
+- **`types/index.ts`**: `OrigenLead` agrega `'desconocido'`; `Lead.palabra_clave`; nueva interfaz `Campana`.
+- **`hooks/useApi.ts`**: `useCampanas`, `useCrearCampana`, `useActualizarCampana`, `useEliminarCampana` (query `["campanas"]`, invalidan al mutar); filtro `palabra_clave` en `useLeads`. Exportados.
+- **`pages/marketing/MarketingDashboard.tsx`**: sección "Campañas publicitarias — Palabras clave" (agregar + editar con guardar por fila + toggle activa + eliminar), cuadros contadores "Leads por Campaña (Palabra clave)" (incluye "Sin palabra clave") y gráfico de barras "Leads por Palabra Clave". "Leads por Origen" ahora usa `ORIGEN_META` (Instagram/Web/WhatsApp/Desconocido con color propio).
+- **`pages/leads/Leads.tsx`**: label `desconocido`, badge "Campaña: X" en tarjeta y tabla, y select de filtro "Todas las campañas" (poblado con `useCampanas`).
+
+#### Cómo probar
+- Aplicar la migración (compilar + arrancar backend). En `/marketing` crear una campaña (ej. `promo verano`).
+- Simular `POST /webhook/whatsapp` con teléfono nuevo cuyo primer mensaje contenga la palabra clave → verificar `origen` y `palabra_clave` en `leads`; otro teléfono sin palabras → `origen = desconocido`.
+- En `/leads` filtrar por campaña; en `/marketing` ver contadores y gráfico.
+
+#### ⚠ Notas / deuda
+- La detección es por **texto del mensaje**; aún no se leen los `referral` de Click-to-WhatsApp de Meta (mejora futura).
+- `web` se detecta con límite de palabra para no capturar "webinar"; `https`/`www` son subcadena.
+- Solo se evalúa al crear el lead: un lead existente que luego mencione una campaña no se re-atribuye.
+
+### Punto 40 — CC/CCO manual al enviar correo a clientes (sin tabla de contactos) ✅ (build/lint/typecheck OK backend y frontend)
+
+> **Resumen**: el modal "Nuevo mensaje" (`ComponerCorreoModal`) ahora tiene campos **CC** y **CCO** funcionales (antes solo eran etiquetas decorativas "C"/"CCO"). El vendedor escribe los correos a mano, separados por coma o punto y coma. Las copias se envían de verdad por **Gmail API** (`cc`/`bcc` del `MailComposer`) o por **Resend** (`cc`/`bcc`). **No se creó tabla de contactos ni migración**: decisión del usuario (todo manual).
+
+#### Backend (3 archivos)
+- **`controllers/correosControllers.ts`**: lee `cc` y `cco` del body y los pasa a `enviarCorreoCliente`.
+- **`services/correosServices.ts`**: `EnviarCorreoParams` con `cc?`/`cco?`; helper `parsearDestinatarios(texto, etiqueta)` (separa por `,`/`;`, recorta, valida con `REGEX_EMAIL`, tope `LIMITE_COPIAS = 20` por campo; lanza `ApiError 400` con mensaje claro si hay correo inválido o se supera el tope). En la rama **Resend** agrega `cc`/`bcc` solo si hay destinatarios; en la rama **Gmail** pasa `cc`/`cco`.
+- **`services/gmailServices.ts`**: `EnviarCorreoGmailParams` con `cc?: string[]`/`cco?: string[]`; agrega `cc`/`bcc` al `MailComposer` solo si hay destinatarios.
+
+#### Frontend (2 archivos)
+- **`hooks/useEnviarCorreo.ts`**: `EnviarCorreoArgs` con `cc?`/`cco?`; se hacen `append` al `FormData` solo si vienen con valor.
+- **`components/forms/ComponerCorreoModal.tsx`**: filas **CC** ("correo1@x.com, correo2@y.com") y **CCO** ("Copia oculta (separa con comas)") debajo de "Para"; estado `cc`/`cco`; se envían en `handleEnviar` y se limpian tras el envío exitoso. Sin selector de contactos (manual).
+
+#### Cómo probar
+- En el detalle de un cliente → "Enviar Email" → escribir uno o varios correos en CC (y CCO) separados por comas → enviar.
+- Verificar que las copias llegan y que en Gmail el correo queda en "Enviados". Probar un correo inválido en CC → el backend responde 400 con el mensaje.
+- No requiere migración. Deploy: recompilar/reiniciar backend y subir `dist/` del frontend.
+
+#### ⚠ Notas / deuda
+- No existe **agenda de contactos** (se evaluó y se descartó): ella escribe los correos manualmente cada vez.
+- El campo "Para" sigue fijo a `cliente.email`; solo se habilitaron CC/CCO.
+- Límite de 20 destinatarios por campo (backend).
+
+
+### Punto 41 — Inventario por lotes/almacenes + devoluciones + edición de pedidos ⏸️ (18/09, EN STANDBY hasta tener el Excel real)
 
 > **Estado**: implementado y compilando (backend + frontend; `tsc`/`lint`/`build` OK) en la rama **`feature/inventario-lotes-almacenes-devoluciones`**, que vive en un **`git worktree`** aparte (`E:\Documentos\escritorio\sumichem\sumichem-inventario`). **NO se ha mergeado ni desplegado**: `main` y la BD de producción quedan intactos hasta tener el Excel con la columna `FECHA` y la información requerida. La migración `1787524219000-InventarioLotesSchema.ts` no existe en `main`, así que no se aplica.
 
@@ -1343,14 +1421,14 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - `deploy.ps1` **no está versionado** (línea 44 del `.gitignore`): se le añadió una **guarda de rama** local (aborta si no estás en `main`, salvo `-AllowBranch`) para no publicar el feature por accidente. El worktree no lo incluye.
 - La primera carga del Excel inicializa los lotes existentes; a partir de ahí el Excel solo debe traer **mercancía nueva**.
 
-### Punto 39 — Logística: vencimiento de lote, kardex/ajustes e instrumentos retornables ⏸️ (19/09, EN STANDBY)
+### Punto 42 — Logística: vencimiento de lote, kardex/ajustes e instrumentos retornables ⏸️ (19/09, EN STANDBY)
 
 > **Estado**: implementado y verificado en compilación (backend + frontend; `tsc`/`lint`/`build` OK) en la misma rama `feature/inventario-lotes-almacenes-devoluciones` (worktree aparte). **No mergeado ni desplegado.** Se probó el arranque del backend contra un **clon de la BD local** (`crm_local_test`), aplicando las migraciones nuevas.
 
 > **Resumen**: (1) los lotes ahora tienen **fecha de vencimiento** (Excel + edición manual); (2) hay **kardex** de inventario y **ajustes manuales** con motivo categorizado; (3) se añadió el manejo de **instrumentos retornables** (paletas, tambores, baritanques, carboyas) con **4 estados + dañado**, control por **tipo y almacén**, y una sección **Logística** que centraliza panel de alertas, productos (lista/tarjetas + modal), kardex e instrumentos.
 
 #### Vencimiento de lote
-- `lotes.fecha_vencimiento` (date, nullable), migración `1787524220000-LoteVencimientoSchema.ts`.
+- `lotes.fecha_vencimiento` (date, nullable), migración `1787524223000-LoteVencimientoSchema.ts`.
 - El parser del Excel lee la columna `VENCIMIENTO` (fallback posición 8) además de `FECHA`. Editable con `PUT /inventario/lotes/:id/vencimiento` (admin).
 - El consumo sigue **FIFO por `fecha_ingreso`**; el vencimiento es informativo y se resalta en la UI (vencido/por vencer). Un ajuste puede justificar un lote vencido.
 
@@ -1391,3 +1469,4 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - Los pedidos legacy no tienen `almacen` en sus líneas ni instrumentos; no se pueden editar/devolver hasta ese punto.
 - El paso `en_transito → en_cliente` es manual (decisión del usuario).
 - La sección Logística es solo para admin.
+- **Merge con `main` (26/09)**: la rama se actualizó con `main` (campañas/palabras clave, CC/CCO, chat solo admin, etc.). Como `main` creó `1787524220000-CampanasKeywordsSchema.ts`, la migración de vencimiento se renombró de `1787524220000-LoteVencimientoSchema.ts` a **`1787524223000-LoteVencimientoSchema.ts`** (clase y `name` incluidos) para evitar colisión de timestamp. Sigue en STANDBY: no se ha mergeado a `main` ni desplegado.

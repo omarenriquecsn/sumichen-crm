@@ -47,6 +47,8 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
   const { userData } = useAuth();
   const [asunto, setAsunto] = useState("");
   const [cuerpo, setCuerpo] = useState("");
+  const [cc, setCc] = useState("");
+  const [cco, setCco] = useState("");
   const [adjuntos, setAdjuntos] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -99,6 +101,8 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
     try {
       await enviarCorreo.mutateAsync({
         to: cliente.email,
+        cc,
+        cco,
         asunto: asunto.trim() || "Contacto desde Sumichem",
         cuerpo,
         adjuntos,
@@ -106,6 +110,8 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
       toast.success("Correo enviado correctamente.");
       setAsunto("");
       setCuerpo("");
+      setCc("");
+      setCco("");
       setAdjuntos([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
       onEnviado();
@@ -149,24 +155,42 @@ export const ComponerCorreoModal: React.FC<ComponerCorreoModalProps> = ({
           </div>
         )}
 
-        {/* Para */}
+        {/* Para / CC / CCO / Asunto */}
         <div className="px-5 pt-4">
           <div className="flex items-center border-b border-gray-200 pb-2 gap-2">
-            <span className="text-sm font-medium text-gray-500 w-12">Para</span>
-            <div className="flex-1 px-3 py-1.5 rounded-full bg-blue-50 text-blue-800 text-sm">
+            <span className="text-sm font-medium text-gray-500 w-12 flex-shrink-0">Para</span>
+            <div className="flex-1 min-w-0 px-3 py-1.5 rounded-full bg-blue-50 text-blue-800 text-sm truncate">
               {cliente.email}
             </div>
-            <span className="text-xs text-gray-400">C</span>
-            <span className="text-xs text-gray-400">CCO</span>
           </div>
           <div className="flex items-center border-b border-gray-200 py-2 gap-2">
-            <span className="text-sm font-medium text-gray-500 w-12">Asunto</span>
+            <span className="text-sm font-medium text-gray-500 w-12 flex-shrink-0">CC</span>
+            <input
+              type="text"
+              value={cc}
+              onChange={(e) => setCc(e.target.value)}
+              placeholder="correo1@x.com, correo2@y.com"
+              className="flex-1 min-w-0 px-3 py-1.5 text-sm focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center border-b border-gray-200 py-2 gap-2">
+            <span className="text-sm font-medium text-gray-500 w-12 flex-shrink-0">CCO</span>
+            <input
+              type="text"
+              value={cco}
+              onChange={(e) => setCco(e.target.value)}
+              placeholder="Copia oculta (separa con comas)"
+              className="flex-1 min-w-0 px-3 py-1.5 text-sm focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center border-b border-gray-200 py-2 gap-2">
+            <span className="text-sm font-medium text-gray-500 w-12 flex-shrink-0">Asunto</span>
             <input
               type="text"
               value={asunto}
               onChange={(e) => setAsunto(e.target.value)}
               placeholder="Asunto"
-              className="flex-1 px-3 py-1.5 text-sm focus:outline-none"
+              className="flex-1 min-w-0 px-3 py-1.5 text-sm focus:outline-none"
             />
           </div>
         </div>

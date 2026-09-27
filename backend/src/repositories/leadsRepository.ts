@@ -9,6 +9,8 @@ export const getLeads = async (filtros: {
   zona_id?: string;
   estado?: string;
   origen?: string;
+  palabra_clave?: string;
+  search?: string;
   desde?: Date;
   hasta?: Date;
   page?: number;
@@ -28,6 +30,24 @@ export const getLeads = async (filtros: {
   // Los leads perdidos solo los ven los admins (evita doble contacto).
   if (filtros.excluir_perdido) qb.andWhere('lead.estado != :perdido', { perdido: 'perdido' });
   if (filtros.origen) qb.andWhere('lead.origen = :origen', { origen: filtros.origen });
+  if (filtros.palabra_clave) qb.andWhere('lead.palabra_clave = :palabra_clave', { palabra_clave: filtros.palabra_clave });
+  // Búsqueda de texto libre sobre los datos de contacto (nombre/apellido/email/teléfono).
+  if (filtros.search && filtros.search.trim()) {
+    const term = `%${filtros.search.trim()}%`;
+    const digitos = filtros.search.replace(/\D/g, '');
+    // Si el término trae dígitos, además se compara el teléfono normalizado
+    // (sin +/espacios/guiones) para que "58412..." encuentre "+58 412...".
+    const telefonoNormalizado = digitos.length >= 2
+      ? ` OR regexp_replace(COALESCE(lead.datos_contacto->>'telefono',''), '\\D', '', 'g') LIKE :digitos`
+      : '';
+    qb.andWhere(
+      `(COALESCE(lead.datos_contacto->>'nombre','') ILIKE :term
+        OR COALESCE(lead.datos_contacto->>'apellido','') ILIKE :term
+        OR COALESCE(lead.datos_contacto->>'email','') ILIKE :term
+        OR COALESCE(lead.datos_contacto->>'telefono','') ILIKE :term${telefonoNormalizado})`,
+      digitos.length >= 2 ? { term, digitos: `%${digitos}%` } : { term }
+    );
+  }
   if (filtros.desde) qb.andWhere('lead.fecha_creacion >= :desde', { desde: filtros.desde });
   if (filtros.hasta) qb.andWhere('lead.fecha_creacion <= :hasta', { hasta: filtros.hasta });
 
@@ -68,7 +88,7 @@ export const getLeadByTelefono = async (telefono: string) => {
   const sufijo = normalizado.slice(-10); // últimos 10 dígitos
   const lead = await repo
     .createQueryBuilder('lead')
-    .where(`regexp_replace(COALESCE(lead.datos_contacto->>'telefono',''), '\D', '', 'g') LIKE :sufijo`, {
+    .where(`regexp_replace(COALESCE(lead.datos_contacto->>'telefono',''), '\\D', '', 'g') LIKE :sufijo`, {
       sufijo: `%${sufijo}`,
     })
     .orderBy('lead.fecha_creacion', 'DESC')
@@ -178,7 +198,9 @@ export const reasignarLead = async (leadId: string, nuevoVendedorId: string | nu
 export const convertirLeadACliente = async (leadId: string, datos?: any) => {
   const leadRepo = AppDataSource.getRepository(Lead);
   const clienteRepo = AppDataSource.getRepository('clientes');
-  const lead = await leadRepo.findOne({ where: { id: leadId } });
+  // Se carga la zona para usar su nombre como ciudad del cliente (la zona que
+  // eligió el lead en el asistente de bienvenida).
+  const lead = await leadRepo.findOne({ where: { id: leadId }, relations: ['zona'] });
   if (!lead) throw new Error('Lead no encontrado');
 
   const cliente = clienteRepo.create({
@@ -189,14 +211,18 @@ export const convertirLeadACliente = async (leadId: string, datos?: any) => {
     email: datos?.email || lead.datos_contacto.email || '',
     telefono: datos?.telefono || lead.datos_contacto.telefono,
     empresa: datos?.empresa || lead.datos_contacto.nombre,
-    estado: datos?.estado || 'activo',
+    // Un lead convertido nace como prospecto hasta que cierre una venta.
+    estado: datos?.estado || 'prospecto',
     etapa_venta: datos?.etapa_venta || 'inicial',
     direccion: datos?.direccion || lead.metadata?.direccion || '',
-    ciudad: datos?.ciudad || lead.metadata?.ciudad || '',
+    // La ciudad es la zona que eligió el lead; si el lead no tiene zona
+    // (proveedor/trabajo) se usa el valor manual o el de metadata.
+    ciudad: lead.zona?.nombre || datos?.ciudad || lead.metadata?.ciudad || '',
     direccion_entrega: datos?.direccion_entrega || undefined,
     google_maps: datos?.google_maps || undefined,
     sector: datos?.sector ?? lead.metadata?.sector ?? null,
-    notas: datos?.notas || undefined,
+    // Si el usuario no escribió notas, se marca el origen del cliente.
+    notas: datos?.notas?.trim() || 'Cliente proveniente de marketing',
   });
 
   const clienteGuardado = await clienteRepo.save(cliente);
@@ -243,7 +269,7 @@ export const getLeadsPorVencerSLA = async (horas: number) => {
   const limite = new Date(Date.now() - horas * 60 * 60 * 1000);
   return await repo.find({
     where: {
-      estado: In(['asignado', 'contactado'] as EstadoLeadEnum[]),
+      estado: In(['asignado', 'reasignado'] as EstadoLeadEnum[]),
       asignado_en: new Date(limite.getTime()) as any, // TypeORM no soporta < directamente en find, usar QB
     },
   });
@@ -274,9 +300,11 @@ export const getLeadsSLAVencido = async (horas: number) => {
   const limite = new Date(Date.now() - horas * 60 * 60 * 1000);
   // ⚠ Incluir 'reasignado': tras una reasignación el lead queda en ese estado
   // (con asignado_en reiniciado) y debe seguir monitoreándose para el nuevo vendedor.
+  // ⚠ NO incluir 'contactado': un lead ya atendido (el vendedor lo marcó en
+  // gestión desde "Atender por WhatsApp") no debe reasignarse por SLA.
   return await repo
     .createQueryBuilder('lead')
-    .where('lead.estado IN (:...estados)', { estados: ['asignado', 'contactado', 'reasignado'] })
+    .where('lead.estado IN (:...estados)', { estados: ['asignado', 'reasignado'] })
     .andWhere('lead.asignado_en < :limite', { limite })
     .andWhere('lead.ultima_actividad_en < :limite', { limite })
     // Los leads de proveedor/trabajo se asignan a un usuario específico y NO

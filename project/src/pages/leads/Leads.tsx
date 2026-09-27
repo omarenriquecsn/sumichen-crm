@@ -4,10 +4,11 @@ import { useAuth } from "../../context/useAuth";
 import { useSupabase } from "../../hooks/useSupabase";
 import useVendedores from "../../hooks/useVendedores";
 import { toast } from "react-toastify";
-import { Users, MapPin, AlertCircle, CheckCircle, X, RotateCcw, ArrowRight, Search, ChevronLeft, ChevronRight } from "lucide-react";
-import { Lead, Zona, Vendedor } from "../../types";
+import { Users, MapPin, AlertCircle, CheckCircle, X, RotateCcw, ArrowRight, Search, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
+import { Lead, Zona, Vendedor, Campana } from "../../types";
 import ConvertirLeadModal from "../../components/forms/ConvertirLeadModal";
 import { BotonAtenderWhatsApp } from "../../components/ui/BotonAtenderWhatsApp";
+import VerMensajesLeadModal from "../../components/ui/VerMensajesLeadModal";
 
 const estadoColors: Record<string, string> = {
   nuevo: "bg-gray-100 text-gray-800",
@@ -23,6 +24,7 @@ const origenLabels: Record<string, string> = {
   instagram: "Instagram",
   web: "Web",
   whatsapp: "WhatsApp",
+  desconocido: "Desconocido",
 };
 
 const tipoWebLabels: Record<string, string> = {
@@ -36,27 +38,43 @@ const tipoWebLabels: Record<string, string> = {
 
 const Leads: React.FC = () => {
   const { userData } = useAuth();
-  const { useLeads, useAsignarLead, useReasignarLead, usePerderLead, useZonas } = useSupabase();
+  const { useLeads, useAsignarLead, useReasignarLead, usePerderLead, useZonas, useCampanas } = useSupabase();
   const { data: vendedores } = useVendedores();
   const { data: zonas } = useZonas();
+  const { data: campanas } = useCampanas();
   const [page, setPage] = React.useState(1);
   const [filtros, setFiltros] = React.useState({
     estado: "",
     origen: "",
+    palabra_clave: "",
     zona_id: "",
     search: "",
   });
+  const [searchInput, setSearchInput] = React.useState("");
   const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
   const [reasignandoLead, setReasignandoLead] = React.useState<string | null>(null);
   const [convertirLeadSel, setConvertirLeadSel] = React.useState<Lead | null>(null);
+  const [verMensajesLead, setVerMensajesLead] = React.useState<Lead | null>(null);
   const [nuevoVendedorId, setNuevoVendedorId] = React.useState("");
   const [motivoReasignacion, setMotivoReasignacion] = React.useState("");
   const [zonaParaLead, setZonaParaLead] = React.useState<Record<string, string>>({});
 
+  // Búsqueda en vivo (debounced): el término se aplica 400 ms después de la
+  // última tecla para no disparar una consulta por cada pulsación.
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setFiltros((prev) => (prev.search === searchInput ? prev : { ...prev, search: searchInput }));
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   const { data, isLoading, refetch } = useLeads(undefined, {
     estado: filtros.estado || undefined,
     origen: filtros.origen || undefined,
+    palabra_clave: filtros.palabra_clave || undefined,
     zona_id: filtros.zona_id || undefined,
+    search: filtros.search || undefined,
     page,
     limit: 10,
   });
@@ -150,8 +168,8 @@ const Leads: React.FC = () => {
               <input
                 type="text"
                 placeholder="Buscar por nombre, teléfono, email..."
-                value={filtros.search}
-                onChange={(e) => handleFiltroChange("search", e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -180,6 +198,19 @@ const Leads: React.FC = () => {
               <option value="instagram">Instagram</option>
               <option value="web">Web</option>
               <option value="whatsapp">WhatsApp</option>
+              <option value="desconocido">Desconocido</option>
+            </select>
+            <select
+              value={filtros.palabra_clave}
+              onChange={(e) => handleFiltroChange("palabra_clave", e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Todas las campañas</option>
+              {campanas?.map((c: Campana) => (
+                <option key={c.id} value={c.palabra_clave}>
+                  {c.palabra_clave}
+                </option>
+              ))}
             </select>
             <select
               value={filtros.zona_id}
@@ -279,6 +310,11 @@ const Leads: React.FC = () => {
                     {tipoWebLabels[lead.tipo_web] || lead.tipo_web}
                   </span>
                 )}
+                {lead.palabra_clave && (
+                  <span className="inline-flex items-center px-2 py-1 rounded font-medium bg-fuchsia-100 text-fuchsia-800">
+                    Campaña: {lead.palabra_clave}
+                  </span>
+                )}
                 {lead.zona?.nombre && (
                   <span className="inline-flex items-center px-2 py-1 rounded font-medium bg-green-100 text-green-800">
                     <MapPin className="h-3 w-3 mr-1" /> {lead.zona.nombre}
@@ -353,6 +389,12 @@ const Leads: React.FC = () => {
                   lead={lead}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700"
                 />
+                <button
+                  onClick={() => setVerMensajesLead(lead)}
+                  className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium"
+                >
+                  <MessageSquare className="h-3 w-3" /> Ver msjs
+                </button>
                 {lead.estado !== 'convertido' && lead.estado !== 'perdido' && (
                   <button
                     onClick={() => handlePerder(lead.id)}
@@ -398,6 +440,11 @@ const Leads: React.FC = () => {
                     {lead.tipo_web && (
                       <span className="ml-1 inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
                         {tipoWebLabels[lead.tipo_web] || lead.tipo_web}
+                      </span>
+                    )}
+                    {lead.palabra_clave && (
+                      <span className="ml-1 inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-fuchsia-100 text-fuchsia-800">
+                        Campaña: {lead.palabra_clave}
                       </span>
                     )}
                   </td>
@@ -482,6 +529,12 @@ const Leads: React.FC = () => {
                         lead={lead}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 whitespace-nowrap"
                       />
+                      <button
+                        onClick={() => setVerMensajesLead(lead)}
+                        className="text-blue-600 hover:text-blue-800 text-xs font-medium whitespace-nowrap"
+                      >
+                        <MessageSquare className="h-3 w-3 inline mr-1" /> Ver msjs
+                      </button>
                       {lead.estado !== 'convertido' && lead.estado !== 'perdido' && (
                         <button
                           onClick={() => handlePerder(lead.id)}
@@ -590,6 +643,13 @@ const Leads: React.FC = () => {
             refetch();
           }}
         />
+        {/* Modal Ver Mensajes */}
+        {verMensajesLead && (
+          <VerMensajesLeadModal
+            lead={verMensajesLead}
+            onClose={() => setVerMensajesLead(null)}
+          />
+        )}
       </div>
     </Layout>
   );

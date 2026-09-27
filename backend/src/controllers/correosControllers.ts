@@ -22,8 +22,10 @@ export const enviarCorreo = [
     const vendedorDbId = req.user?.vendedor_db_id;
     if (!vendedorDbId) throw new ApiError('No autorizado', 401);
 
-    const { to, asunto, cuerpo } = req.body as {
+    const { to, cc, cco, asunto, cuerpo } = req.body as {
       to?: string;
+      cc?: string;
+      cco?: string;
       asunto?: string;
       cuerpo?: string;
     };
@@ -38,6 +40,8 @@ export const enviarCorreo = [
     const resultado = await enviarCorreoCliente({
       vendedorDbId,
       to: to.trim(),
+      cc: (cc || '').trim(),
+      cco: (cco || '').trim(),
       asunto: (asunto || '').trim(),
       cuerpoHtml: cuerpo || '',
       adjuntos,

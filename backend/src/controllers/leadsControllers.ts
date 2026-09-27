@@ -20,6 +20,8 @@ export const getLeads = asyncHandler(async (req: Request, res: Response) => {
     zona_id: req.query.zona_id as string,
     estado: req.query.estado as string,
     origen: req.query.origen as string,
+    palabra_clave: req.query.palabra_clave as string,
+    search: req.query.search as string,
     desde: req.query.desde ? new Date(req.query.desde as string) : undefined,
     hasta: req.query.hasta
       ? parseHastaInclusive(req.query.hasta as string)
@@ -32,15 +34,15 @@ export const getLeads = asyncHandler(async (req: Request, res: Response) => {
 });
 
 // Convierte un valor de fecha a Date. Si es solo fecha (YYYY-MM-DD), el
-// `hasta` se interpreta como "todo ese día" (inclusive), porque
-// `new Date('YYYY-MM-DD')` cae a medianoche UTC y excluiría los leads
-// creados más tarde ese mismo día (off-by-one reportado en el dashboard).
+// `hasta` se interpreta como "todo ese día" (inclusive) en la zona horaria
+// LOCAL del servidor, porque `new Date('YYYY-MM-DD')` cae a medianoche UTC y
+// excluiría los leads creados más tarde ese mismo día (off-by-one reportado en
+// el dashboard: en Venezuela UTC-4 cortaba a las 20:00 locales).
 const parseHastaInclusive = (valor: string): Date => {
-  const d = new Date(valor);
   if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
-    d.setUTCDate(d.getUTCDate() + 1);
+    return new Date(`${valor}T23:59:59.999`);
   }
-  return d;
+  return new Date(valor);
 };
 
 export const getLeadById = asyncHandler(async (req: Request, res: Response) => {

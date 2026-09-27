@@ -31,6 +31,7 @@ import {
   Mensaje,
   LeadsResponse,
   MenuBienvenida,
+  Campana,
 } from "../types";
 
 /**
@@ -313,6 +314,7 @@ export const useApi = () => {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["pedidos"] });
         queryClient.invalidateQueries({ queryKey: ["productos", "stock"] });
+        queryClient.invalidateQueries({ queryKey: ["clientes"] });
       },
 
       onError: (error: unknown) => {
@@ -1800,6 +1802,8 @@ export const useApi = () => {
   zona_id?: string;
   estado?: string;
   origen?: string;
+  palabra_clave?: string;
+  search?: string;
   desde?: string;
   hasta?: string;
   page?: number;
@@ -1816,6 +1820,8 @@ export const useApi = () => {
         if (filtros?.zona_id) params.append("zona_id", filtros.zona_id);
         if (filtros?.estado) params.append("estado", filtros.estado);
         if (filtros?.origen) params.append("origen", filtros.origen);
+        if (filtros?.palabra_clave) params.append("palabra_clave", filtros.palabra_clave);
+        if (filtros?.search) params.append("search", filtros.search);
         if (filtros?.desde) params.append("desde", filtros.desde);
         if (filtros?.hasta) params.append("hasta", filtros.hasta);
         if (filtros?.page) params.append("page", String(filtros.page));
@@ -2215,6 +2221,92 @@ export const useApi = () => {
     });
   };
 
+  // ---------- Campañas (palabras clave de origen) ----------
+  const useCampanas = () => {
+    return useQuery<Campana[]>({
+      queryKey: ["campanas"],
+      queryFn: async () => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/campanas`, {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Error al obtener las campañas");
+        return res.json();
+      },
+      enabled: !!session?.access_token,
+      staleTime: 1000 * 60 * 5,
+    });
+  };
+
+  const useCrearCampana = () => {
+    return useMutation({
+      mutationFn: async (data: { palabra_clave: string; descripcion?: string }) => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/campanas`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: "Error al crear la campaña" }));
+          throw new Error(err.message || "Error al crear la campaña");
+        }
+        return res.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["campanas"] });
+      },
+    });
+  };
+
+  const useActualizarCampana = () => {
+    return useMutation({
+      mutationFn: async ({ id, ...data }: { id: string; palabra_clave?: string; descripcion?: string | null; activa?: boolean }) => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/campanas/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: "Error al actualizar la campaña" }));
+          throw new Error(err.message || "Error al actualizar la campaña");
+        }
+        return res.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["campanas"] });
+      },
+    });
+  };
+
+  const useEliminarCampana = () => {
+    return useMutation({
+      mutationFn: async (id: string) => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/campanas/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Error al eliminar la campaña");
+        return res.json().catch(() => ({}));
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["campanas"] });
+      },
+    });
+  };
+
   // Documentos de utilidades (carpeta uploads/utilidades: horario, condiciones
   // de despacho). Se muestran en Configuración → Documentos.
   const useUtilidades = () => {
@@ -2368,6 +2460,11 @@ export const useApi = () => {
     // Menú de bienvenida (asistente WhatsApp)
     useMenuBienvenida,
     useActualizarMenuBienvenida,
+    // Campañas (palabras clave de origen)
+    useCampanas,
+    useCrearCampana,
+    useActualizarCampana,
+    useEliminarCampana,
     // Documentos de utilidades
     useUtilidades,
     useSubirUtilidad,
