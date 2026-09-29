@@ -82,6 +82,7 @@ export const AccionesRapidasCliente: React.FC<AccionesRapidasClienteProps> = ({
   const copiarNumero = async () => {
     try {
       await navigator.clipboard.writeText(cliente.telefono);
+      onLlamar();
       toast.success("Número de teléfono copiado");
     } catch {
       toast.error("No se pudo copiar el número");
@@ -103,6 +104,7 @@ export const AccionesRapidasCliente: React.FC<AccionesRapidasClienteProps> = ({
           "No encontramos tu móvil con la app. Instala la app en el teléfono y activa las notificaciones en Configuración → Notificaciones.",
         );
       } else {
+        onLlamar();
         toast.success(
           `Notificación enviada a tu móvil (${res.enviadas} dispositivo${
             res.enviadas > 1 ? "s" : ""
