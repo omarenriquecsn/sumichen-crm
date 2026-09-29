@@ -30,6 +30,36 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuf
   return outputArray;
 }
 
+/** Convierte una clave (ArrayBuffer) a base64url, para comparar con la VAPID. */
+function arrayBufferABase64Url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return window
+    .btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+/**
+ * Indica si una suscripción existente fue creada con la clave VAPID actual.
+ * Si el navegador no expone la clave, devuelve `true` (no se puede comprobar).
+ * Una suscripción creada con otra clave produce 401/403 al enviar push.
+ */
+export function suscripcionConClaveActual(
+  sub: PushSubscription,
+  vapidKey: string
+): boolean {
+  const key = sub.options?.applicationServerKey;
+  if (!key) return true;
+  try {
+    return arrayBufferABase64Url(key as ArrayBuffer) === vapidKey.replace(/=+$/, "");
+  } catch {
+    return true;
+  }
+}
+
 export function soportaPush(): boolean {
   return "serviceWorker" in navigator && "PushManager" in window;
 }
@@ -89,13 +119,17 @@ async function guardarSuscripcionEnBackend(
   const token = session?.access_token;
   if (!token) throw new Error("Sesión no válida");
 
+  const p256dh = pushSub.toJSON().keys?.p256dh || "";
+  const auth = pushSub.toJSON().keys?.auth || "";
+  if (!p256dh || !auth) {
+    // Guardar keys vacías provoca 400 al enviar; mejor no registrar la suscripción.
+    throw new Error("La suscripción push no tiene claves válidas.");
+  }
+
   const body = {
     subscription: {
       endpoint: pushSub.endpoint,
-      keys: {
-        p256dh: pushSub.toJSON().keys?.p256dh || "",
-        auth: pushSub.toJSON().keys?.auth || "",
-      },
+      keys: { p256dh, auth },
     },
     dispositivo: dispositivo || navigator.userAgent,
   };
@@ -133,9 +167,25 @@ export async function sincronizarSuscripcionExistente(
   }
 
   try {
+    const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!vapidKey) return null;
+
     const registration = await navigator.serviceWorker.getRegistration();
-    const pushSub = await registration?.pushManager.getSubscription();
+    if (!registration) return null;
+
+    let pushSub = await registration.pushManager.getSubscription();
     if (!pushSub) return null;
+
+    // Auto-curación: si la suscripción se creó con otra clave VAPID (p. ej. tras
+    // rotar las llaves), se renueva con la actual. Si no, los envíos darían 401/403.
+    if (!suscripcionConClaveActual(pushSub, vapidKey)) {
+      await pushSub.unsubscribe().catch(() => {});
+      pushSub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+    }
+
     await guardarSuscripcionEnBackend(pushSub, dispositivo);
     return pushSub.endpoint;
   } catch (error) {
@@ -172,6 +222,11 @@ export async function suscribirPush(dispositivo?: string): Promise<{
 
   const registration = await obtenerRegistration();
   let pushSub = await registration.pushManager.getSubscription();
+  if (pushSub && !suscripcionConClaveActual(pushSub, vapidKey)) {
+    // La suscripción existente se creó con otra clave VAPID: renovarla.
+    await pushSub.unsubscribe().catch(() => {});
+    pushSub = null;
+  }
   if (!pushSub) {
     pushSub = await registration.pushManager.subscribe({
       userVisibleOnly: true,

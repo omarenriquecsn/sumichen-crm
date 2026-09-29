@@ -12,6 +12,7 @@ import {
   tipoEstadoPermiso,
 } from "../lib/push";
 import type { PreferenciaNotificacion } from "../lib/push";
+import { useAuth } from "../context/useAuth";
 
 export type EstadoPush =
   | "no_soportado"
@@ -137,13 +138,22 @@ export function useNotificacionesPush() {
  */
 export function usePreferenciasNotificacion() {
   const queryClient = useQueryClient();
+  const { currentUser, session } = useAuth();
   const [guardando, setGuardando] = useState(false);
+
+  // Identidad del usuario: la clave de caché DEBE ir separada por usuario para
+  // no arrastrar las preferencias de otra cuenta en equipos compartidos.
+  const userId =
+    (currentUser as { supabase_id?: string })?.supabase_id ??
+    session?.user?.id ??
+    "";
 
   const { data: preferencias = [], refetch: refetchPreferencias } = useQuery<
     PreferenciaNotificacion[]
   >({
-    queryKey: ["push", "preferencias"],
+    queryKey: ["push", "preferencias", userId],
     queryFn: listarPreferencias,
+    enabled: !!userId,
   });
 
   const mapa = useMemo(

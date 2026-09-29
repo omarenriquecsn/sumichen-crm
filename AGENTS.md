@@ -1384,3 +1384,41 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - El campo "Para" sigue fijo a `cliente.email`; solo se habilitaron CC/CCO.
 - Límite de 20 destinatarios por campo (backend).
 
+### Punto 41 — Fix preferencias de notificación por usuario + errores push (401/400/403) + 500 de tickets ✅ (build/lint/typecheck OK backend y frontend)
+
+> **Resumen**: se corrigieron 3 fallos detectados en producción.
+> (A) **Las preferencias de notificación se contaminaban entre usuarios** en equipos compartidos (PWA/PC de oficina): al iniciar sesión otro usuario veía/copiaba la config del anterior. El backend siempre fue correcto (filtra por `vendedor_id`); el problema era el **frontend**, que no aislaba la caché ni el estado local por usuario.
+> (B) Los logs de PM2 mostraban `❌ Error enviando push: 401/400/403` de forma recurrente: **suscripciones muertas** (clave VAPID rotada/desalineada o keys vacías) que nunca se limpiaban (solo se borraban en 404/410).
+> (C) `GET /tickets/:id` devolvía **500 "No hay tickets disponibles"** cuando un vendedor no tenía tickets (el frontend espera un array).
+
+#### (A) Preferencias por usuario
+- **`project/src/hooks/useNotificacionesPush.ts`**: `usePreferenciasNotificacion` ahora usa `queryKey: ["push","preferencias", userId]` (`currentUser.supabase_id`/`session.user.id`) y `enabled: !!userId`. Antes la key era global.
+- **`project/src/context/AuthProvider.tsx`** (`signOut`): `queryClient.removeQueries({ queryKey: ["push","preferencias"] })` (antes la caché sobrevivía al cambio de cuenta).
+- **`project/src/pages/configuracion/Configuracion.tsx`**: nuevo efecto (antes del de sincronización) que resetea `prefsLocales`/`prefsLocalesRef` a `{}` cuando cambia el id del usuario; el efecto de sync rellena desde las preferencias frescas de la cuenta actual.
+- **`backend/src/repositories/preferenciasNotificacionRepository.ts`**: guardas `if (!vendedorDbId) return []` en `obtenerPreferenciasRepository` y `upsertPreferenciasRepository`; `obtenerPreferenciasDeVendedoresRepository` filtra ids nulos. (Evita el footgun de TypeORM: un `where` con `undefined` abarcaría TODOS los usuarios; el controller ya devolvía 401.)
+
+#### (B) Errores push 401/400/403 — auto-curación y limpieza
+- **`backend/src/services/pushServices.ts`**:
+  - `enviarASuscripcion` devuelve `ResultadoEnvio { ok, endpoint, statusCode, borrar, vapid }`; ahora trata **404/410/401/403/400** como suscripción inservible (antes solo 404/410).
+  - `procesarResultados` cuenta los envíos y **elimina** las suscripciones inservibles, con **salvaguarda**: si el par VAPID del servidor es inválido, NO borra las que fallaron por 401/403 (evita vaciar la tabla por mala configuración). Log con `statusCode` + host del endpoint.
+  - **Auto-chequeo del par VAPID al arrancar** (`verificarParVapid`): deriva la pública desde `VAPID_PRIVATE_KEY` (ECDH P-256, `createECDH('prime256v1')`, atajo `scripts/generarVapid.js`) y la compara con `VAPID_PUBLIC_KEY`; log ✅/❌. **Verificado con las llaves locales: par válido.**
+- **`project/src/lib/push.ts`**:
+  - Nuevo `suscripcionConClaveActual(sub, vapidKey)`: compara `sub.options.applicationServerKey` con `VITE_VAPID_PUBLIC_KEY`.
+  - `suscribirPush` y `sincronizarSuscripcionExistente`: si la suscripción existente se creó con **otra** clave VAPID → `unsubscribe()` y **re-suscribir** con la actual (auto-curación tras rotar llaves).
+  - `guardarSuscripcionEnBackend`: **rechaza** suscripciones con `p256dh`/`auth` vacíos (causa de los 400).
+- **`backend/src/controllers/pushControllers.ts`**: ya validaba `endpoint`/`p256dh`/`auth` (400) — sin cambios.
+
+#### (C) Tickets 500
+- **`backend/src/controllers/ticketsControllers.ts`**: `getTickets` y `getTicketsByVendedor` devuelven **200 `[]`** en vez de lanzar `ApiError('No hay tickets disponibles', 500)`.
+
+#### Cómo probar
+- **Preferencias**: en el mismo navegador, usuario A cambia toggles → logout → usuario B entra en `/configuracion` → B ve **sus** valores y al togglear NO copia los de A.
+- **Push**: arrancar el backend y ver el log `✅ VAPID: par de claves válido.`; los envíos con 401/400/403 limpian la suscripción (salvo par VAPID inválido) y dejan de repetirse. El frontend re-suscribe solo si detecta clave distinta.
+- **Tickets**: `GET /tickets/:id` de un vendedor sin tickets → **200 `[]`** (sin 500).
+
+#### ⚠ Notas / deuda
+- **Diagnóstico pendiente en el VPS (operativo)**: si los 401/403 persisten, revisar que el `.env` del backend tenga un **par VAPID válido** y que su pública coincida con la del build del frontend (`VITE_VAPID_PUBLIC_KEY`). Si las llaves se rotaron: limpiar `push_suscripciones` y que los usuarios reactiven (el auto-heal del frontend también lo resuelve).
+- El chequeo VAPID solo detecta pública/privada desalineadas; no valida contra las suscripciones ya guardadas (la entidad `PushSuscripcion` no almacena la clave usada).
+- Para **deploy**: recompilar/reiniciar el backend (`npm run build` + `pm2 restart crm-server`) y subir el `dist/` del frontend. Sin migraciones.
+
+

@@ -102,6 +102,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setSession(null);
     queryClient.removeQueries({ queryKey: ["userData", user_id] });
     queryClient.removeQueries({ queryKey: ["currentUser", user_id] });
+    // No dejar en caché las preferencias de notificación del usuario saliente:
+    // en equipos compartidos se filtrarían a quien inicie sesión después.
+    queryClient.removeQueries({ queryKey: ["push", "preferencias"] });
     setLoading(true);
   };
 

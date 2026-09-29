@@ -11,7 +11,7 @@ import { ApiError } from '../utils/ApiError';
 
 export const getTickets = async (req: Request, res: Response) => {
   const tickets = await getTicketsService();
-  if (tickets.length === 0) throw new ApiError('No hay tickets disponibles');
+  // Sin tickets NO es un error: el frontend espera un array (200 []).
   res.json(tickets);
 };
 
@@ -27,7 +27,7 @@ export const getTicketsByVendedor = async (req: Request, res: Response) => {
   const { rol } = req.user;
   
   const tickets = await getTicketsByVendedorService(id, rol);
-  if (tickets.length === 0) throw new ApiError('No hay tickets disponibles');
+  // Sin tickets NO es un error: el frontend espera un array (200 []).
   res.json(tickets);
 };
 

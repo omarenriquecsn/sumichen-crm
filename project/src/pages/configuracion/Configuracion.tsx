@@ -298,6 +298,21 @@ export const Configuracion: React.FC = () => {
     }));
   };
 
+  // Al cambiar de usuario (equipo compartido, PWA), limpiar el estado local de
+  // los toggles para no arrastrar las preferencias del usuario anterior. Debe
+  // declararse ANTES del efecto de sincronización para resetear primero.
+  const prefsUsuarioRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    const uid =
+      (currentUser as { supabase_id?: string })?.supabase_id ??
+      session?.user?.id ??
+      null;
+    if (!uid || prefsUsuarioRef.current === uid) return;
+    prefsUsuarioRef.current = uid;
+    prefsLocalesRef.current = {};
+    setPrefsLocales({});
+  }, [currentUser, session]);
+
   // Sincroniza el estado local de los toggles con las preferencias del backend
   // (se aplican las que aún no estén en el estado local, para no pisar ediciones).
   useEffect(() => {
