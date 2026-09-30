@@ -356,11 +356,11 @@ export const DashboardAdmin: React.FC = () => {
     >
       <div className="space-y-6">
         {/* Estadísticas globales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
           {globalStats.map((stat) => (
             <div
               key={stat.title}
-              className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
+              className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100"
             >
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
@@ -427,9 +427,9 @@ export const DashboardAdmin: React.FC = () => {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Top vendedores */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 Top Vendedores
@@ -440,9 +440,9 @@ export const DashboardAdmin: React.FC = () => {
               {topVendedores.map((vendedor, index) => (
                 <div
                   key={vendedor.id}
-                  className="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg"
+                  className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg min-w-0"
                 >
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center gap-2 shrink-0">
                     <span
                       className={`text-sm font-bold ${
                         index === 0
@@ -456,23 +456,27 @@ export const DashboardAdmin: React.FC = () => {
                     >
                       #{index + 1}
                     </span>
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
                       <span className="text-blue-600 font-semibold text-sm">
                         {vendedor.avatar}
                       </span>
                     </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 truncate">
                       {vendedor.nombre}
                     </p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <span>${Number(vendedor.ventas)}</span>
-                      <span>•</span>
-                      <span>{vendedor.clientes} clientes</span>
-                      <span>•</span>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-gray-500">
+                      <span className="whitespace-nowrap">
+                        ${Number(vendedor.ventas)}
+                      </span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="whitespace-nowrap">
+                        {vendedor.clientes} clientes
+                      </span>
+                      <span className="hidden sm:inline">•</span>
                       <span
-                        className={`font-medium ${
+                        className={`font-medium whitespace-nowrap ${
                           Number(vendedor.meta) >= 90
                             ? "text-green-600"
                             : Number(vendedor.meta) >= 75
@@ -490,7 +494,7 @@ export const DashboardAdmin: React.FC = () => {
           </div>
 
           {/* Alertas y notificaciones */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 Alertas del Sistema
@@ -532,8 +536,8 @@ export const DashboardAdmin: React.FC = () => {
         </div>
 
         {/* Gráficos de rendimiento */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Ventas por Mes
             </h3>
@@ -550,7 +554,7 @@ export const DashboardAdmin: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Rendimiento por Vendedor
             </h3>

@@ -5,14 +5,18 @@ import { In } from 'typeorm';
 const PreferenciaRepo = () => AppDataSource.getRepository(PreferenciaNotificacion);
 
 export const obtenerPreferenciasRepository = async (vendedorDbId: string) => {
+  // Sin id de vendedor NO se puede filtrar: TypeORM ignora las condiciones
+  // `undefined` en `where` y devolvería las filas de TODOS los usuarios.
+  if (!vendedorDbId) return [];
   return await PreferenciaRepo().find({ where: { vendedor_id: vendedorDbId } });
 };
 
 /** Preferencias de varios vendedores (para envíos masivos, un solo query). */
 export const obtenerPreferenciasDeVendedoresRepository = async (vendedorDbIds: string[]) => {
-  if (!vendedorDbIds.length) return [];
+  const ids = (vendedorDbIds || []).filter((id) => !!id);
+  if (!ids.length) return [];
   return await PreferenciaRepo().find({
-    where: { vendedor_id: In(vendedorDbIds) },
+    where: { vendedor_id: In(ids) },
     select: ['vendedor_id', 'evento', 'habilitado'],
   });
 };
@@ -26,6 +30,8 @@ export const upsertPreferenciasRepository = async (
   vendedorDbId: string,
   preferencias: { evento: string; habilitado: boolean }[],
 ) => {
+  // Sin id de vendedor, abortar: un `where` con `undefined` abarcaría a todos.
+  if (!vendedorDbId) return [];
   if (!preferencias.length) return await obtenerPreferenciasRepository(vendedorDbId);
 
   const repo = PreferenciaRepo();
