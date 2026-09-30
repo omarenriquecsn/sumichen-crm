@@ -204,6 +204,60 @@ export const registrarIngresosDesdeInventario = async (
   };
 };
 
+export interface StockInicialInput {
+  almacen: AlmacenEnum;
+  cantidad: number;
+  lote: string;
+  /** Fecha de ingreso (YYYY-MM-DD). */
+  fechaIngreso: string;
+  fechaVencimiento?: string | null;
+}
+
+/**
+ * Registra el stock inicial de un producto recién creado: un lote en el
+ * almacén indicado + su movimiento de ENTRADA. Se usa al crear un producto
+ * manualmente desde la app (el stock masivo sigue entrando por el Excel).
+ */
+export const registrarLoteInicial = async (
+  productoId: string,
+  input: StockInicialInput,
+): Promise<void> => {
+  const cantidad = Math.round((Number(input.cantidad) || 0) * 100) / 100;
+  if (!(cantidad > 0)) {
+    throw new ApiError('La cantidad inicial debe ser mayor a 0', 400);
+  }
+  const lote = String(input.lote || '').trim();
+  if (!lote) throw new ApiError('El código del lote es obligatorio', 400);
+  if (!input.fechaIngreso) {
+    throw new ApiError('La fecha de ingreso es obligatoria', 400);
+  }
+
+  const existente = await getLote(productoId, input.almacen, lote);
+  if (existente) {
+    throw new ApiError('Ya existe un lote con ese código para el producto', 400);
+  }
+
+  await createLote({
+    producto_id: productoId,
+    almacen: input.almacen,
+    codigo_lote: lote,
+    fecha_ingreso: input.fechaIngreso,
+    fecha_vencimiento: input.fechaVencimiento ?? null,
+    cantidad_inicial: cantidad,
+    cantidad_actual: cantidad,
+    activo: true,
+  });
+
+  await createMovimiento({
+    tipo: MovimientoInventarioTipoEnum.ENTRADA,
+    producto_id: productoId,
+    almacen: input.almacen,
+    cantidad,
+    saldo_resultante: cantidad,
+    observacion: `Stock inicial lote ${lote} (${input.fechaIngreso})`,
+  });
+};
+
 /** Devuelve el catálogo de productos con el stock real por almacén. */
 export const getStockProductos = async (): Promise<ProductoConStock[]> => {
   const productos = await getProductos();

@@ -44,6 +44,13 @@ export const getProductoById = async (req: Request, res: Response) => {
 };
 
 export const createProducto = async (req: Request, res: Response) => {
+  const { nombre, descripcion } = req.body ?? {};
+  if (!nombre || !String(nombre).trim()) {
+    throw new ApiError('El nombre es obligatorio', 400);
+  }
+  if (!descripcion || !String(descripcion).trim()) {
+    throw new ApiError('El código es obligatorio', 400);
+  }
   const nuevoProducto = await createProductoService(req.body);
   if (!nuevoProducto) throw new ApiError('No se pudo crear el producto', 400);
   res.status(201).json(nuevoProducto);

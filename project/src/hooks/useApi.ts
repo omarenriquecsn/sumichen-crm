@@ -1625,10 +1625,22 @@ export const useApi = () => {
       onSuccess: () => invalidarInstrumentos(pedidoId),
     });
 
-  // Crear producto
+  // Crear producto (con stock inicial opcional)
   const useCrearProducto = () => {
     return useMutation({
-      mutationFn: async ({ productoData }: { productoData: Partial<Producto> }) => {
+      mutationFn: async ({
+        productoData,
+      }: {
+        productoData: Partial<Producto> & {
+          stock_inicial?: {
+            almacen?: string;
+            cantidad?: number;
+            lote?: string;
+            fecha_ingreso?: string;
+            fecha_vencimiento?: string | null;
+          };
+        };
+      }) => {
         const response = await fetch(`${URL}/productos`, {
           method: "POST",
           headers: {
@@ -1639,9 +1651,16 @@ export const useApi = () => {
           body: JSON.stringify(productoData),
         });
         if (!response.ok) {
-          throw new Error("Error al crear el producto");
+          const data = await response.json().catch(() => null);
+          throw new Error(
+            data?.message || data?.error || "Error al crear el producto"
+          );
         }
         return response.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["productos"] });
+        queryClient.invalidateQueries({ queryKey: ["inventario"] });
       },
     });
   };

@@ -7,6 +7,9 @@ import {
   actualizarPrecioBase,
 } from '../repositories/productosRepository';
 import { FilaListaPrecios } from '../utils/listaPreciosPdf';
+import { registrarLoteInicial } from './inventarioServices';
+import { AlmacenEnum } from '../enums/AlmacenEnum';
+import { ApiError } from '../utils/ApiError';
 
 export const getProductosService = async () => {
   const productos = await getProductos();
@@ -18,10 +21,53 @@ export const getProductoByIdService = async (id: string) => {
   return producto;
 };
 
+export interface StockInicialProducto {
+  almacen?: string;
+  cantidad?: number | string;
+  lote?: string;
+  fecha_ingreso?: string;
+  fecha_vencimiento?: string | null;
+}
+
+/**
+ * Crea un producto. Si el body trae `stock_inicial` con cantidad > 0, además
+ * registra el lote inicial (almacén + lote + fecha) y su movimiento de entrada.
+ */
 export const createProductoService = async (
-  productoData: Partial<Producto>,
+  productoData: Partial<Producto> & { stock_inicial?: StockInicialProducto },
 ) => {
-  const nuevoProducto = await createProducto(productoData);
+  const { stock_inicial, ...datos } = productoData;
+
+  const cantidadInicial = Number(stock_inicial?.cantidad) || 0;
+  const conStock = !!stock_inicial && cantidadInicial > 0;
+
+  // Se valida el stock ANTES de crear el producto para no dejar registros a
+  // medias si algo falta.
+  if (conStock) {
+    const almacen = stock_inicial!.almacen;
+    if (almacen !== AlmacenEnum.GLOBALCA && almacen !== AlmacenEnum.WMS) {
+      throw new ApiError('El almacén debe ser globalca o wms', 400);
+    }
+    if (!String(stock_inicial!.lote || '').trim()) {
+      throw new ApiError('El código del lote es obligatorio', 400);
+    }
+    if (!stock_inicial!.fecha_ingreso) {
+      throw new ApiError('La fecha de ingreso es obligatoria', 400);
+    }
+  }
+
+  const nuevoProducto = await createProducto(datos);
+
+  if (conStock) {
+    await registrarLoteInicial(nuevoProducto.id, {
+      almacen: stock_inicial!.almacen as AlmacenEnum,
+      cantidad: cantidadInicial,
+      lote: String(stock_inicial!.lote),
+      fechaIngreso: String(stock_inicial!.fecha_ingreso),
+      fechaVencimiento: stock_inicial!.fecha_vencimiento ?? null,
+    });
+  }
+
   return nuevoProducto;
 };
 
