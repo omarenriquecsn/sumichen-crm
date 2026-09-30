@@ -140,14 +140,6 @@ const EditarPedido = ({ onSubmit, accion, dataProps }: EditarPedidoProps) => {
     (p) => (p.stock?.total ?? 0) > 0,
   );
 
-  const almacenesPedido = Array.from(
-    new Set(
-      productosSeleccionados
-        .map((p) => p.almacen)
-        .filter((a): a is Almacen => !!a),
-    ),
-  );
-
   // Los instrumentos del pedido están fuera; se suman de vuelta para mostrarlos
   // disponibles al reasignarlos.
   const stockInstrumentosAjustado = (stockInstrumentos ?? []).map((s) => ({
@@ -430,7 +422,7 @@ const EditarPedido = ({ onSubmit, accion, dataProps }: EditarPedidoProps) => {
             key={instrumentosPedido ? "instrumentos-listas" : "instrumentos-cargando"}
             tipos={tiposInstrumento ?? []}
             stock={stockInstrumentosAjustado}
-            almacenes={almacenesPedido}
+            almacenes={["globalca", "wms"]}
             seleccionInicial={instrumentos}
             onSeleccionar={setInstrumentos}
           />

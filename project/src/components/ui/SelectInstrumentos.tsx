@@ -10,7 +10,7 @@ const ETIQUETA_ALMACEN: Record<Almacen, string> = {
 type Props = {
   tipos: TipoInstrumento[];
   stock: InstrumentoStock[];
-  /** Almacenes disponibles según los productos del pedido. */
+  /** Almacenes entre los que el usuario elige de dónde sale el instrumento. */
   almacenes: Almacen[];
   seleccionInicial?: formInstrumento[];
   onSeleccionar: (seleccion: formInstrumento[]) => void;
@@ -27,9 +27,7 @@ const SelectInstrumentos = ({
     seleccionInicial ?? [],
   );
   const [tipoId, setTipoId] = useState("");
-  const [almacen, setAlmacen] = useState<Almacen | "">(
-    almacenes.length === 1 ? almacenes[0] : "",
-  );
+  const [almacen, setAlmacen] = useState<Almacen | "">("");
   const [cantidad, setCantidad] = useState(1);
 
   const disponible = (tipoInstrumentoId: string, al: Almacen) =>
@@ -39,8 +37,7 @@ const SelectInstrumentos = ({
       )?.cantidad_disponible ?? 0,
     );
 
-  const almacenDeLinea = (al: Almacen | "") =>
-    (al || (almacenes.length === 1 ? almacenes[0] : "")) as Almacen;
+  const almacenDeLinea = (al: Almacen | "") => al as Almacen;
 
   const notificar = (s: formInstrumento[]) => {
     setSeleccion(s);
@@ -59,7 +56,13 @@ const SelectInstrumentos = ({
     }
     const cant = Math.max(1, Number(cantidad) || 0);
     const disp = disponible(tipoId, al);
-    if (disp > 0 && cant > disp) {
+    if (disp <= 0) {
+      toast.info(
+        `No hay instrumentos disponibles en ${ETIQUETA_ALMACEN[al]}.`,
+      );
+      return;
+    }
+    if (cant > disp) {
       toast.info(`Solo hay ${disp.toFixed(2)} disponibles en ${ETIQUETA_ALMACEN[al]}.`);
       return;
     }
@@ -116,7 +119,51 @@ const SelectInstrumentos = ({
     tipoInstrumentoId: string,
     desde: Almacen,
     hacia: Almacen,
-  ) =>
+  ) => {
+    if (desde === hacia) return;
+    const linea = seleccion.find(
+      (s) => s.tipo_instrumento_id === tipoInstrumentoId && s.almacen === desde,
+    );
+    if (!linea) return;
+
+    const disp = disponible(tipoInstrumentoId, hacia);
+    if (disp <= 0) {
+      toast.info(
+        `No hay instrumentos disponibles en ${ETIQUETA_ALMACEN[hacia]}.`,
+      );
+      return;
+    }
+    if (linea.cantidad > disp) {
+      toast.info(
+        `Solo hay ${disp.toFixed(2)} disponibles en ${ETIQUETA_ALMACEN[hacia]}.`,
+      );
+      return;
+    }
+
+    // Si ya hay una línea del mismo instrumento en el almacén destino, se
+    // fusionan las cantidades en vez de duplicar la línea.
+    const yaExiste = seleccion.some(
+      (s) => s.tipo_instrumento_id === tipoInstrumentoId && s.almacen === hacia,
+    );
+    if (yaExiste) {
+      notificar(
+        seleccion
+          .filter(
+            (s) =>
+              !(
+                s.tipo_instrumento_id === tipoInstrumentoId &&
+                s.almacen === desde
+              ),
+          )
+          .map((s) =>
+            s.tipo_instrumento_id === tipoInstrumentoId && s.almacen === hacia
+              ? { ...s, cantidad: s.cantidad + linea.cantidad }
+              : s,
+          ),
+      );
+      return;
+    }
+
     notificar(
       seleccion.map((s) =>
         s.tipo_instrumento_id === tipoInstrumentoId && s.almacen === desde
@@ -124,6 +171,7 @@ const SelectInstrumentos = ({
           : s,
       ),
     );
+  };
 
   return (
     <div className="space-y-3">
@@ -149,23 +197,21 @@ const SelectInstrumentos = ({
                 ))}
               </select>
             </div>
-            {almacenes.length > 1 && (
-              <div className="sm:col-span-3">
-                <label className="block text-xs text-gray-500">Almacén</label>
-                <select
-                  value={almacen}
-                  onChange={(e) => setAlmacen(e.target.value as Almacen)}
-                  className="w-full border rounded px-2 py-1 bg-white"
-                >
-                  <option value="">Selecciona...</option>
-                  {almacenes.map((a) => (
-                    <option key={a} value={a}>
-                      {ETIQUETA_ALMACEN[a]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className="sm:col-span-3">
+              <label className="block text-xs text-gray-500">Almacén</label>
+              <select
+                value={almacen}
+                onChange={(e) => setAlmacen(e.target.value as Almacen)}
+                className="w-full border rounded px-2 py-1 bg-white"
+              >
+                <option value="">Selecciona...</option>
+                {almacenes.map((a) => (
+                  <option key={a} value={a}>
+                    {ETIQUETA_ALMACEN[a]}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="sm:col-span-2">
               <label className="block text-xs text-gray-500">Cantidad</label>
               <input
@@ -199,29 +245,23 @@ const SelectInstrumentos = ({
                     {s.nombre}
                   </span>
                   <div className="sm:col-span-3">
-                    {almacenes.length > 1 ? (
-                      <select
-                        value={s.almacen}
-                        onChange={(e) =>
-                          cambiarAlmacenLinea(
-                            s.tipo_instrumento_id,
-                            s.almacen,
-                            e.target.value as Almacen,
-                          )
-                        }
-                        className="w-full border rounded px-2 py-1 bg-white text-sm"
-                      >
-                        {almacenes.map((a) => (
-                          <option key={a} value={a}>
-                            {ETIQUETA_ALMACEN[a]}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-sm text-gray-600">
-                        {ETIQUETA_ALMACEN[s.almacen]}
-                      </span>
-                    )}
+                    <select
+                      value={s.almacen}
+                      onChange={(e) =>
+                        cambiarAlmacenLinea(
+                          s.tipo_instrumento_id,
+                          s.almacen,
+                          e.target.value as Almacen,
+                        )
+                      }
+                      className="w-full border rounded px-2 py-1 bg-white text-sm"
+                    >
+                      {almacenes.map((a) => (
+                        <option key={a} value={a}>
+                          {ETIQUETA_ALMACEN[a]}
+                        </option>
+                      ))}
+                    </select>
                     <p className="text-[10px] text-gray-500">
                       Disp: {disponible(s.tipo_instrumento_id, s.almacen).toFixed(0)}
                     </p>

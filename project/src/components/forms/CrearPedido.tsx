@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Almacen, formInstrumento, formProducto, Pedido, PedidoData, Producto, Transporte } from "../../types";
+import { formInstrumento, formProducto, Pedido, PedidoData, Producto, Transporte } from "../../types";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 import { toast } from "react-toastify";
 import { useSupabase } from "../../hooks/useSupabase";
@@ -93,16 +93,6 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
   // Solo se ofrecen productos con stock real (suma de lotes por almacén).
   const productosDisponibles = (productos as Producto[]).filter(
     (p) => p.disponible !== false && (p.stock?.total ?? 0) > 0
-  );
-
-  // Almacenes involucrados según las líneas de producto (el envase sale del
-  // mismo almacén donde se envasa el producto).
-  const almacenesPedido = Array.from(
-    new Set(
-      productosSeleccionados
-        .map((p) => p.almacen)
-        .filter((a): a is Almacen => !!a),
-    ),
   );
 
   const handleOnChage = (
@@ -404,7 +394,7 @@ const CrearPedido = ({ onSubmit, accion, initialData }: CrearPedidoProps) => {
           <SelectInstrumentos
             tipos={tiposInstrumento ?? []}
             stock={stockInstrumentos ?? []}
-            almacenes={almacenesPedido}
+            almacenes={["globalca", "wms"]}
             seleccionInicial={instrumentos}
             onSeleccionar={setInstrumentos}
           />
