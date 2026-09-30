@@ -2,6 +2,7 @@ import {
   getProductos,
   createProducto,
   actualizarDisponible,
+  updateProducto,
 } from '../repositories/productosRepository';
 import {
   createLote,
@@ -41,6 +42,10 @@ export interface ResumenIngresos {
   productosCreados: number;
   lotesCreados: number;
   lotesDuplicados: string[];
+  /** Nombres de productos existentes actualizados desde el Excel. */
+  nombresActualizados: number;
+  /** Códigos con más de un producto: no se renombran (se revisan aparte). */
+  nombresOmitidosPorDuplicado: string[];
 }
 
 export interface ProductoConStock extends Producto {
@@ -106,9 +111,21 @@ export const registrarIngresosDesdeInventario = async (
     if (base && !mapaProductos.has(base)) mapaProductos.set(base, producto);
   }
 
+  // Conteo de productos por código base. Solo se actualiza el `nombre` de los
+  // códigos que tienen UN único producto: si hay duplicados no se sabe cuál
+  // renombrar (se dejan para revisión manual).
+  const conteoBase = new Map<string, number>();
+  for (const producto of productos) {
+    const base = baseCodigo(producto.descripcion || '');
+    if (base) conteoBase.set(base, (conteoBase.get(base) || 0) + 1);
+  }
+
   let productosCreados = 0;
   let lotesCreados = 0;
+  let nombresActualizados = 0;
   const lotesDuplicados: string[] = [];
+  const nombresOmitidosPorDuplicado = new Set<string>();
+  const nombresYaProcesados = new Set<string>();
 
   for (const fila of filas) {
     const base = baseCodigo(fila.codigo);
@@ -124,7 +141,24 @@ export const registrarIngresosDesdeInventario = async (
       } as Partial<Producto>);
       productosCreados++;
       if (base) mapaProductos.set(base, producto);
+    } else if (base && fila.descripcion && !nombresYaProcesados.has(base)) {
+      // Producto existente: se actualiza su nombre con el del Excel si el
+      // código tiene un solo producto (los duplicados se omiten).
+      nombresYaProcesados.add(base);
+      const cantidadProductos = conteoBase.get(base) || 0;
+      if (cantidadProductos > 1) {
+        nombresOmitidosPorDuplicado.add(base);
+      } else if ((producto.nombre || '').trim() !== fila.descripcion.trim()) {
+        await updateProducto(producto.id, { nombre: fila.descripcion.trim() });
+        producto.nombre = fila.descripcion.trim();
+        nombresActualizados++;
+      }
     }
+
+    // Solo se registra lote/movimiento cuando la fila trae lote, fecha y
+    // stock. Las filas sin lote/stock solo sirven para dar de alta el
+    // producto en el catálogo (quedará no disponible tras el recálculo).
+    if (!fila.lote || !fila.fecha || fila.cantidades.length === 0) continue;
 
     for (const { almacen, cantidad } of fila.cantidades) {
       const existente = await getLote(producto.id, almacen, fila.lote);
@@ -165,6 +199,8 @@ export const registrarIngresosDesdeInventario = async (
     productosCreados,
     lotesCreados,
     lotesDuplicados,
+    nombresActualizados,
+    nombresOmitidosPorDuplicado: [...nombresOmitidosPorDuplicado],
   };
 };
 

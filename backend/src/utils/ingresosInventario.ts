@@ -5,8 +5,10 @@ import { AlmacenEnum } from '../enums/AlmacenEnum';
  * Parser del inventario diario usado para INGRESAR mercancía nueva a los
  * almacenes. Formato esperado (con o sin fila de encabezado):
  *
- *   CODIGO | DESCRIPCION | GLOBALCA | WMS | TOTAL | LOTE | FECHA | VENCIMIENTO
+ *   CODIGO | NOMBRE | GLOBALCA | WMS | TOTAL | LOTE | FECHA | VENCIMIENTO
  *
+ * - NOMBRE (alias DESCRIPCION): nombre del producto. Al crear/matchear el
+ *   producto se guarda en `productos.nombre` (el `descripcion` es el código).
  * - GLOBALCA / WMS: cantidad del lote en cada almacén (kg).
  * - LOTE: código de lote (único; nunca se reutiliza).
  * - FECHA: fecha de ingreso del lote (para FIFO).
@@ -16,9 +18,12 @@ import { AlmacenEnum } from '../enums/AlmacenEnum';
 export interface FilaIngresoInventario {
   codigo: string;
   descripcion: string;
+  /** Cadena vacía si el producto no tiene lote (solo alta de catálogo). */
   lote: string;
-  fecha: string; // YYYY-MM-DD
+  /** YYYY-MM-DD o null si no hay fecha de ingreso (solo alta de catálogo). */
+  fecha: string | null;
   fechaVencimiento?: string | null;
+  /** Vacío si el producto no tiene stock (solo alta de catálogo). */
   cantidades: { almacen: AlmacenEnum; cantidad: number }[];
 }
 
@@ -111,7 +116,9 @@ export const parsearInventarioIngresos = async (
     celdasHeader.push(normalizar(textoCelda(cell)));
   });
   const esEncabezado =
-    celdasHeader.includes('CODIGO') || celdasHeader.includes('DESCRIPCION');
+    celdasHeader.includes('CODIGO') ||
+    celdasHeader.includes('NOMBRE') ||
+    celdasHeader.includes('DESCRIPCION');
 
   // Columnas (1-indexadas). Si hay encabezado, se buscan por nombre; si no,
   // se usa el orden estándar.
@@ -127,7 +134,8 @@ export const parsearInventarioIngresos = async (
     primeraFila.eachCell((cell, colNumber) => {
       const h = normalizar(textoCelda(cell));
       if (h === 'CODIGO') colCodigo = colNumber;
-      else if (h === 'DESCRIPCION') colDescripcion = colNumber;
+      else if (h === 'NOMBRE' || h === 'DESCRIPCION')
+        colDescripcion = colNumber;
       else if (h === 'GLOBALCA') colGlobalca = colNumber;
       else if (h === 'WMS') colWms = colNumber;
       else if (h === 'LOTE') colLote = colNumber;
@@ -151,11 +159,11 @@ export const parsearInventarioIngresos = async (
     if (!codigo) return;
 
     const descripcion = textoCelda(row.getCell(colDescripcion)).trim();
+    // Cada fila con código representa un producto del catálogo, aunque no
+    // tenga lote ni stock (se usa para crear el catálogo completo). El lote,
+    // la fecha y las cantidades son opcionales.
     const lote = textoCelda(row.getCell(colLote)).trim();
-    if (!lote) return;
-
     const fecha = parsearFechaExcel(row.getCell(colFecha).value);
-    if (!fecha) return;
 
     const fechaVencimiento = parsearFechaExcel(
       row.getCell(colVencimiento).value,
@@ -168,8 +176,6 @@ export const parsearInventarioIngresos = async (
       cantidades.push({ almacen: AlmacenEnum.GLOBALCA, cantidad: cantidadGlobalca });
     if (cantidadWms > 0)
       cantidades.push({ almacen: AlmacenEnum.WMS, cantidad: cantidadWms });
-
-    if (cantidades.length === 0) return;
 
     filas.push({ codigo, descripcion, lote, fecha, fechaVencimiento, cantidades });
   });
