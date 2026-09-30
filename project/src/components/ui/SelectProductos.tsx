@@ -230,7 +230,7 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
                 <span className="lg:col-span-3 font-medium text-gray-800">{producto.nombre}</span>
 
                 <div className="lg:col-span-1">
-                  <label htmlFor={`cantidad-${producto.producto_id}`} className="text-xs text-gray-500">Cantidad En Kg</label>
+                  <label htmlFor={`cantidad-${producto.producto_id}`} className="text-xs text-gray-500">Kg</label>
                   <input
                     id={`cantidad-${producto.producto_id}`}
                     type="number"
@@ -314,7 +314,7 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
                 </div>
 
                 <div className="lg:col-span-1">
-                  <label htmlFor={`porcentaje-${producto.producto_id}`} className="text-xs text-gray-500">% Negociación</label>
+                  <label htmlFor={`porcentaje-${producto.producto_id}`} className="text-xs text-gray-500">% Neg</label>
                   <input
                     id={`porcentaje-${producto.producto_id}`}
                     type="number"

@@ -94,10 +94,16 @@ export const registrarIngresosDesdeInventario = async (
   const filas = await parsearInventarioIngresos(buffer);
 
   const productos = await getProductos();
+  // El catálogo puede tener varios productos con el mismo código
+  // (`descripcion`). Se ordena de forma estable por id y se usa el primero
+  // (first-wins), para que cada carga elija SIEMPRE el mismo producto y
+  // re-subir el mismo Excel no vuelva a crear lotes.
   const mapaProductos = new Map<string, Producto>();
-  for (const producto of productos) {
+  for (const producto of [...productos].sort((a, b) =>
+    a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+  )) {
     const base = baseCodigo(producto.descripcion || '');
-    if (base) mapaProductos.set(base, producto);
+    if (base && !mapaProductos.has(base)) mapaProductos.set(base, producto);
   }
 
   let productosCreados = 0;
