@@ -1,0 +1,4 @@
+{
+  "instrucciones": "Nombres definitivos para productos EXCEPCIONALES (codigos duplicados o en revision que la carga del inventario no renombro). Clave = codigo (productos.descripcion) o UUID de productos.id; valor = nombre final. Uso: `node build/scripts/aplicarNombres.js` (dry-run) y luego `--apply`.",
+  "nombres": {}
+}

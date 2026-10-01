@@ -42,4 +42,12 @@ test/
 # Otros
 .bolt
 deploy.ps1
+deployInventario.ps1
+
+# Artefactos locales del inventario (no versionar)
+INVENTARIO*.xlsx
+Reconciliacion_*.xlsx
+Comparacion_*.xlsx
+Plantilla_Inventario_*.xlsx
+LISTA SUMICHEM*.pdf
 

@@ -1,0 +1,9 @@
+{
+  "instrucciones": "Mapa de fusion de productos duplicados. En 'fusiones', 'duplicado' se elimina y TODAS sus referencias (productos_pedido, lotes, movimientos_inventario, devoluciones_detalle) se reapuntan a 'canonico'. Cada valor puede ser un UUID de productos.id o un codigo (productos.descripcion); para codigos repetidos usa el UUID. Flujo: 1) `node build/scripts/fusionarDuplicados.js` (dry-run, no cambia nada), 2) revisar, 3) `node build/scripts/fusionarDuplicados.js --apply`.",
+  "fusiones": [],
+  "ejemplos_ambiente_prueba": [
+    { "duplicado": "ME10052", "canonico": "MP10836", "nota": "mismo producto segun reconciliacion" },
+    { "duplicado": "MP10833", "canonico": "MP10880" },
+    { "duplicado": "MP10902", "canonico": "MP10780" }
+  ]
+}

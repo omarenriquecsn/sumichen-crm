@@ -1439,7 +1439,7 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - Tablas `tipos_instrumento` (catálogo configurable, seed Paleta/Tambor/Baritanque/Carboya), `instrumento_stock` por `(tipo, almacén)` (`cantidad_total`/`cantidad_disponible`), `movimientos_instrumento` (kardex) y `pedido_instrumentos` (línea con contadores por estado). Migración `1787524222000-InstrumentosSchema.ts`.
 - **Estados**: `en_almacen`, `en_transito`, `en_cliente` (con el cliente), `donado` y `danado` (terminales, no vuelven al conteo).
 - Flujo: al **crear** el pedido los instrumentos pasan de almacén a `en_transito` (movimiento `prestamo`); el paso a `en_cliente` es **manual** desde el detalle/Logística (`entregar`); devolución → `en_almacen`; **donado/dañado** desde cliente o almacén. Cancelar/editar el pedido libera y reconsume.
-- **El almacén del instrumento se deriva del producto** (no se elige en el pedido salvo que el pedido mezcle almacenes).
+- **El almacén del instrumento lo elige el usuario** en el formulario de pedido (GLOBALCA o WMS), independientemente de los almacenes de las líneas de producto. `SelectInstrumentos` exige la selección del almacén, muestra el disponible de ese almacén y **avisa/bloquea si no hay instrumentos disponibles** en el almacén elegido.
 - Endpoints en `routes/instrumentosRoutes.ts` (`/instrumentos/*` y `/pedidos/:id/instrumentos*`), admin para catálogo/movimientos.
 - **Lista de clientes con cantidad** de instrumentos: `GET /instrumentos/clientes`.
 
@@ -1469,6 +1469,34 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - El paso `en_transito → en_cliente` es manual (decisión del usuario).
 - La sección Logística es solo para admin.
 - **Merge con `main` (26/09)**: la rama se actualizó con `main` (campañas/palabras clave, CC/CCO, chat solo admin, etc.). Como `main` creó `1787524220000-CampanasKeywordsSchema.ts`, la migración de vencimiento se renombró de `1787524220000-LoteVencimientoSchema.ts` a **`1787524223000-LoteVencimientoSchema.ts`** (clase y `name` incluidos) para evitar colisión de timestamp. Sigue en STANDBY: no se ha mergeado a `main` ni desplegado.
+### Procedimiento de activación a producción — Feature Inventario (lotes/almacenes/devoluciones) ⏸️
+
+> Camino para llevar esta rama (`feature/inventario-lotes-almacenes-devoluciones`) a producción el día que se decida. **Orden estricto: esquema → datos (Excel) → correcciones.** Commits de esta sesión en la rama: `a7aff04` (catálogo completo + nombres desde el Excel) y `2808b24` (crear producto con unidad/disponible/stock inicial).
+
+**Fase 0 — Verificar producción (solo lectura).** Correr la reconciliación contra la BD de producción (`45.148.29.252/crmdb`) para confirmar duplicados y nombres → `Reconciliacion_Produccion.xlsx`. Con eso se ajusta el mapeo de fusión (puede diferir de la BD de prueba).
+
+**Fase 1 — Scripts versionados.** En `backend/src/scripts/` (compilan a `build/scripts/`):
+- `fusionarDuplicados.ts` (idempotente; `--dry-run` por defecto, `--apply` ejecuta) leyendo `mapeosDuplicados.json`.
+- `aplicarNombres.ts` (opcional, excepciones "revisar").
+Commit en la rama.
+
+**Fase 2 — Respaldo.** `pg_dump -Fc` de producción (o el backup diario del Punto 37).
+
+**Fase 3 — Deploy.** En el worktree principal (`main`), que es donde vive `deploy.ps1`:
+1. `git merge feature/inventario-lotes-almacenes-devoluciones` (resolver conflictos).
+2. `.\deploy.ps1` → build y reinicio de `crm-server`; las migraciones se aplican solas (`migrationsRun`) y crean `lotes`, `movimientos_inventario`, `devoluciones`, `devoluciones_detalle`, instrumentos, etc.
+
+**Fase 4 — Cargar inventario.** En la app (producción) como admin: `Excel de Productos` → subir el Excel. Crea lotes, crea los productos faltantes y actualiza `nombre` de códigos con un solo producto.
+
+**Fase 5 — Fusionar duplicados.** En el VPS: `node build/scripts/fusionarDuplicados.js --apply`.
+
+**Fase 6 — Verificar.** 0 códigos duplicados, pedidos/líneas intactos, total kg correcto, `disponible` recalculado.
+
+**⚠ Advertencias**
+- La subida renombra **todos** los códigos de un solo producto (no respeta las excepciones "revisar" hechas a mano); si se quieren conservar, corregirlas aparte.
+- Activar la feature cambia el flujo de pedidos: consumen **stock FIFO** y exigen **almacén** por línea; se habilitan devoluciones e instrumentos en Logística.
+- `deploy.ps1` no está versionado y solo existe en el worktree `main`; tiene guarda de rama (aborta si no estás en `main`).
+
 ### Punto 43 — Fix preferencias de notificación por usuario + errores push (401/400/403) + 500 de tickets ✅ (build/lint/typecheck OK backend y frontend)
 
 > **Resumen**: se corrigieron 3 fallos detectados en producción.
@@ -1505,6 +1533,33 @@ y copiar `backups/evidencias/` a `EVIDENCIA_UPLOAD_PATH`. ⚠ Un backup no proba
 - **Diagnóstico pendiente en el VPS (operativo)**: si los 401/403 persisten, revisar que el `.env` del backend tenga un **par VAPID válido** y que su pública coincida con la del build del frontend (`VITE_VAPID_PUBLIC_KEY`). Si las llaves se rotaron: limpiar `push_suscripciones` y que los usuarios reactiven (el auto-heal del frontend también lo resuelve).
 - El chequeo VAPID solo detecta pública/privada desalineadas; no valida contra las suscripciones ya guardadas (la entidad `PushSuscripcion` no almacena la clave usada).
 - Para **deploy**: recompilar/reiniciar el backend (`npm run build` + `pm2 restart crm-server`) y subir el `dist/` del frontend. Sin migraciones.
+
+### Punto 44 — Catálogo completo, nombres desde el Excel, fusión de duplicados y Crear Producto con stock inicial ✅ (29/09, en la rama `feature/inventario-lotes-almacenes-devoluciones`)
+
+> **Resumen**: se cargó el inventario real (`INVENTARIO 25-09 completo.xlsx`) en la BD de prueba, se completó el catálogo, se corrigieron nombres cruzados, se fusionaron los 7 códigos duplicados (sin afectar pedidos) y se completó la página **Crear Producto** con unidad, disponible y stock inicial. **No desplegado a producción** (ver "Procedimiento de activación a producción").
+
+**Commits:** `a7aff04` (catálogo + nombres), `2808b24` (Crear Producto + stock inicial).
+
+#### Código
+- `utils/ingresosInventario.ts`: acepta encabezado `NOMBRE` (alias `DESCRIPCION`) y ya no descarta filas sin lote/fecha/stock (sirven para dar de alta el catálogo).
+- `services/inventarioServices.ts`: al subir, **actualiza `nombre` por código** (omite códigos con >1 producto) y reporta `nombresActualizados`/`nombresOmitidosPorDuplicado`; nueva `registrarLoteInicial()`.
+- `services/productosServices.ts` + `controllers/productosControllers.ts`: `POST /productos` valida nombre/código y acepta `stock_inicial` (crea lote + movimiento `ENTRADA`).
+- `hooks/useApi.ts` (`useCrearProducto`): acepta `stock_inicial` e invalida `["productos"]`/`["inventario"]`.
+- `components/forms/AgregarProducto.tsx`: inputs Unidad de medida (KG), toggle Disponible y sección Stock inicial (almacén, cantidad, lote, fecha ingreso/vencimiento).
+- `pages/productos/Productos.tsx`: encabezado del visor `NOMBRE`.
+
+#### Datos (en `crm_local_test`)
+- Carga del Excel: 258 filas → **124 productos creados** + **120 lotes**.
+- **67 nombres corregidos** (excluyendo los 7 duplicados y los "revisar").
+- **7 códigos duplicados fusionados** (MP10500, MP10750, MP10764, MP10803 dentro del código; ME10052→MP10836, MP10833→MP10880, MP10902→MP10780), reapuntando pedidos/lotes/movimientos.
+- Estado final: **214 productos, 120 lotes, 120 movimientos, 206 pedidos, 258 líneas**, **0 códigos duplicados**, total **823.257,66 kg**.
+
+#### Pendiente
+- Productos "revisar" no-duplicados y basura (`ME10103`, `MP10570`, `MP10510`, `PRUEBA`, `S/L`, `S000013`…).
+- Aplicar todo esto a producción (Fases 0–6 del procedimiento de activación).
+
+#### Artefactos (no versionados)
+`Reconciliacion_Productos.xlsx`, `INVENTARIO 25-09 completo (transformado).xlsx`.
 
 
 
