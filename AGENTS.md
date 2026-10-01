@@ -1593,5 +1593,30 @@ Commit en la rama.
 - **Merge de la rama a `main`** cuando se valide (para que el proximo deploy desde `main` no revierta el inventario).
 - Productos "revisar"/basura (`PRUEBA`, `S/L`, `ME10103`, …) y codigos no listados en el Excel.
 
+### Punto 46 — El Excel es la verdad: sincronizacion por lote + reset unico (01/10) ✅
+
+> **Resumen**: la carga del inventario (`POST /productos/excel`, solo admin) dejo de ser "solo entradas": ahora el Excel es la **verdad de los lotes que lista**. Los lotes existentes se **actualizan** (cantidad/fechas), los nuevos se crean y los del producto que no aparecen en el Excel se **ponen en 0**. Los productos que no vienen en el Excel **no se tocan**. Ademas se hizo un **reset unico** de lotes/movimientos (se mantienen los productos) para arrancar con el nuevo documento.
+
+**Nuevo comportamiento (`services/inventarioServices.ts` → `sincronizarInventarioDesdeExcel`)**
+- Reemplaza a `registrarIngresosDesdeInventario`. Por cada producto presente: se crea si falta y se actualiza el `nombre`.
+- Upsert por `(producto + almacen + codigo de lote)`:
+  - lote nuevo con cantidad > 0 → **crear** (+ movimiento `ENTRADA`);
+  - lote existente con cambios → **actualizar** `cantidad_inicial`, `cantidad_actual`, `fecha_ingreso`, `fecha_vencimiento` (+ movimiento `AJUSTE_POSITIVO`/`AJUSTE_NEGATIVO`, motivo `conteo_fisico`);
+  - lote del producto que **no** viene en el Excel → `cantidad_actual = 0` (+ ajuste negativo).
+- Producto **ausente** del Excel → sin cambios (sus lotes se conservan).
+- `utils/ingresosInventario.ts`: el parser ahora devuelve **ambos almacenes** (aunque la cantidad sea 0) para poder cerrar lotes.
+- `repositories/lotesRepository.ts`: `updateLoteDatos` (cantidad + fechas).
+- `controllers/productosControllers.ts`: usa el servicio nuevo y devuelve `{ message, fileName, resumen }`.
+- `components/forms/ExcelProductos.tsx`: toast con resumen (creados / actualizados / en cero / sin cambio).
+- ⚠ **Sin reservas**: sobrescribe `cantidad_actual` "tal cual" el Excel. Si algun dia hay pedidos pendientes (stock reservado), habra que decidir si el Excel es fisico (respetar reservas) o ya disponible.
+
+**Reset unico (`scripts/resetInventario.ts`)**
+- Borra `movimientos_inventario` y `lotes`; **mantiene** `productos` y `pedidos`.
+- Guarda: aborta si hay movimientos con `pedido_id` (salvo `--forzar`).
+- Uso: `node build/scripts/resetInventario.js` (dry-run) / `--apply`.
+- Ejecutado en produccion (01/10): 120 lotes + 122 movimientos eliminados → **215 productos, 0 lotes, 0 movimientos, 0 disponibles**. Queda listo para cargar el Excel nuevo.
+
+**Commits**: `6e4f3b3` (rama subida a `origin`).
+
 
 
