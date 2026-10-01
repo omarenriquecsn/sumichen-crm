@@ -23,7 +23,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import TicketDetail from "./pages/tickets/TicketsDetail";
 import PedidosDetail from "./pages/pedidos/PedidosDetail";
-import { ExcelViewer } from "./pages/productos/Productos";
+import { Productos } from "./pages/productos/Productos";
 import ExcelProductos from "./components/forms/ExcelProductos";
 import Vendedores from "./pages/vendedores/Vendedores";
 import { VendedorPanel } from "./pages/vendedores/VendedorPanel";
@@ -77,7 +77,7 @@ function App() {
                 path="/productos"
                 element={
                   <ProtectedRoute>
-                    <ExcelViewer />
+                    <Productos />
                   </ProtectedRoute>
                 }
               />

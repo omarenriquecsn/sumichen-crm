@@ -15,7 +15,12 @@ const porVencer = (fecha?: string | null) => {
   return diff >= 0 && diff <= 1000 * 60 * 60 * 24 * 30;
 };
 
-const ProductosLogistica = () => {
+interface ProductosLogisticaProps {
+  /** Solo lectura (página Productos): oculta ajustes y edición de vencimiento. */
+  readonly?: boolean;
+}
+
+const ProductosLogistica = ({ readonly = false }: ProductosLogisticaProps) => {
   const supabase = useSupabase();
   const { data: productos, isLoading } = supabase.useStockProductos();
   const { data: lotes } = supabase.useLotes({});
@@ -30,11 +35,20 @@ const ProductosLogistica = () => {
   const { mutate: actualizarVencimiento } =
     supabase.useActualizarVencimientoLote();
 
-  const lista = (productos ?? []).filter((p) =>
-    `${p.nombre} ${p.descripcion}`
-      .toLowerCase()
-      .includes(busqueda.toLowerCase()),
-  );
+  // Primero los productos con stock en almacén; los que están en 0 al final
+  // (orden por nombre dentro de cada grupo).
+  const lista = (productos ?? [])
+    .filter((p) =>
+      `${p.nombre} ${p.descripcion}`
+        .toLowerCase()
+        .includes(busqueda.toLowerCase()),
+    )
+    .sort((a, b) => {
+      const dispA = Number(a.stock?.total ?? 0) > 0 ? 0 : 1;
+      const dispB = Number(b.stock?.total ?? 0) > 0 ? 0 : 1;
+      if (dispA !== dispB) return dispA - dispB;
+      return (a.nombre || "").localeCompare(b.nombre || "");
+    });
 
   const lotesDe = (productoId: string) =>
     (lotes ?? []).filter((l) => l.producto_id === productoId);
@@ -155,14 +169,16 @@ const ProductosLogistica = () => {
       >
         {productoSeleccionado && (
           <div className="space-y-4">
-            <div className="flex justify-end">
-              <button
-                onClick={() => setModalAjusteVisible(true)}
-                className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-              >
-                <SlidersHorizontal className="h-4 w-4" /> Ajuste manual
-              </button>
-            </div>
+            {!readonly && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setModalAjusteVisible(true)}
+                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  <SlidersHorizontal className="h-4 w-4" /> Ajuste manual
+                </button>
+              </div>
+            )}
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {lotesDe(productoSeleccionado.id).length === 0 && (
                 <p className="text-sm text-gray-500">Sin lotes registrados.</p>
@@ -193,25 +209,27 @@ const ProductosLogistica = () => {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <input
-                      type="date"
-                      value={vencimientos[l.id] ?? l.fecha_vencimiento ?? ""}
-                      onChange={(e) =>
-                        setVencimientos((prev) => ({
-                          ...prev,
-                          [l.id]: e.target.value,
-                        }))
-                      }
-                      className="border rounded px-2 py-1 text-sm"
-                    />
-                    <button
-                      onClick={() => guardarVencimiento(l.id)}
-                      className="text-sm text-blue-600 hover:text-blue-700"
-                    >
-                      Guardar vencimiento
-                    </button>
-                  </div>
+                  {!readonly && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="date"
+                        value={vencimientos[l.id] ?? l.fecha_vencimiento ?? ""}
+                        onChange={(e) =>
+                          setVencimientos((prev) => ({
+                            ...prev,
+                            [l.id]: e.target.value,
+                          }))
+                        }
+                        className="border rounded px-2 py-1 text-sm"
+                      />
+                      <button
+                        onClick={() => guardarVencimiento(l.id)}
+                        className="text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        Guardar vencimiento
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -219,7 +237,7 @@ const ProductosLogistica = () => {
         )}
       </Modal>
 
-      {productoSeleccionado && (
+      {!readonly && productoSeleccionado && (
         <AjusteInventarioModal
           productoId={productoSeleccionado.id}
           lotes={lotesDe(productoSeleccionado.id)}
