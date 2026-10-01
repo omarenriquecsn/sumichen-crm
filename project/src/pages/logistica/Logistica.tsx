@@ -32,9 +32,29 @@ const Logistica = () => {
 
   // Kardex de productos
   const [kardexProducto, setKardexProducto] = useState("");
+  const [busquedaKardex, setBusquedaKardex] = useState("");
   const { data: productos } = supabase.useStockProductos();
   const { data: kardex } = supabase.useKardex({
     producto_id: kardexProducto || undefined,
+  });
+
+  // Buscador del kardex (producto, código, lote, tipo, almacén o motivo).
+  const kardexFiltrado = (kardex ?? []).filter((m) => {
+    const q = busquedaKardex.trim().toLowerCase();
+    if (!q) return true;
+    return [
+      m.producto?.nombre,
+      m.producto?.descripcion,
+      m.lote?.codigo_lote,
+      m.tipo,
+      m.almacen,
+      m.motivo_categoria,
+      m.observacion,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(q);
   });
 
   // Kardex de instrumentos
@@ -178,24 +198,32 @@ const Logistica = () => {
 
       {tab === "kardex" && (
         <div className="space-y-4">
-          <select
-            value={kardexProducto}
-            onChange={(e) => setKardexProducto(e.target.value)}
-            className="w-full sm:w-96 border px-3 py-2 rounded bg-white"
-          >
-            <option value="">Todos los productos</option>
-            {(productos ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre} ({p.descripcion})
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              value={busquedaKardex}
+              onChange={(e) => setBusquedaKardex(e.target.value)}
+              placeholder="Buscar (producto, lote, tipo, motivo)..."
+              className="w-full sm:w-96 border px-3 py-2 rounded"
+            />
+            <select
+              value={kardexProducto}
+              onChange={(e) => setKardexProducto(e.target.value)}
+              className="w-full sm:w-96 border px-3 py-2 rounded bg-white"
+            >
+              <option value="">Todos los productos</option>
+              {(productos ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre} ({p.descripcion})
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="grid grid-cols-1 gap-3 lg:hidden">
-            {(kardex ?? []).map((m) => (
+            {kardexFiltrado.map((m) => (
               <MovimientoKardexTarjeta key={m.id} movimiento={m} />
             ))}
-            {(kardex ?? []).length === 0 && (
+            {kardexFiltrado.length === 0 && (
               <p className="text-center text-gray-500 py-6 bg-white rounded-xl border">
                 Sin movimientos.
               </p>
@@ -217,7 +245,7 @@ const Logistica = () => {
                 </tr>
               </thead>
               <tbody>
-                {(kardex ?? []).map((m) => (
+                {kardexFiltrado.map((m) => (
                   <tr key={m.id} className="border-t">
                     <td className="px-4 py-2 text-gray-600">
                       {new Date(m.fecha_creacion).toLocaleString("es-VE")}
@@ -241,7 +269,7 @@ const Logistica = () => {
                     </td>
                   </tr>
                 ))}
-                {(kardex ?? []).length === 0 && (
+                {kardexFiltrado.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-4 py-6 text-center text-gray-500">
                       Sin movimientos.
