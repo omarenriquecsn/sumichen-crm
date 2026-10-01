@@ -1627,6 +1627,7 @@ Commit en la rama.
 - `pages/logistica/ProductosLogistica.tsx`: nuevo prop `readonly?: boolean` (oculta el boton "Ajuste manual", el editor de vencimiento y el `AjusteInventarioModal`). El listado se ordena: disponibles primero, luego por nombre.
 - `pages/productos/Productos.tsx`: reescrito; ahora renderiza `<Layout title="Productos"><ProductosLogistica readonly /></Layout>`. Se elimino el visor del `inventario.xlsx` de Supabase (y `ExportExcel`).
 - `App.tsx`: la ruta `/productos` usa `<Productos />` (antes `ExcelViewer`).
+- **Logistica → Kardex**: se agrego un **buscador de texto** (producto, codigo, lote, tipo, almacen o motivo) junto al selector de producto.
 - Commits: `17b1b8d` (rama subida a `origin`).
 
 
