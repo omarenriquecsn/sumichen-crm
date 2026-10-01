@@ -1561,5 +1561,37 @@ Commit en la rama.
 #### Artefactos (no versionados)
 `Reconciliacion_Productos.xlsx`, `INVENTARIO 25-09 completo (transformado).xlsx`.
 
+### Punto 45 — Pase a produccion del Inventario + Logistica exclusiva de Omar + reconciliacion real (30/09-01/10) ✅
+
+> **Resumen**: se desplego la rama de inventario a produccion con `deployInventario.ps1`, se cargo el inventario real y se reconciliaron TODOS los duplicados de produccion (categorias A y B). Logistica quedo exclusiva del admin principal (Omar).
+
+**Deploy**
+- `deployInventario.ps1` (**NO versionado**, en `.gitignore`): copia de `deploy.ps1` con guarda para `feature/inventario-lotes-almacenes-devoluciones`; incluye en `build/scripts/` los JSON `mapeosDuplicados.json`, `nombresExcepciones.json` y `recodificaciones.json`; despliega backend+frontend (migraciones al reiniciar).
+- Respaldo manual previo: `pg_dump -Fc` en el VPS (`~/backups/crmdb-pre-inventario-20261001-012922.dump`, 693 KB) + copia local en `%TEMP%\opencode`. Rollback: `pg_restore --clean --if-exists` o los `build.bak-*/dist.bak-*` del servidor.
+- Migraciones aplicadas en prod; ⚠ `ConfirmacionVendedorSchema` corre 2 veces (renombrada 19000→19250) pero es idempotente.
+
+**Logistica exclusiva de Omar**
+- `App.tsx`: `/logistica` envuelto en `<SoloOmarRoute>` (antes `ProtectedRoute requiredRole="admin"`).
+- `menuSidebar.ts`: `obtenerLinksMenu` oculta `/logistica` a admins que no son Omar (mantiene su posicion en el menu).
+- ⚠ Sin gating backend: los endpoints (`/inventario/*`, `/instrumentos/*`) los comparte el flujo de pedidos; gatearlos romperia la creacion de pedidos.
+
+**Carga del inventario**
+- `INVENTARIO 25-09 completo (transformado).xlsx` (unico con `FECHA`). Resultado: 232 productos, 120 lotes, 823.257,66 kg.
+
+**Reconciliacion de duplicados (produccion real)**
+- **Categoria A (fusion, 10 fusiones):** `fusionarDuplicados.ts` + `mapeosDuplicados.json`. 232→222 productos, stock intacto.
+- **Categoria B (reubicar stock + fusionar legacy + renombrar):** `recodificarProductos.ts` extendido (`reubicaciones` con `mover_lotes_a`/`fusionar_en`/`nuevo_codigo`, y `renombrados`). 222→215 productos.
+  - Eritorbato MP10750 (7.220,75) ← EDTA legacy; EDTA→MP10763. `SL`→MP10750.
+  - EDTA-2Na MP10764 (47,70) ← ENVOPLAST (recodificado `MP10764X`, sin stock).
+  - Metabisulfito MP10860 (14.425) ← MNDA; MNDA→MP10540.
+  - PEAD 5502 ME10022 ← BAYSTAR 5505. Resina PET ME10052 ← SILICA→MP10836.
+  - Lauril MP10261 ← LAVAPLATOS→MP90001. Hidroxido de Magnesio S/N-1 (1.324,75) ← stock del registro S/N; SILICATO→MP10833 Zeolita.
+- Verificado: **0 codigos duplicados**, 120 lotes, **823.257,66 kg**, nombres = Excel.
+- Commits: `ac1a04f`, `0d27ad6`, `0ef15ee`, `7bb4d73` (rama subida a `origin`).
+
+**Pendiente / recomendado**
+- **Merge de la rama a `main`** cuando se valide (para que el proximo deploy desde `main` no revierta el inventario).
+- Productos "revisar"/basura (`PRUEBA`, `S/L`, `ME10103`, …) y codigos no listados en el Excel.
+
 
 
