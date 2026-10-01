@@ -1620,5 +1620,14 @@ Commit en la rama.
 
 **Fix fechas (01/10)**: la columna `FECHA` del Excel venia como **formula** (ej. `VLOOKUP`) cuyo `result` es un `Date`; `parsearFechaExcel` lo convertia a texto (`String(Date)`) y no lo reconocia → devolvia `null` y los lotes se creaban sin fecha. Fix en `utils/ingresosInventario.ts`: `parsearFechaExcel` ahora desenvuelve `{formula, result}` y maneja `result` como `Date`/numero/texto (y `textoCelda` tambien resuelve `result` Date). Commit `9623c3d`. Se recargo `INVENTARIO CRM 30-09.xlsx` (116 filas, 122 lotes, **835.280,84 kg**); re-ejecutar la sincronizacion reporta `sinCambio: 232` → la BD coincide con el Excel en cantidad/fecha/vencimiento.
 
+### Punto 47 — Pagina Productos en modo solo-lectura (01/10) ✅
+
+> **Resumen**: la pagina `/productos` ya **no muestra el Excel**. Ahora reutiliza la misma vista de la pestaña "Productos" de Logistica, pero en **solo lectura** (cantidad por almacen, lotes y fechas; sin "Ajuste manual" ni edicion de vencimiento). Ademas, primero se listan los productos **con stock** y los que estan en **0 al final**.
+
+- `pages/logistica/ProductosLogistica.tsx`: nuevo prop `readonly?: boolean` (oculta el boton "Ajuste manual", el editor de vencimiento y el `AjusteInventarioModal`). El listado se ordena: disponibles primero, luego por nombre.
+- `pages/productos/Productos.tsx`: reescrito; ahora renderiza `<Layout title="Productos"><ProductosLogistica readonly /></Layout>`. Se elimino el visor del `inventario.xlsx` de Supabase (y `ExportExcel`).
+- `App.tsx`: la ruta `/productos` usa `<Productos />` (antes `ExcelViewer`).
+- Commits: `17b1b8d` (rama subida a `origin`).
+
 
 
