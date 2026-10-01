@@ -1,13 +1,28 @@
 {
-  "instrucciones": "Categoria B: productos DISTINTOS que comparten codigo. El producto 'correcto' (el que describe el Excel) conserva el codigo; el 'intruso' recibe un codigo nuevo en 'nuevo_codigo'. Donde la ingesta dejo el stock en el intruso, 'mover_lotes_a' indica el producto correcto al que se le mueven los lotes. Completa los 'nuevo_codigo' (vacios) antes de aplicar. Uso: `node build/scripts/recodificarProductos.js` (dry-run) y luego `--apply`.",
-  "recodificaciones": [
-    { "producto": "c988fc9b-3bbf-4ead-9fc0-34da04ffa7b2", "mover_lotes_a": "f3c276f6-7069-4e1d-bb1b-08bd76211dd8", "nuevo_codigo": "", "nota": "MP10750: el Excel dice ERITORBATO. EDTA es el intruso y tiene 7.220,75 kg que son de ERITORBATO -> dar codigo nuevo a EDTA y mover lotes." },
-    { "producto": "38cf20db-f5be-4a3a-a60d-cf2b3852bb87", "mover_lotes_a": "fb1fd526-79db-4e07-9418-f659bf546575", "nuevo_codigo": "", "nota": "MP10764: el Excel dice EDTA-2Na. ENVOPLAST es el intruso y tiene 47,70 kg que son de EDTA-2Na -> dar codigo nuevo a ENVOPLAST y mover lotes." },
-    { "producto": "8db5b84d-d6e1-45fb-bc61-2adb17359a63", "mover_lotes_a": "e536c9d2-8478-4dcb-9e45-6d856b040278", "nuevo_codigo": "", "nota": "MP10860: el Excel dice METABISULFITO. MNDA es el intruso y tiene 14.425 kg que son de METABISULFITO -> dar codigo nuevo a MNDA y mover lotes." },
-    { "producto": "bdd681c0-68d2-46db-8206-91c4ff69c68c", "nuevo_codigo": "", "nota": "ME10022: el Excel dice PEAD 5502. PEAD BAYSTAR 5505 es el intruso -> dar codigo nuevo." },
-    { "producto": "cd4602b3-d6d2-45a1-a9dc-e2de1832b915", "nuevo_codigo": "", "nota": "ME10052: el Excel dice Resina PET (Jade). SILICA HIDRATADA TIXOSIL es el intruso -> dar codigo nuevo." },
-    { "producto": "8a9d408b-e20f-4353-8278-e763f7c36edc", "nuevo_codigo": "", "nota": "MP10261: el Excel dice Lauril Eter Sulfatos. LAVAPLATOS EN CREMA es el intruso -> dar codigo nuevo." },
-    { "producto": "3b329540-2548-418d-a2e2-c4b33fbe36ad", "nuevo_codigo": "", "nota": "Codigo 'S/N' (SILICATO DE ALUMINIO Y SODIO). Tiene stock propio; darle un codigo real." },
-    { "producto": "9d3f8ae7-776c-4a25-ba95-dc09f5e5dff0", "nuevo_codigo": "", "nota": "Codigo 'S/N-1' (HIPOCLORITO). Darle un codigo real." }
+  "instrucciones": "Reconciliacion categoria B. 'reubicaciones': mover_lotes_a = mueve el stock al dueno real; fusionar_en = fusiona el registro legacy en su producto correcto (mueve pedidos/lotes y lo elimina); nuevo_codigo = recodifica el intruso. 'renombrados' = fija el nombre del Excel. Orden: mover stock -> recodificar -> fusionar -> renombrar. Uso: `node build/scripts/recodificarProductos.js` (dry-run) y luego `--apply`.",
+  "reubicaciones": [
+    { "producto": "c988fc9b-3bbf-4ead-9fc0-34da04ffa7b2", "mover_lotes_a": "f3c276f6-7069-4e1d-bb1b-08bd76211dd8", "fusionar_en": "26b99e4b-5afd-46d5-9b11-400a84da2a9f", "nota": "MP10750: EDTA legacy tenia 7.220,75 kg que son de Eritorbato (Excel). Mover stock a Eritorbato y fusionar el registro EDTA en MP10763." },
+    { "producto": "e068f43f-a5b3-46ea-a1b7-6984fb667cd8", "fusionar_en": "f3c276f6-7069-4e1d-bb1b-08bd76211dd8", "nota": "SL Duplicado de Eritorbato (MP10750) -> fusionar." },
+
+    { "producto": "38cf20db-f5be-4a3a-a60d-cf2b3852bb87", "mover_lotes_a": "fb1fd526-79db-4e07-9418-f659bf546575", "nuevo_codigo": "MP10764X", "nota": "MP10764: ENVOPLAST NO esta en el Excel; sus 47,70 kg son de EDTA-2Na. Mover stock y dejar ENVOPLAST sin stock con codigo nuevo (no colisiona)." },
+
+    { "producto": "8db5b84d-d6e1-45fb-bc61-2adb17359a63", "mover_lotes_a": "e536c9d2-8478-4dcb-9e45-6d856b040278", "fusionar_en": "7819045c-f208-438e-a486-e4a2a4ea1820", "nota": "MP10860: MNDA tenia 14.425 kg que son de Metabisulfito. Mover stock y fusionar MNDA en MP10540 Metil Neodecanamida." },
+
+    { "producto": "bdd681c0-68d2-46db-8206-91c4ff69c68c", "fusionar_en": "42a81815-12cd-4c8b-a2e6-5e8a9dc8604d", "nota": "ME10022: PEAD BAYSTAR 5505 -> fusionar en PEAD 5502 (Excel)." },
+
+    { "producto": "cd4602b3-d6d2-45a1-a9dc-e2de1832b915", "fusionar_en": "7d90d94d-f006-42cf-a33c-6f0b8cd185ce", "nota": "ME10052: SILICA legacy -> fusionar en MP10836 Silica Hidratada Tixosil." },
+
+    { "producto": "8a9d408b-e20f-4353-8278-e763f7c36edc", "fusionar_en": "e7876899-63ec-429f-beb8-c6310ec00cd3", "nota": "MP10261: LAVAPLATOS legacy -> fusionar en MP90001 Lavaplatos en pasta." },
+
+    { "producto": "3b329540-2548-418d-a2e2-c4b33fbe36ad", "mover_lotes_a": "9d3f8ae7-776c-4a25-ba95-dc09f5e5dff0", "fusionar_en": "0028faa4-48f1-4ba5-932f-d664cd105449", "nota": "S/N: el stock (1.324,75 kg) es de Hidroxido de Magnesio (Excel S/N-1). Mover stock al registro S/N-1 y fusionar el SILICATO en MP10833 Zeolita." }
+  ],
+  "renombrados": [
+    { "producto": "f3c276f6-7069-4e1d-bb1b-08bd76211dd8", "nuevo_nombre": "Eritorbato de Sodio Malla 40 Caja de 25 kg" },
+    { "producto": "fb1fd526-79db-4e07-9418-f659bf546575", "nuevo_nombre": "Etilen Diamin Disodico (EDTA-2Na)" },
+    { "producto": "42a81815-12cd-4c8b-a2e6-5e8a9dc8604d", "nuevo_nombre": "PEAD 5502 (Homotipo 6200B) Saco de 25kg." },
+    { "producto": "e536c9d2-8478-4dcb-9e45-6d856b040278", "nuevo_nombre": "Metabisulfito de Sodio Saco de 25 kg Grado Alimenticio" },
+    { "producto": "9c9af8a2-d186-45c2-a32e-ad4faaa18f2b", "nuevo_nombre": "Resina de PET IV 0,84 Jade" },
+    { "producto": "5450cfe9-f2c0-4dfc-addd-6aef9fe01afb", "nuevo_nombre": "Lauril Eter Sulfatos de Sodio al 70% (GENAPOL) Tb 200 kg" },
+    { "producto": "9d3f8ae7-776c-4a25-ba95-dc09f5e5dff0", "nuevo_nombre": "Hidroxido de Magnesio", "nota": "Codigo S/N-1 (Excel) -> Hidroxido de Magnesio." }
   ]
 }
