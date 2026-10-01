@@ -32,6 +32,7 @@ const textoCelda = (cell: ExcelJS.Cell): string => {
   if (v == null) return '';
   if (typeof v === 'object') {
     if (v instanceof Date) return v.toISOString();
+    if (v.result instanceof Date) return v.result.toISOString();
     if (typeof v.text === 'string') return v.text;
     if (typeof v.result === 'string' || typeof v.result === 'number')
       return String(v.result);
@@ -57,35 +58,43 @@ const parsearNumero = (s: string): number => {
 
 const dosDigitos = (n: number) => String(n).padStart(2, '0');
 
-/** Normaliza fechas de Excel (Date, serial numérico o texto) a YYYY-MM-DD. */
+const formatearFecha = (d: Date) =>
+  `${d.getUTCFullYear()}-${dosDigitos(d.getUTCMonth() + 1)}-${dosDigitos(
+    d.getUTCDate(),
+  )}`;
+
+/**
+ * Normaliza fechas de Excel a YYYY-MM-DD. Soporta:
+ * - `Date` (ExcelJS para celdas de fecha),
+ * - serial numérico (base 1899-12-30),
+ * - texto `d/m/yyyy`, `d-m-yyyy` o ISO `yyyy-mm-dd`,
+ * - celdas con **fórmula/rich text** (`{ formula, result }`), donde `result`
+ *   puede ser un `Date`, un número o un texto.
+ */
 export const parsearFechaExcel = (valor: any): string | null => {
   if (valor == null || valor === '') return null;
 
-  if (valor instanceof Date && !isNaN(valor.getTime())) {
-    return `${valor.getUTCFullYear()}-${dosDigitos(
-      valor.getUTCMonth() + 1,
-    )}-${dosDigitos(valor.getUTCDate())}`;
+  // Desenvuelve el valor real de una celda con fórmula o rich text.
+  if (typeof valor === 'object' && !(valor instanceof Date)) {
+    if (valor.result instanceof Date) valor = valor.result;
+    else if (valor.result != null) valor = valor.result;
+    else if (typeof valor.text === 'string') valor = valor.text;
+    else if (Array.isArray(valor.richText))
+      valor = valor.richText.map((r: any) => r?.text ?? '').join('');
+    else return null;
+  }
+
+  if (valor instanceof Date) {
+    return isNaN(valor.getTime()) ? null : formatearFecha(valor);
   }
 
   if (typeof valor === 'number') {
     // Serial de Excel (base 1899-12-30).
     const ms = Date.UTC(1899, 11, 30) + Math.round(valor) * 86400000;
-    const d = new Date(ms);
-    return `${d.getUTCFullYear()}-${dosDigitos(d.getUTCMonth() + 1)}-${dosDigitos(
-      d.getUTCDate(),
-    )}`;
+    return formatearFecha(new Date(ms));
   }
 
-  let texto = '';
-  if (typeof valor === 'string') {
-    texto = valor;
-  } else if (typeof valor === 'object') {
-    if (typeof valor.text === 'string') texto = valor.text;
-    else if (valor.result != null) texto = String(valor.result);
-    else if (Array.isArray(valor.richText))
-      texto = valor.richText.map((r: any) => r?.text ?? '').join('');
-  }
-  texto = texto.trim();
+  const texto = String(valor).trim();
   if (!texto) return null;
 
   // d/m/yyyy o d-m-yyyy (formato local) o yyyy-mm-dd (ISO).
