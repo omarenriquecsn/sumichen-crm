@@ -72,7 +72,12 @@ export const obtenerLinksMenu = (
   esOmar: boolean,
 ): MenuLink[] => {
   if (rol === 'admin') {
-    return esOmar ? [...adminLinks, ...adminPrincipalLink] : adminLinks;
+    // "Logística" es exclusiva del admin principal (Omar): se oculta a los
+    // demás admins. La ruta /logistica también está protegida con SoloOmarRoute.
+    const base = esOmar
+      ? adminLinks
+      : adminLinks.filter((link) => link.to !== '/logistica');
+    return esOmar ? [...base, ...adminPrincipalLink] : base;
   }
   return vendedorLinks;
 };

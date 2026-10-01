@@ -225,9 +225,9 @@ function App() {
               <Route
                 path="/logistica"
                 element={
-                  <ProtectedRoute requiredRole="admin">
+                  <SoloOmarRoute>
                     <Logistica />
-                  </ProtectedRoute>
+                  </SoloOmarRoute>
                 }
               />
 
