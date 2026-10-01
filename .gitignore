@@ -21,6 +21,7 @@ pnpm-debug.log*
 
 # Archivos locales
 *.local
+~$*
 
 # Runtime del backend (evidencias, exports, temp)
 uploads/
