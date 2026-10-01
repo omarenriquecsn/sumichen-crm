@@ -1,9 +1,15 @@
 {
-  "instrucciones": "Mapa de fusion de productos duplicados. En 'fusiones', 'duplicado' se elimina y TODAS sus referencias (productos_pedido, lotes, movimientos_inventario, devoluciones_detalle) se reapuntan a 'canonico'. Cada valor puede ser un UUID de productos.id o un codigo (productos.descripcion); para codigos repetidos usa el UUID. Flujo: 1) `node build/scripts/fusionarDuplicados.js` (dry-run, no cambia nada), 2) revisar, 3) `node build/scripts/fusionarDuplicados.js --apply`.",
-  "fusiones": [],
-  "ejemplos_ambiente_prueba": [
-    { "duplicado": "ME10052", "canonico": "MP10836", "nota": "mismo producto segun reconciliacion" },
-    { "duplicado": "MP10833", "canonico": "MP10880" },
-    { "duplicado": "MP10902", "canonico": "MP10780" }
+  "instrucciones": "Mapa de fusion de productos duplicados. En 'fusiones', 'duplicado' se elimina y TODAS sus referencias (productos_pedido, lotes, movimientos_inventario, devoluciones_detalle) se reapuntan a 'canonico'. Cada valor puede ser un UUID de productos.id o un codigo (productos.descripcion); para codigos repetidos usa el UUID. Flujo: 1) `node build/scripts/fusionarDuplicados.js` (dry-run), 2) revisar, 3) `node build/scripts/fusionarDuplicados.js --apply`.",
+  "fusiones": [
+    { "duplicado": "da245b5b-c34a-4c69-91bc-6199bbc6ed0d", "canonico": "5407596f-d39c-4a98-bcec-9c2cd904ed92", "nota": "MP10805 nombres identicos -> conserva el de stock" },
+    { "duplicado": "f345fc3e-08bf-4f30-a3f6-a789f2c1f2d3", "canonico": "733ade11-7639-46e7-bb13-81767d80f29c", "nota": "MP15010 MALTRODEXTRIN -> MALTODEXTRINA (typo)" },
+    { "duplicado": "be032049-d9b9-4a56-8edf-be769ae4e846", "canonico": "4cd84dd8-48c1-4a48-9c92-e98a7db7189d", "nota": "S000013 FLETE TERRESTRE duplicado (espacio final)" },
+    { "duplicado": "d693b1bd-9a04-459c-8286-7c665ac5eff9", "canonico": "0a1f8224-2af7-44d3-a495-740fb8b01cdc", "nota": "MP10803 CMC - GELYCELL -> CMC (conserva stock)" },
+    { "duplicado": "891ef1a4-f1a0-4f98-97fe-a869c37160dd", "canonico": "1bd0a34e-f7e3-4dd2-8a29-93943ec5950c", "nota": "ME10330 Preforma PET 25gr" },
+    { "duplicado": "45bbc8d6-67c3-4354-b9a9-9d5f2d9eec7a", "canonico": "20b20f74-2c69-4a03-8efd-69f5d56d1913", "nota": "ME10339 Preforma PET PCO28 28gr -> conserva el de pedidos" },
+    { "duplicado": "3c3cc84d-20f7-41ff-8f19-3346083fbbe5", "canonico": "ff5b5793-48cb-492d-84c1-53cb6316ca20", "nota": "MP10500 GLICERINA TB 275 KG -> GLICERINA USP TB 250KG" },
+    { "duplicado": "40ba2f34-0725-455e-b342-ab7606739281", "canonico": "ff5b5793-48cb-492d-84c1-53cb6316ca20", "nota": "MP10500 GLICERINA SUMICHEM -> GLICERINA USP TB 250KG" },
+    { "duplicado": "e2af31b6-e05a-48be-bd80-21a6b739b9a2", "canonico": "759a9a71-db34-4534-9fc9-6576a1a37f40", "nota": "MP10601 MEA China -> MEA BASF" },
+    { "duplicado": "b5dd697e-473b-45bd-b9d9-6b54ff8e8377", "canonico": "6ec436ff-ea00-4591-9bb2-21370b9d5e0f", "nota": "MP10052-1 Bidon -> MP10052 Acido Acetico TB240" }
   ]
 }

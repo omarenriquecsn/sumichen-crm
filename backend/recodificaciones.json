@@ -1,0 +1,13 @@
+{
+  "instrucciones": "Categoria B: productos DISTINTOS que comparten codigo. El producto 'correcto' (el que describe el Excel) conserva el codigo; el 'intruso' recibe un codigo nuevo en 'nuevo_codigo'. Donde la ingesta dejo el stock en el intruso, 'mover_lotes_a' indica el producto correcto al que se le mueven los lotes. Completa los 'nuevo_codigo' (vacios) antes de aplicar. Uso: `node build/scripts/recodificarProductos.js` (dry-run) y luego `--apply`.",
+  "recodificaciones": [
+    { "producto": "c988fc9b-3bbf-4ead-9fc0-34da04ffa7b2", "mover_lotes_a": "f3c276f6-7069-4e1d-bb1b-08bd76211dd8", "nuevo_codigo": "", "nota": "MP10750: el Excel dice ERITORBATO. EDTA es el intruso y tiene 7.220,75 kg que son de ERITORBATO -> dar codigo nuevo a EDTA y mover lotes." },
+    { "producto": "38cf20db-f5be-4a3a-a60d-cf2b3852bb87", "mover_lotes_a": "fb1fd526-79db-4e07-9418-f659bf546575", "nuevo_codigo": "", "nota": "MP10764: el Excel dice EDTA-2Na. ENVOPLAST es el intruso y tiene 47,70 kg que son de EDTA-2Na -> dar codigo nuevo a ENVOPLAST y mover lotes." },
+    { "producto": "8db5b84d-d6e1-45fb-bc61-2adb17359a63", "mover_lotes_a": "e536c9d2-8478-4dcb-9e45-6d856b040278", "nuevo_codigo": "", "nota": "MP10860: el Excel dice METABISULFITO. MNDA es el intruso y tiene 14.425 kg que son de METABISULFITO -> dar codigo nuevo a MNDA y mover lotes." },
+    { "producto": "bdd681c0-68d2-46db-8206-91c4ff69c68c", "nuevo_codigo": "", "nota": "ME10022: el Excel dice PEAD 5502. PEAD BAYSTAR 5505 es el intruso -> dar codigo nuevo." },
+    { "producto": "cd4602b3-d6d2-45a1-a9dc-e2de1832b915", "nuevo_codigo": "", "nota": "ME10052: el Excel dice Resina PET (Jade). SILICA HIDRATADA TIXOSIL es el intruso -> dar codigo nuevo." },
+    { "producto": "8a9d408b-e20f-4353-8278-e763f7c36edc", "nuevo_codigo": "", "nota": "MP10261: el Excel dice Lauril Eter Sulfatos. LAVAPLATOS EN CREMA es el intruso -> dar codigo nuevo." },
+    { "producto": "3b329540-2548-418d-a2e2-c4b33fbe36ad", "nuevo_codigo": "", "nota": "Codigo 'S/N' (SILICATO DE ALUMINIO Y SODIO). Tiene stock propio; darle un codigo real." },
+    { "producto": "9d3f8ae7-776c-4a25-ba95-dc09f5e5dff0", "nuevo_codigo": "", "nota": "Codigo 'S/N-1' (HIPOCLORITO). Darle un codigo real." }
+  ]
+}
