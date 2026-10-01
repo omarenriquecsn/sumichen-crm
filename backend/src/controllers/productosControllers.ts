@@ -14,8 +14,9 @@ import multer from 'multer';
 import { enviarPushATodos } from '../services/pushServices';
 import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 import {
-  registrarIngresosDesdeInventario,
+  sincronizarInventarioDesdeExcel,
   getStockProductos,
+  type ResumenSincronizacion,
 } from '../services/inventarioServices';
 import {
   getCarpetaProductos,
@@ -88,17 +89,16 @@ export const subirInventario = [
       return res.status(500).json({ error: 'Error al subir el archivo' });
     }
 
-    // Registra el ingreso de mercancía nueva: crea lotes (uno por producto,
-    // almacén y código de lote) y recalcula la disponibilidad. Los lotes
-    // repetidos se reportan; los códigos nuevos crean el producto.
-    let ingresos;
+    // Sincroniza el inventario con el Excel: el Excel es la verdad de los
+    // lotes que lista (actualiza/crea/cierra lotes y recalcula disponibilidad).
+    let resumen: ResumenSincronizacion;
     try {
-      ingresos = await registrarIngresosDesdeInventario(req.file.buffer);
+      resumen = await sincronizarInventarioDesdeExcel(req.file.buffer);
     } catch (syncErr) {
-      console.error('No se pudieron registrar los ingresos:', syncErr);
+      console.error('No se pudo sincronizar el inventario:', syncErr);
       return res.status(500).json({
         error:
-          'El archivo se subió pero falló el registro de ingresos de inventario',
+          'El archivo se subió pero falló la sincronización del inventario',
         fileName,
       });
     }
@@ -119,9 +119,9 @@ export const subirInventario = [
     }
 
     res.status(200).json({
-      message: 'Ingresos de inventario registrados correctamente',
+      message: 'Inventario sincronizado correctamente',
       fileName,
-      ingresos,
+      resumen,
     });
   },
 ];

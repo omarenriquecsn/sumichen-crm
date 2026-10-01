@@ -73,6 +73,17 @@ export const getLotes = async (filtros?: {
 export const updateCantidadActual = async (id: string, cantidad: number) =>
   repo().update(id, { cantidad_actual: cantidad });
 
+/** Actualiza un lote completo (cantidad y fechas) desde la sincronización del Excel. */
+export const updateLoteDatos = async (
+  id: string,
+  data: Partial<
+    Pick<
+      Lote,
+      'cantidad_inicial' | 'cantidad_actual' | 'fecha_ingreso' | 'fecha_vencimiento'
+    >
+  >,
+) => repo().update(id, data);
+
 /** Stock total (todas las bodegas) por producto: [{ producto_id, almacen, total }]. */
 export const getStockAgrupado = async (): Promise<
   Array<{ producto_id: string; almacen: AlmacenEnum; total: string }>

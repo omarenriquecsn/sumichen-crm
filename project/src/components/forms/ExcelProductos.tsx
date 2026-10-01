@@ -36,7 +36,14 @@ const ExcelProductos = () => {
       .then((data) => {
         console.log("Success:", data);
         actualizarInventario();
-        toast.success("Archivo enviado correctamente.");
+        const r = data?.resumen;
+        if (r) {
+          toast.success(
+            `Inventario sincronizado: ${r.lotesCreados} lotes creados, ${r.lotesActualizados} actualizados, ${r.lotesEnCero} en cero, ${r.sinCambio} sin cambio.`
+          );
+        } else {
+          toast.success("Inventario sincronizado correctamente.");
+        }
       })
       .catch((error) => {
         console.error("Error:", error);

@@ -12,6 +12,7 @@ import {
   updateFechaVencimiento,
   getLoteById,
   updateCantidadActual,
+  updateLoteDatos,
 } from '../repositories/lotesRepository';
 import {
   createMovimiento,
@@ -37,15 +38,15 @@ const baseCodigo = (s: string) => {
   return h > 0 ? n.slice(0, h) : n;
 };
 
-export interface ResumenIngresos {
+export interface ResumenSincronizacion {
   filasLeidas: number;
   productosCreados: number;
-  lotesCreados: number;
-  lotesDuplicados: string[];
-  /** Nombres de productos existentes actualizados desde el Excel. */
   nombresActualizados: number;
-  /** Códigos con más de un producto: no se renombran (se revisan aparte). */
-  nombresOmitidosPorDuplicado: string[];
+  lotesCreados: number;
+  lotesActualizados: number;
+  lotesEnCero: number;
+  sinCambio: number;
+  movimientosGenerados: number;
 }
 
 export interface ProductoConStock extends Producto {
@@ -87,22 +88,32 @@ export const recalcularDisponibilidadProductos = async (): Promise<{
   return { total: productos.length, disponibles };
 };
 
+interface LoteEsperado {
+  almacen: AlmacenEnum;
+  lote: string;
+  cantidad: number;
+  fecha: string | null;
+  vencimiento: string | null;
+}
+
 /**
- * Registra el ingreso de mercancía desde el Excel del inventario:
- * - Un lote por (producto, almacén, código). El código de lote es único: si ya
- *   existe se reporta como duplicado y NO se crea (no se reutiliza).
- * - Si el código no existe como producto, se crea automáticamente.
+ * Sincroniza el inventario desde el Excel: el Excel es la verdad de los lotes
+ * que lista.
+ * - Cada producto del Excel se crea si falta y se le actualiza el nombre.
+ * - Por cada (producto + almacén + código de lote):
+ *   - si el lote existe → actualiza cantidad/fechas (movimiento de ajuste);
+ *   - si no existe y trae cantidad > 0 → lo crea (+ ENTRADA);
+ *   - si el lote del producto NO aparece en el Excel → `cantidad_actual = 0`.
+ * - Los productos que NO vienen en el Excel se dejan intactos.
+ * - Al final recalcula `productos.disponible`.
  */
-export const registrarIngresosDesdeInventario = async (
+export const sincronizarInventarioDesdeExcel = async (
   buffer: Buffer,
-): Promise<ResumenIngresos> => {
+): Promise<ResumenSincronizacion> => {
   const filas = await parsearInventarioIngresos(buffer);
 
   const productos = await getProductos();
-  // El catálogo puede tener varios productos con el mismo código
-  // (`descripcion`). Se ordena de forma estable por id y se usa el primero
-  // (first-wins), para que cada carga elija SIEMPRE el mismo producto y
-  // re-subir el mismo Excel no vuelva a crear lotes.
+  // First-wins por código base (defensivo; tras la reconciliación ya es 1:1).
   const mapaProductos = new Map<string, Producto>();
   for (const producto of [...productos].sort((a, b) =>
     a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
@@ -110,21 +121,27 @@ export const registrarIngresosDesdeInventario = async (
     const base = baseCodigo(producto.descripcion || '');
     if (base && !mapaProductos.has(base)) mapaProductos.set(base, producto);
   }
-
-  // Conteo de productos por código base. Solo se actualiza el `nombre` de los
-  // códigos que tienen UN único producto: si hay duplicados no se sabe cuál
-  // renombrar (se dejan para revisión manual).
   const conteoBase = new Map<string, number>();
   for (const producto of productos) {
     const base = baseCodigo(producto.descripcion || '');
     if (base) conteoBase.set(base, (conteoBase.get(base) || 0) + 1);
   }
 
-  let productosCreados = 0;
-  let lotesCreados = 0;
-  let nombresActualizados = 0;
-  const lotesDuplicados: string[] = [];
-  const nombresOmitidosPorDuplicado = new Set<string>();
+  const hoy = new Date().toISOString().slice(0, 10);
+  const resumen: ResumenSincronizacion = {
+    filasLeidas: filas.length,
+    productosCreados: 0,
+    nombresActualizados: 0,
+    lotesCreados: 0,
+    lotesActualizados: 0,
+    lotesEnCero: 0,
+    sinCambio: 0,
+    movimientosGenerados: 0,
+  };
+
+  // Lotes esperados por producto: Map<productoId, Map<"almacen|lote", LoteEsperado>>
+  const esperado = new Map<string, Map<string, LoteEsperado>>();
+  const productosEnExcel = new Set<string>();
   const nombresYaProcesados = new Set<string>();
 
   for (const fila of filas) {
@@ -139,69 +156,140 @@ export const registrarIngresosDesdeInventario = async (
         precio_base: 0,
         disponible: true,
       } as Partial<Producto>);
-      productosCreados++;
+      resumen.productosCreados++;
       if (base) mapaProductos.set(base, producto);
     } else if (base && fila.descripcion && !nombresYaProcesados.has(base)) {
-      // Producto existente: se actualiza su nombre con el del Excel si el
-      // código tiene un solo producto (los duplicados se omiten).
       nombresYaProcesados.add(base);
-      const cantidadProductos = conteoBase.get(base) || 0;
-      if (cantidadProductos > 1) {
-        nombresOmitidosPorDuplicado.add(base);
-      } else if ((producto.nombre || '').trim() !== fila.descripcion.trim()) {
+      if (
+        (conteoBase.get(base) || 0) <= 1 &&
+        (producto.nombre || '').trim() !== fila.descripcion.trim()
+      ) {
         await updateProducto(producto.id, { nombre: fila.descripcion.trim() });
         producto.nombre = fila.descripcion.trim();
-        nombresActualizados++;
+        resumen.nombresActualizados++;
       }
     }
 
-    // Solo se registra lote/movimiento cuando la fila trae lote, fecha y
-    // stock. Las filas sin lote/stock solo sirven para dar de alta el
-    // producto en el catálogo (quedará no disponible tras el recálculo).
-    if (!fila.lote || !fila.fecha || fila.cantidades.length === 0) continue;
+    productosEnExcel.add(producto.id);
+    if (!fila.lote) continue;
 
+    if (!esperado.has(producto.id)) esperado.set(producto.id, new Map());
+    const mapa = esperado.get(producto.id)!;
     for (const { almacen, cantidad } of fila.cantidades) {
-      const existente = await getLote(producto.id, almacen, fila.lote);
-      if (existente) {
-        const etiqueta = `${fila.codigo} · ${almacen} · lote ${fila.lote}`;
-        if (!lotesDuplicados.includes(etiqueta)) lotesDuplicados.push(etiqueta);
+      mapa.set(`${almacen}|${fila.lote}`, {
+        almacen,
+        lote: fila.lote,
+        cantidad: redondear2(cantidad),
+        fecha: fila.fecha,
+        vencimiento: fila.fechaVencimiento ?? null,
+      });
+    }
+  }
+
+  for (const productoId of productosEnExcel) {
+    const esperadoProducto =
+      esperado.get(productoId) ?? new Map<string, LoteEsperado>();
+    const existentes = await getLotes({ productoId });
+    const porKey = new Map(
+      existentes.map((l) => [`${l.almacen}|${l.codigo_lote}`, l]),
+    );
+    const keys = new Set<string>();
+
+    for (const [key, exp] of esperadoProducto) {
+      keys.add(key);
+      const existente = porKey.get(key);
+
+      if (!existente) {
+        if (exp.cantidad <= 0) {
+          resumen.sinCambio++;
+          continue;
+        }
+        const fechaIngreso = exp.fecha ?? hoy;
+        await createLote({
+          producto_id: productoId,
+          almacen: exp.almacen,
+          codigo_lote: exp.lote,
+          fecha_ingreso: fechaIngreso,
+          fecha_vencimiento: exp.vencimiento,
+          cantidad_inicial: exp.cantidad,
+          cantidad_actual: exp.cantidad,
+          activo: true,
+        });
+        await createMovimiento({
+          tipo: MovimientoInventarioTipoEnum.ENTRADA,
+          producto_id: productoId,
+          almacen: exp.almacen,
+          cantidad: exp.cantidad,
+          saldo_resultante: exp.cantidad,
+          observacion: `Carga inventario lote ${exp.lote} (${fechaIngreso})`,
+        });
+        resumen.lotesCreados++;
+        resumen.movimientosGenerados++;
         continue;
       }
 
-      await createLote({
-        producto_id: producto.id,
-        almacen,
-        codigo_lote: fila.lote,
-        fecha_ingreso: fila.fecha,
-        fecha_vencimiento: fila.fechaVencimiento ?? null,
-        cantidad_inicial: cantidad,
-        cantidad_actual: cantidad,
-        activo: true,
-      });
+      const actual = Number(existente.cantidad_actual) || 0;
+      const fechaIngreso = exp.fecha ?? existente.fecha_ingreso;
+      const vencimiento = exp.vencimiento ?? null;
+      const sinCambio =
+        actual === exp.cantidad &&
+        (existente.fecha_ingreso ?? '') === (fechaIngreso ?? '') &&
+        (existente.fecha_vencimiento ?? '') === (vencimiento ?? '');
+      if (sinCambio) {
+        resumen.sinCambio++;
+        continue;
+      }
 
+      await updateLoteDatos(existente.id, {
+        cantidad_inicial: exp.cantidad,
+        cantidad_actual: exp.cantidad,
+        fecha_ingreso: fechaIngreso,
+        fecha_vencimiento: vencimiento,
+      });
+      const delta = redondear2(exp.cantidad - actual);
+      if (delta !== 0) {
+        await createMovimiento({
+          tipo:
+            delta > 0
+              ? MovimientoInventarioTipoEnum.AJUSTE_POSITIVO
+              : MovimientoInventarioTipoEnum.AJUSTE_NEGATIVO,
+          producto_id: productoId,
+          lote_id: existente.id,
+          almacen: exp.almacen,
+          cantidad: Math.abs(delta),
+          saldo_resultante: exp.cantidad,
+          motivo_categoria: MotivoAjusteEnum.CONTEO_FISICO,
+          observacion: `Sincronización con Excel (lote ${exp.lote})`,
+        });
+        resumen.movimientosGenerados++;
+      }
+      resumen.lotesActualizados++;
+    }
+
+    // Lotes del producto que NO vienen en el Excel → cantidad_actual = 0.
+    for (const lote of existentes) {
+      const key = `${lote.almacen}|${lote.codigo_lote}`;
+      if (keys.has(key)) continue;
+      const actual = Number(lote.cantidad_actual) || 0;
+      if (actual === 0) continue;
+      await updateCantidadActual(lote.id, 0);
       await createMovimiento({
-        tipo: MovimientoInventarioTipoEnum.ENTRADA,
-        producto_id: producto.id,
-        almacen,
-        cantidad,
-        saldo_resultante: cantidad,
-        observacion: `Ingreso lote ${fila.lote} (${fila.fecha})`,
+        tipo: MovimientoInventarioTipoEnum.AJUSTE_NEGATIVO,
+        producto_id: productoId,
+        lote_id: lote.id,
+        almacen: lote.almacen,
+        cantidad: actual,
+        saldo_resultante: 0,
+        motivo_categoria: MotivoAjusteEnum.CONTEO_FISICO,
+        observacion: `Sin stock en el Excel (lote ${lote.codigo_lote})`,
       });
-
-      lotesCreados++;
+      resumen.lotesEnCero++;
+      resumen.movimientosGenerados++;
     }
   }
 
   await recalcularDisponibilidadProductos();
-
-  return {
-    filasLeidas: filas.length,
-    productosCreados,
-    lotesCreados,
-    lotesDuplicados,
-    nombresActualizados,
-    nombresOmitidosPorDuplicado: [...nombresOmitidosPorDuplicado],
-  };
+  return resumen;
 };
 
 export interface StockInicialInput {

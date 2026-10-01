@@ -169,13 +169,18 @@ export const parsearInventarioIngresos = async (
       row.getCell(colVencimiento).value,
     );
 
-    const cantidades: { almacen: AlmacenEnum; cantidad: number }[] = [];
-    const cantidadGlobalca = parsearNumero(textoCelda(row.getCell(colGlobalca)));
-    const cantidadWms = parsearNumero(textoCelda(row.getCell(colWms)));
-    if (cantidadGlobalca > 0)
-      cantidades.push({ almacen: AlmacenEnum.GLOBALCA, cantidad: cantidadGlobalca });
-    if (cantidadWms > 0)
-      cantidades.push({ almacen: AlmacenEnum.WMS, cantidad: cantidadWms });
+    // Se devuelven AMBOS almacenes (aunque la cantidad sea 0) para que la
+    // sincronización pueda poner en cero un lote que ya no aparece en el Excel.
+    const cantidades: { almacen: AlmacenEnum; cantidad: number }[] = [
+      {
+        almacen: AlmacenEnum.GLOBALCA,
+        cantidad: parsearNumero(textoCelda(row.getCell(colGlobalca))),
+      },
+      {
+        almacen: AlmacenEnum.WMS,
+        cantidad: parsearNumero(textoCelda(row.getCell(colWms))),
+      },
+    ];
 
     filas.push({ codigo, descripcion, lote, fecha, fechaVencimiento, cantidades });
   });
