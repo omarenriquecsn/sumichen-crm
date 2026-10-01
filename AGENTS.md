@@ -1618,5 +1618,7 @@ Commit en la rama.
 
 **Commits**: `6e4f3b3` (rama subida a `origin`).
 
+**Fix fechas (01/10)**: la columna `FECHA` del Excel venia como **formula** (ej. `VLOOKUP`) cuyo `result` es un `Date`; `parsearFechaExcel` lo convertia a texto (`String(Date)`) y no lo reconocia → devolvia `null` y los lotes se creaban sin fecha. Fix en `utils/ingresosInventario.ts`: `parsearFechaExcel` ahora desenvuelve `{formula, result}` y maneja `result` como `Date`/numero/texto (y `textoCelda` tambien resuelve `result` Date). Commit `9623c3d`. Se recargo `INVENTARIO CRM 30-09.xlsx` (116 filas, 122 lotes, **835.280,84 kg**); re-ejecutar la sincronizacion reporta `sinCambio: 232` → la BD coincide con el Excel en cantidad/fecha/vencimiento.
+
 
 
