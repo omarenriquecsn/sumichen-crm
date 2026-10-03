@@ -19,20 +19,40 @@ import { getPedidos } from '../repositories/pedidosRepository';
       throw new Error('No hay clientes para exportar');
     }
 
-    // Ventas netas por cliente (confirmadas o con devolución parcial, menos lo
-    // devuelto), para calcular el % alcanzado de la proyección de venta.
+    // Ventas completadas por cliente EN EL MES ACTUAL (pedidos 'procesado' o
+    // con devolución parcial, creados este mes), a PRECIO BASE neto, para
+    // calcular el % alcanzado de la proyección de venta (igual que la ficha
+    // del cliente en el frontend).
+    const ahora = new Date();
+    const mesActual = ahora.getMonth();
+    const anioActual = ahora.getFullYear();
+
     const pedidos = await getPedidos();
     const ventasProcesadasPorCliente = new Map<string, number>();
     for (const pedido of Array.isArray(pedidos) ? pedidos : []) {
       const esVenta =
         pedido.estado === 'procesado' || pedido.estado === 'devuelto_parcial';
       if (!esVenta) continue;
-      const neto = Math.max(
+      const fecha = new Date(pedido.fecha_creacion);
+      if (
+        fecha.getMonth() !== mesActual ||
+        fecha.getFullYear() !== anioActual
+      ) {
+        continue;
+      }
+
+      const baseNeta = (pedido.productos_pedido ?? []).reduce(
+        (acc, pp) =>
+          acc +
+          (Number(pp.precio_base) || 0) *
+            Math.max(
+              0,
+              (Number(pp.cantidad) || 0) - (Number(pp.cantidad_devuelta) || 0),
+            ),
         0,
-        Number(pedido.total ?? 0) - Number(pedido.total_devuelto ?? 0),
       );
       const previo = ventasProcesadasPorCliente.get(pedido.cliente_id) ?? 0;
-      ventasProcesadasPorCliente.set(pedido.cliente_id, previo + neto);
+      ventasProcesadasPorCliente.set(pedido.cliente_id, previo + baseNeta);
     }
 
     // Crear el libro y hoja de Excel

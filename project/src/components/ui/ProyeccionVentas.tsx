@@ -13,8 +13,8 @@ const fmtMonto = (n: number) =>
 
 /**
  * Barra de "Proyección de ventas": compara las ventas completadas del cliente
- * (pedidos con estado 'procesado') a PRECIO BASE (precio_base * cantidad)
- * contra su proyección_venta.
+ * EN EL MES ACTUAL (pedidos 'procesado'/'devuelto_parcial' creados este mes) a
+ * PRECIO BASE (precio_base * cantidad neta) contra su proyección_venta.
  * Si el cliente no tiene proyección (null/0/negativa) muestra un aviso.
  */
 export const ProyeccionVentas: React.FC<PropsProyeccionVentas> = ({
@@ -37,8 +37,18 @@ export const ProyeccionVentas: React.FC<PropsProyeccionVentas> = ({
     );
   }
 
+  const ahora = new Date();
+  const mesActual = ahora.getMonth();
+  const anioActual = ahora.getFullYear();
+
   const ventasProcesadas = (Array.isArray(pedidos) ? pedidos : [])
-    .filter((p) => p.cliente_id === cliente.id && esPedidoVenta(p))
+    .filter((p) => {
+      if (p.cliente_id !== cliente.id || !esPedidoVenta(p)) return false;
+      const fecha = new Date(p.fecha_creacion);
+      return (
+        fecha.getMonth() === mesActual && fecha.getFullYear() === anioActual
+      );
+    })
     .reduce((total, p) => {
       const basePorPedido = Array.isArray(p.productos_pedido)
         ? p.productos_pedido.reduce(
@@ -74,7 +84,7 @@ export const ProyeccionVentas: React.FC<PropsProyeccionVentas> = ({
 
       <div className="flex flex-wrap items-baseline gap-x-1.5 mb-2">
         <span className="text-xs text-gray-500">
-          Vendido (completado):
+          Vendido (completado) este mes:
         </span>
         <span className="text-sm font-medium text-gray-900">
           ${fmtMonto(ventasProcesadas)}
