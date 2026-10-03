@@ -6,6 +6,9 @@ import  exportReunionesToExcel  from '../utils/exportReuniones';
 import exportZonasToExcel from '../utils/exportZonas';
 import exportLeadsToExcel from '../utils/exportLeads';
 import exportChatsToExcel from '../utils/exportChats';
+import exportProductosToExcel from '../utils/exportProductos';
+import exportInstrumentosToExcel from '../utils/exportInstrumentos';
+import exportKardexToExcel from '../utils/exportKardex';
 
 export const getDescargasPedidosService = async () => {
  
@@ -41,4 +44,16 @@ export const getDescargasLeadsService = async () => {
 
 export const getDescargasChatsService = async () => {
   return await exportChatsToExcel();
+};
+
+export const getDescargasProductosService = async () => {
+  return await exportProductosToExcel();
+};
+
+export const getDescargasInstrumentosService = async () => {
+  return await exportInstrumentosToExcel();
+};
+
+export const getDescargasKardexService = async () => {
+  return await exportKardexToExcel();
 };

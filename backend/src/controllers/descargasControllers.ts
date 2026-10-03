@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getDescargasPedidosService, getDescargasClientesService, getDescargasReunionesService, getDescargasActividadesService, getDescargasMetasService, getDescargasZonasService, getDescargasLeadsService, getDescargasChatsService } from "../services/descargasServices";
+import { getDescargasPedidosService, getDescargasClientesService, getDescargasReunionesService, getDescargasActividadesService, getDescargasMetasService, getDescargasZonasService, getDescargasLeadsService, getDescargasChatsService, getDescargasProductosService, getDescargasInstrumentosService, getDescargasKardexService } from "../services/descargasServices";
 
 const esErrorSinDatos = (error: unknown): boolean =>
   error instanceof Error && /^no hay /i.test(error.message);
@@ -87,6 +87,36 @@ export const getDescargasChats = async (req: Request, res: Response) => {
   try {
     const descargas = await getDescargasChatsService();
     res.status(200).download(descargas, 'chats.xlsx');
+  } catch (error) {
+    manejarError(res, error);
+  }
+};
+
+export const getDescargasProductos = async (req: Request, res: Response) => {
+    console.log('getDescargas called');
+  try {
+    const descargas = await getDescargasProductosService();
+    res.status(200).download(descargas, 'productos.xlsx');
+  } catch (error) {
+    manejarError(res, error);
+  }
+};
+
+export const getDescargasInstrumentos = async (req: Request, res: Response) => {
+    console.log('getDescargas called');
+  try {
+    const descargas = await getDescargasInstrumentosService();
+    res.status(200).download(descargas, 'instrumentos.xlsx');
+  } catch (error) {
+    manejarError(res, error);
+  }
+};
+
+export const getDescargasKardex = async (req: Request, res: Response) => {
+    console.log('getDescargas called');
+  try {
+    const descargas = await getDescargasKardexService();
+    res.status(200).download(descargas, 'kardex.xlsx');
   } catch (error) {
     manejarError(res, error);
   }

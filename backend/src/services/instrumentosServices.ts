@@ -306,6 +306,10 @@ export const getMovimientosInstrumentoService = (filtros?: {
   hasta?: string;
 }) => getMovimientosInstrumento(filtros);
 
+/** Kardex de instrumentos completo (sin el tope de 1000 filas) para exportar. */
+export const getMovimientosInstrumentoParaExportService = () =>
+  getMovimientosInstrumento(undefined, true);
+
 /** Líneas de instrumentos de un pedido. */
 export const getPedidoInstrumentosService = (pedidoId: string) =>
   getPedidoInstrumentos(pedidoId);

@@ -627,3 +627,6 @@ export const getKardexService = (filtros?: {
   desde?: string;
   hasta?: string;
 }) => getMovimientos(filtros);
+
+/** Kardex completo (sin el tope de 1000 filas) para exportar a Excel. */
+export const getKardexParaExportService = () => getMovimientos(undefined, true);

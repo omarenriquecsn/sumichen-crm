@@ -48,12 +48,15 @@ export const getStockInstrumento = async (
 
 // --------------------------- Movimientos -----------------------------
 
-export const getMovimientosInstrumento = async (filtros?: {
-  tipoInstrumentoId?: string;
-  almacen?: string;
-  desde?: string;
-  hasta?: string;
-}) => {
+export const getMovimientosInstrumento = async (
+  filtros?: {
+    tipoInstrumentoId?: string;
+    almacen?: string;
+    desde?: string;
+    hasta?: string;
+  },
+  sinLimite = false,
+) => {
   const qb = AppDataSource.getRepository(MovimientoInstrumento)
     .createQueryBuilder('m')
     .leftJoinAndSelect('m.tipo_instrumento', 'tipo')
@@ -74,7 +77,8 @@ export const getMovimientosInstrumento = async (filtros?: {
   if (filtros?.hasta) {
     qb.andWhere('m.fecha_creacion <= :hasta', { hasta: filtros.hasta });
   }
-  return qb.take(1000).getMany();
+  if (!sinLimite) qb.take(1000);
+  return qb.getMany();
 };
 
 // ----------------------- Líneas de pedido ----------------------------

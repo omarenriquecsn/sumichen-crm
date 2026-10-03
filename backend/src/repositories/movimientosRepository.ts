@@ -16,13 +16,16 @@ export const getMovimientosPorPedido = async (pedidoId: string) =>
     order: { fecha_creacion: 'ASC' },
   });
 
-export const getMovimientos = async (filtros?: {
-  productoId?: string;
-  almacen?: string;
-  tipo?: string;
-  desde?: string;
-  hasta?: string;
-}) => {
+export const getMovimientos = async (
+  filtros?: {
+    productoId?: string;
+    almacen?: string;
+    tipo?: string;
+    desde?: string;
+    hasta?: string;
+  },
+  sinLimite = false,
+) => {
   const qb = repo()
     .createQueryBuilder('m')
     .leftJoinAndSelect('m.lote', 'lote')
@@ -46,5 +49,6 @@ export const getMovimientos = async (filtros?: {
   if (filtros?.hasta) {
     qb.andWhere('m.fecha_creacion <= :hasta', { hasta: filtros.hasta });
   }
-  return qb.take(1000).getMany();
+  if (!sinLimite) qb.take(1000);
+  return qb.getMany();
 };

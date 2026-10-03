@@ -1632,5 +1632,17 @@ Commit en la rama.
 - **Logistica → Kardex**: se agrego un **buscador de texto** (producto, codigo, lote, tipo, almacen o motivo) junto al selector de producto.
 - Commits: `17b1b8d` (rama subida a `origin`).
 
+### Punto 48 — Nuevas descargas DB: Productos, Instrumentos y Kardex (03/10) ✅ (build/lint/typecheck OK backend y frontend)
+
+> **Resumen**: el modulo **Descargas de Base de Datos** (`/descargas`) suma 3 exportables nuevos, siguiendo el mismo patron routes -> controller -> service -> util ExcelJS de los existentes. No hubo migracion ni cambios de entidades.
+
+- **Productos** (`GET /descargas/productos`, `productos.xlsx`): `utils/exportProductos.ts` usa `getStockProductos()`; columnas Codigo (`descripcion`), Nombre, Unidad, Precio Base ($), Disponible (Si/No) y Stock GLOBALCA/WMS/Total. Ordena primero los que tienen stock y al final los que estan en 0.
+- **Instrumentos** (`GET /descargas/instrumentos`, `instrumentos.xlsx`): `utils/exportInstrumentos.ts` usa `getStockInstrumentosService()` y `getInstrumentosPorClienteService()`; 3 hojas: "Stock por almacen" (instrumento, almacen, total, disponible), "En clientes" (cliente, en cliente, en transito) y "Detalle por cliente" (cliente, instrumento, en cliente, en transito).
+- **Kardex** (`GET /descargas/kardex`, `kardex.xlsx`): `utils/exportKardex.ts` usa `getKardexParaExportService()` (inventario) + `getMovimientosInstrumentoParaExportService()` (instrumentos); 2 hojas: "Inventario" (fecha, codigo, producto, lote, almacen, tipo, cantidad, saldo, motivo, observacion) e "Instrumentos" (fecha, instrumento, almacen, cliente, tipo, cantidad, saldo, observacion).
+- **Sin tope de 1000**: `getMovimientos` y `getMovimientosInstrumento` ahora aceptan un flag `sinLimite` (default `false`, comportamiento intacto); los servicios de export lo usan para no truncar el kardex. Nuevos: `getKardexParaExportService` (inventarioServices) y `getMovimientosInstrumentoParaExportService` (instrumentosServices).
+- **Frontend**: `DescargasDB.tsx` agrega 3 tarjetas con iconos `Package` (Productos), `Container` (Instrumentos) y `ScrollText` (Kardex); keys `productos`/`instrumentos`/`kardex`.
+- Si la tabla esta vacia, el util lanza `No hay ... para exportar` y el controller responde 404 con el mensaje (el toast del frontend lo muestra); mismo contrato que los descargables previos.
+- **Deploy**: recompilar/reiniciar el backend (`npm run build` + `pm2 restart crm-server`) y subir el `dist/` del frontend. No requiere migracion.
+
 
 

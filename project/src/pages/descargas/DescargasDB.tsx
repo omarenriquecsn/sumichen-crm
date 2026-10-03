@@ -9,6 +9,9 @@ import {
   MapPin,
   Target,
   MessageSquare,
+  Package,
+  Container,
+  ScrollText,
 } from "lucide-react";
 import Button from "../../components/ui/Button";
 import { toast } from "react-toastify";
@@ -23,6 +26,9 @@ const descargas = [
   { label: "Zonas", icon: MapPin, key: "zonas" },
   { label: "Leads", icon: Target, key: "leads" },
   { label: "Chats", icon: MessageSquare, key: "chats" },
+  { label: "Productos", icon: Package, key: "productos" },
+  { label: "Instrumentos", icon: Container, key: "instrumentos" },
+  { label: "Kardex", icon: ScrollText, key: "kardex" },
 ];
 
 const DescargasDB: React.FC = () => {
