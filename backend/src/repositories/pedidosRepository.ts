@@ -1,6 +1,27 @@
 import { AppDataSource } from '../config/dataBaseConfig';
 import { Pedido } from '../entities/Pedidos';
 
+/**
+ * Devuelve el conjunto de `cliente_id` que tienen al menos un pedido en estado
+ * de venta (`procesado` o `devuelto_parcial`). Se usa para saber si un lead
+ * convertido en cliente efectivamente compró.
+ */
+export const getClientesConCompra = async (
+  clienteIds: string[],
+): Promise<Set<string>> => {
+  const ids = (clienteIds || []).filter((id) => !!id);
+  if (!ids.length) return new Set();
+  const PedidoRepository = AppDataSource.getRepository(Pedido);
+  const rows = await PedidoRepository.createQueryBuilder('p')
+    .select('DISTINCT p.cliente_id', 'cliente_id')
+    .where('p.cliente_id IN (:...ids)', { ids })
+    .andWhere('p.estado IN (:...estados)', {
+      estados: ['procesado', 'devuelto_parcial'],
+    })
+    .getRawMany();
+  return new Set(rows.map((r) => r.cliente_id as string));
+};
+
 export const getPedidos = async () => {
   const PedidoRepository = AppDataSource.getRepository(Pedido);
   return await PedidoRepository.find({

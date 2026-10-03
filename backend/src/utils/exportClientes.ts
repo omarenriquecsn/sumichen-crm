@@ -4,6 +4,7 @@ import path from 'path';
 import { getClientesService } from '../services/clientesServices';
 import { getUsuariosService } from '../services/usuariosServices';
 import { getPedidos } from '../repositories/pedidosRepository';
+import { getLeadsParaExportService } from '../services/leadsServices';
 
  async function exportClientesToExcel() {
     const queryClientes = await getClientesService()
@@ -55,6 +56,17 @@ import { getPedidos } from '../repositories/pedidosRepository';
       ventasProcesadasPorCliente.set(pedido.cliente_id, previo + baseNeta);
     }
 
+    // Identificar los clientes que llegaron por marketing: se deriva del vínculo
+    // leads.cliente_id (lead convertido). Se toma el primer lead que apunte al
+    // cliente para conocer su origen y campaña/palabra clave.
+    const leads = (await getLeadsParaExportService()) || [];
+    const leadPorCliente = new Map<string, (typeof leads)[number]>();
+    for (const lead of leads) {
+      if (lead.cliente_id && !leadPorCliente.has(lead.cliente_id)) {
+        leadPorCliente.set(lead.cliente_id, lead);
+      }
+    }
+
     // Crear el libro y hoja de Excel
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Clientes');
@@ -80,6 +92,9 @@ import { getPedidos } from '../repositories/pedidosRepository';
       { header: 'Porcentaje Alcanzado (%)', key: 'porcentaje_alcanzado', width: 22 },
       { header: 'Fecha de Creación', key: 'fecha_creacion', width: 20 },
       { header: 'Última Actualización', key: 'fecha_actualizacion', width: 20 },
+      { header: 'Proveniente de Marketing', key: 'proveniente_marketing', width: 22 },
+      { header: 'Origen del Lead', key: 'origen_lead', width: 18 },
+      { header: 'Campaña / Palabra Clave', key: 'campana_lead', width: 25 },
       { header: 'Notas', key: 'notas', width: 100},
 
     ];
@@ -94,6 +109,7 @@ import { getPedidos } from '../repositories/pedidosRepository';
       const ventasProcesadas = ventasProcesadasPorCliente.get(cliente.id) ?? 0;
       const porcentaje =
         proyeccion && proyeccion > 0 ? (ventasProcesadas / proyeccion) * 100 : null;
+      const leadOrigen = leadPorCliente.get(cliente.id);
       sheet.addRow({
         rif: cliente.rif,
         empresa: cliente.empresa,
@@ -116,6 +132,9 @@ import { getPedidos } from '../repositories/pedidosRepository';
         porcentaje_alcanzado:
           porcentaje != null ? Number(porcentaje.toFixed(2)) : '',
         notas: cliente.notas || 'N/A',
+        proveniente_marketing: leadOrigen ? 'Sí' : 'No',
+        origen_lead: leadOrigen ? leadOrigen.origen : 'N/A',
+        campana_lead: leadOrigen?.palabra_clave || 'N/A',
         vendedor: vendedor ? `${vendedor.nombre} ${vendedor.apellido}` : 'N/A',
         fecha_creacion: cliente.fecha_creacion
           ? cliente.fecha_creacion

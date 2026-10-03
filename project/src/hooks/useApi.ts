@@ -30,6 +30,7 @@ import {
   Conversacion,
   Mensaje,
   LeadsResponse,
+  LeadNota,
   MenuBienvenida,
   Campana,
 } from "../types";
@@ -2024,7 +2025,29 @@ export const useApi = () => {
         queryClient.invalidateQueries({ queryKey: ["lead"] });
         queryClient.invalidateQueries({ queryKey: ["conversaciones"] });
         queryClient.invalidateQueries({ queryKey: ["conversacion"] });
+        queryClient.invalidateQueries({ queryKey: ["tiempo-respuesta"] });
       },
+    });
+  };
+
+  const useTiempoRespuesta = (desde?: string, hasta?: string) => {
+    const { session } = useAuth();
+    return useQuery<{ promedioMin: number | null; total: number }>({
+      queryKey: ["tiempo-respuesta", desde, hasta],
+      queryFn: async () => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const params = new URLSearchParams();
+        if (desde) params.append("desde", desde);
+        if (hasta) params.append("hasta", hasta);
+        const res = await fetch(`${URL}/leads/tiempo-respuesta?${params}`, {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Error al cargar el tiempo de respuesta");
+        return res.json();
+      },
+      enabled: !!session?.access_token,
+      staleTime: 1000 * 60,
     });
   };
 
@@ -2041,6 +2064,73 @@ export const useApi = () => {
         return res.json();
       },
       enabled: !!session?.access_token && !!leadId,
+    });
+  };
+
+  // ---------- Notas / diario de negociación del lead ----------
+  const useNotasLead = (leadId: string) => {
+    const { session } = useAuth();
+    return useQuery<LeadNota[]>({
+      queryKey: ["notas-lead", leadId],
+      queryFn: async () => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/leads/${leadId}/notas`, {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Error al cargar las notas");
+        return res.json();
+      },
+      enabled: !!session?.access_token && !!leadId,
+    });
+  };
+
+  const useCrearNotaLead = () => {
+    return useMutation({
+      mutationFn: async ({ leadId, contenido }: { leadId: string; contenido: string }) => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/leads/${leadId}/notas`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify({ contenido }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: "Error al guardar la nota" }));
+          throw new Error(err.message || "Error al guardar la nota");
+        }
+        return res.json();
+      },
+      onSuccess: (_data, vars) => {
+        queryClient.invalidateQueries({ queryKey: ["notas-lead", vars.leadId] });
+        queryClient.invalidateQueries({ queryKey: ["lead", vars.leadId] });
+        queryClient.invalidateQueries({ queryKey: ["leads"] });
+      },
+    });
+  };
+
+  const useEliminarNotaLead = () => {
+    return useMutation({
+      mutationFn: async ({ leadId, notaId }: { leadId: string; notaId: string }) => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/leads/${leadId}/notas/${notaId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: "Error al eliminar la nota" }));
+          throw new Error(err.message || "Error al eliminar la nota");
+        }
+        return res.json();
+      },
+      onSuccess: (_data, vars) => {
+        queryClient.invalidateQueries({ queryKey: ["notas-lead", vars.leadId] });
+        queryClient.invalidateQueries({ queryKey: ["lead", vars.leadId] });
+      },
     });
   };
 
@@ -2468,6 +2558,10 @@ export const useApi = () => {
     usePerderLead,
     useContactarLead,
     useHistorialReasignaciones,
+    useNotasLead,
+    useCrearNotaLead,
+    useEliminarNotaLead,
+    useTiempoRespuesta,
     // Conversaciones / Chat
     useConversaciones,
     useConversacionById,

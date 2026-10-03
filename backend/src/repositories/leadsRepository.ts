@@ -3,6 +3,21 @@ import { In } from 'typeorm';
 import { Lead, EstadoLeadEnum, TipoWebEnum } from '../entities/Lead';
 import { Vendedor } from '../entities/Vendedores';
 import { Zona } from '../entities/Zona';
+import { getClientesConCompra } from './pedidosRepository';
+
+/**
+ * Rellena `lead.compro` en memoria: true si el lead tiene cliente asociado y
+ * ese cliente registró al menos un pedido de venta. No persiste nada.
+ */
+const marcarCompra = async (leads: Lead[]) => {
+  const clienteIds = leads
+    .map((l) => l.cliente_id)
+    .filter((id): id is string => !!id);
+  const conCompra = await getClientesConCompra(clienteIds);
+  for (const lead of leads) {
+    lead.compro = !!(lead.cliente_id && conCompra.has(lead.cliente_id));
+  }
+};
 
 export const getLeads = async (filtros: {
   vendedor_id?: string;
@@ -56,7 +71,37 @@ export const getLeads = async (filtros: {
   qb.skip((page - 1) * limit).take(limit);
 
   const [data, total] = await qb.getManyAndCount();
+  await marcarCompra(data);
   return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+};
+
+/**
+ * Tiempo de respuesta promedio (minutos) de los leads atendidos: desde que se
+ * asignó el lead hasta que el vendedor pulsó "Atender por WhatsApp".
+ *
+ * Se mide por la FECHA DE CONTACTO (`contactado_en`) dentro del rango indicado,
+ * no por la fecha de creación del lead: así un lead viejo atendido hoy cuenta
+ * en el período actual.
+ */
+export const getTiempoRespuestaPromedio = async (desde?: Date, hasta?: Date) => {
+  const repo = AppDataSource.getRepository(Lead);
+  const qb = repo
+    .createQueryBuilder('lead')
+    .select(
+      'AVG(EXTRACT(EPOCH FROM (lead.contactado_en - lead.asignado_en)) / 60)',
+      'promedio_min',
+    )
+    .addSelect('COUNT(*)', 'total')
+    .where('lead.contactado_en IS NOT NULL')
+    .andWhere('lead.asignado_en IS NOT NULL');
+  if (desde) qb.andWhere('lead.contactado_en >= :desde', { desde });
+  if (hasta) qb.andWhere('lead.contactado_en <= :hasta', { hasta });
+
+  const raw = await qb.getRawOne();
+  return {
+    promedioMin: raw?.promedio_min != null ? Number(raw.promedio_min) : null,
+    total: raw?.total != null ? Number(raw.total) : 0,
+  };
 };
 
 export const getLeadById = async (id: string) => {
@@ -69,10 +114,12 @@ export const getLeadById = async (id: string) => {
 
 export const getLeadsParaExport = async () => {
   const repo = AppDataSource.getRepository(Lead);
-  return await repo.find({
-    relations: ['vendedor_asignado', 'zona', 'cliente'],
+  const leads = await repo.find({
+    relations: ['vendedor_asignado', 'zona', 'cliente', 'notas', 'notas.vendedor'],
     order: { fecha_creacion: 'DESC' },
   });
+  await marcarCompra(leads);
+  return leads;
 };
 
 /**
@@ -255,6 +302,9 @@ export const marcarLeadContactado = async (leadId: string) => {
   lead.estado = EstadoLeadEnum.CONTACTADO;
   // Reinicia la ventana SLA: el lead está siendo gestionado.
   lead.ultima_actividad_en = new Date();
+  // Tiempo de respuesta: solo se registra el PRIMER contacto (cuando el
+  // vendedor pulsa "Atender por WhatsApp"); no se sobreescribe si ya existía.
+  if (!lead.contactado_en) lead.contactado_en = new Date();
   return await leadRepo.save(lead);
 };
 

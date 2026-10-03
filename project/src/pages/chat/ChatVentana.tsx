@@ -4,9 +4,10 @@ import { useAuth } from "../../context/useAuth";
 import { useSupabase } from "../../hooks/useSupabase";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Send, ArrowLeft, AlertCircle, Check, Info, X, UserPlus, XCircle } from "lucide-react";
+import { Send, ArrowLeft, AlertCircle, Check, Info, X, UserPlus, XCircle, NotebookPen } from "lucide-react";
 import { Lead } from "../../types";
 import ConvertirLeadModal from "../../components/forms/ConvertirLeadModal";
+import NotasLeadModal from "../../components/forms/NotasLeadModal";
 import { BotonAtenderWhatsApp } from "../../components/ui/BotonAtenderWhatsApp";
 
 const ChatVentana: React.FC = () => {
@@ -18,6 +19,7 @@ const ChatVentana: React.FC = () => {
   const [scrollToBottom, setScrollToBottom] = React.useState(0);
   const [mostrarInfo, setMostrarInfo] = React.useState(false);
   const [convertirLeadSel, setConvertirLeadSel] = React.useState<Lead | null>(null);
+  const [notasLead, setNotasLead] = React.useState<Lead | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   const { data: conversacion, isLoading: loadingConv } = useConversacionById(id || "");
@@ -118,6 +120,15 @@ const ChatVentana: React.FC = () => {
         <h4 className="font-semibold text-gray-900 mb-2">Mensaje inicial</h4>
         <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded break-words">{lead?.datos_contacto?.mensaje_inicial}</p>
       </div>
+
+      {lead && (
+        <button
+          onClick={() => setNotasLead(lead)}
+          className="mt-4 flex items-center justify-center gap-2 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg text-sm font-medium"
+        >
+          <NotebookPen className="h-4 w-4" /> Notas de negociación
+        </button>
+      )}
 
       {puedeAccionar && (
         <div className="mt-4 flex flex-col gap-2">
@@ -296,13 +307,19 @@ const ChatVentana: React.FC = () => {
         )}
 
         <ConvertirLeadModal
-          key={convertirLeadSel?.id || "none"}
+          key={`convertir-${convertirLeadSel?.id || "none"}`}
           lead={convertirLeadSel}
           onClose={() => setConvertirLeadSel(null)}
           onConverted={() => {
             setConvertirLeadSel(null);
             setMostrarInfo(false);
           }}
+        />
+
+        <NotasLeadModal
+          key={`notas-${notasLead?.id || "none"}`}
+          lead={notasLead}
+          onClose={() => setNotasLead(null)}
         />
       </div>
     </Layout>

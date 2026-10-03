@@ -17,7 +17,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { Users, TrendingUp, Target, Clock, RefreshCw, Globe, Check, AlertCircle, MessageSquare, Bot, Plus, Trash2, Save, Megaphone } from "lucide-react";
+import { Users, TrendingUp, Target, Clock, RefreshCw, Globe, Check, AlertCircle, MessageSquare, Bot, Plus, Trash2, Save, Megaphone, ShoppingCart } from "lucide-react";
 import { Lead, OpcionIntencion, Vendedor, Campana } from "../../types";
 
 const COLORS = ["#16A34A", "#2563EB", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"];
@@ -39,7 +39,7 @@ interface PieLabelProps {
 }
 
 const MarketingDashboard: React.FC = () => {
-  const { useLeads, useMenuBienvenida, useActualizarMenuBienvenida, useCampanas, useCrearCampana, useActualizarCampana, useEliminarCampana } = useSupabase();
+  const { useLeads, useTiempoRespuesta, useMenuBienvenida, useActualizarMenuBienvenida, useCampanas, useCrearCampana, useActualizarCampana, useEliminarCampana } = useSupabase();
   const { data: vendedores } = useUsuariosTodos();
   const { data: menuConfig, isLoading: menuLoading } = useMenuBienvenida();
   const actualizarMenu = useActualizarMenuBienvenida();
@@ -189,11 +189,17 @@ const MarketingDashboard: React.FC = () => {
     });
   };
 
+  const desdeIso = fechaDesde ? new Date(`${fechaDesde}T00:00:00`).toISOString() : undefined;
+  const hastaIso = fechaHasta ? new Date(`${fechaHasta}T23:59:59.999`).toISOString() : undefined;
+
   const { data, isLoading, refetch } = useLeads(undefined, {
-    desde: fechaDesde ? new Date(`${fechaDesde}T00:00:00`).toISOString() : undefined,
-    hasta: fechaHasta ? new Date(`${fechaHasta}T23:59:59.999`).toISOString() : undefined,
+    desde: desdeIso,
+    hasta: hastaIso,
     limit: 1000,
   });
+  // Tiempo de respuesta: se mide por la fecha de CONTACTO (cuando el vendedor
+  // pulsó "Atender por WhatsApp"), no por la fecha de creación del lead.
+  const { data: tiempoResp, refetch: refetchTiempo } = useTiempoRespuesta(desdeIso, hastaIso);
 
   const leads: Lead[] = data?.data || [];
 
@@ -214,9 +220,28 @@ const MarketingDashboard: React.FC = () => {
   }, {} as Record<string, number>);
   const convertidos = leads.filter((l) => l.estado === "convertido").length;
   const tasaConversion = totalLeads > 0 ? ((convertidos / totalLeads) * 100).toFixed(1) : "0";
+  // De los leads convertidos, cuántos efectivamente compraron (pedido procesado/parcial).
+  const convertidosQueCompraron = leads.filter(
+    (l) => l.estado === "convertido" && l.compro
+  ).length;
+  const tasaCompra = convertidos > 0 ? ((convertidosQueCompraron / convertidos) * 100).toFixed(1) : "0";
+  const convertidosSinCompra = convertidos - convertidosQueCompraron;
   const enGestion = leads.filter((l) => ["asignado", "contactado", "calificado"].includes(l.estado)).length;
   const sinAsignar = leads.filter((l) => l.estado === "nuevo").length;
-  const tiempoRespuestaPromedio = "—"; // TODO: calcular desde mensajes
+
+  // Tiempo de respuesta: promedio desde que el lead fue asignado hasta que el
+  // vendedor pulsó "Atender por WhatsApp". Lo calcula el backend por FECHA DE
+  // CONTACTO dentro del rango (así un lead viejo atendido hoy sí cuenta).
+  const totalAtendidos = tiempoResp?.total ?? 0;
+  const tiempoRespuestaPromedio = (() => {
+    const prom = tiempoResp?.promedioMin;
+    if (prom == null || totalAtendidos === 0) return "—";
+    if (prom < 1) return "< 1 min";
+    if (prom < 60) return `${Math.round(prom)} min`;
+    const horas = prom / 60;
+    if (horas < 48) return `${horas.toFixed(1)} h`;
+    return `${(horas / 24).toFixed(1)} d`;
+  })();
 
   // Datos para gráficas
   const datosOrigen = Object.entries(leadsPorOrigen).map(([origen, valor]) => ({
@@ -279,7 +304,10 @@ const MarketingDashboard: React.FC = () => {
               />
             </div>
             <button
-              onClick={() => refetch()}
+              onClick={() => {
+                refetch();
+                refetchTiempo();
+              }}
               disabled={isLoading}
               className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 sm:mb-0.5"
             >
@@ -712,6 +740,10 @@ const MarketingDashboard: React.FC = () => {
               <div>
                 <p className="text-sm text-gray-500">Tiempo Respuesta Prom.</p>
                 <p className="text-3xl font-bold text-gray-900">{tiempoRespuestaPromedio}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {totalAtendidos} lead{totalAtendidos === 1 ? "" : "s"} atendido
+                  {totalAtendidos === 1 ? "" : "s"}
+                </p>
               </div>
               <div className="bg-gray-100 p-3 rounded-lg">
                 <Clock className="h-6 w-6 text-gray-600" />
@@ -737,6 +769,46 @@ const MarketingDashboard: React.FC = () => {
               </div>
               <div className="bg-blue-100 p-3 rounded-lg">
                 <Globe className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tercera fila KPIs — conversión a cliente y compra */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Convertidos que compraron</p>
+                <p className="text-3xl font-bold text-emerald-700">{convertidosQueCompraron}</p>
+                <p className="text-xs text-gray-400 mt-1">de {convertidos} convertidos</p>
+              </div>
+              <div className="bg-emerald-100 p-3 rounded-lg">
+                <ShoppingCart className="h-6 w-6 text-emerald-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Tasa de compra de convertidos</p>
+                <p className="text-3xl font-bold text-emerald-600">{tasaCompra}%</p>
+                <p className="text-xs text-gray-400 mt-1">del total de convertidos</p>
+              </div>
+              <div className="bg-emerald-100 p-3 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-emerald-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Convertidos sin compra</p>
+                <p className="text-3xl font-bold text-amber-600">{convertidosSinCompra}</p>
+                <p className="text-xs text-gray-400 mt-1">registrados, aún sin pedido</p>
+              </div>
+              <div className="bg-amber-100 p-3 rounded-lg">
+                <AlertCircle className="h-6 w-6 text-amber-600" />
               </div>
             </div>
           </div>

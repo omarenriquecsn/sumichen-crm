@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import {
   getLeadsService,
   getLeadByIdService,
+  getTiempoRespuestaService,
   createLeadWebService,
   asignarLeadService,
   contactarLeadService,
@@ -9,6 +10,9 @@ import {
   convertirLeadService,
   perderLeadService,
   getHistorialReasignacionesService,
+  getNotasLeadService,
+  crearNotaLeadService,
+  eliminarNotaLeadService,
   procesarSLAVencidos,
 } from '../services/leadsServices';
 import { ApiError } from '../utils/ApiError';
@@ -44,6 +48,15 @@ const parseHastaInclusive = (valor: string): Date => {
   }
   return new Date(valor);
 };
+
+export const getTiempoRespuesta = asyncHandler(async (req: Request, res: Response) => {
+  const desde = req.query.desde ? new Date(req.query.desde as string) : undefined;
+  const hasta = req.query.hasta
+    ? parseHastaInclusive(req.query.hasta as string)
+    : undefined;
+  const resultado = await getTiempoRespuestaService(desde, hasta);
+  res.json(resultado);
+});
 
 export const getLeadById = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -107,6 +120,25 @@ export const getHistorialReasignaciones = asyncHandler(async (req: Request, res:
   const { id } = req.params;
   const historial = await getHistorialReasignacionesService(id, req.user);
   res.json(historial);
+});
+
+export const getNotasLead = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const notas = await getNotasLeadService(id, req.user);
+  res.json(notas);
+});
+
+export const crearNotaLead = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { contenido } = req.body;
+  const nota = await crearNotaLeadService(id, contenido, req.user);
+  res.status(201).json(nota);
+});
+
+export const eliminarNotaLead = asyncHandler(async (req: Request, res: Response) => {
+  const { id, notaId } = req.params;
+  const resultado = await eliminarNotaLeadService(id, notaId, req.user);
+  res.json(resultado);
 });
 
 export const procesarSLA = asyncHandler(async (req: Request, res: Response) => {

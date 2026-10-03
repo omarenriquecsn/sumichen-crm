@@ -33,6 +33,7 @@ import { InstrumentoStock } from '../entities/InstrumentoStock';
 import { MovimientoInstrumento } from '../entities/MovimientoInstrumento';
 import { PedidoInstrumento } from '../entities/PedidoInstrumento';
 import { Campana } from '../entities/Campana';
+import { LeadNota } from '../entities/LeadNota';
 dotenv.config();
 
 export const AppDataSource = new DataSource({
@@ -74,6 +75,7 @@ export const AppDataSource = new DataSource({
     MovimientoInstrumento,
     PedidoInstrumento,
     Campana,
+    LeadNota,
   ],
   migrations: ['build/database/migrations/**/*.js'],
   dropSchema: false,

@@ -4,6 +4,7 @@ import { asyncHandler } from '../middlewares/asyncHandler';
 import {
   getLeads,
   getLeadById,
+  getTiempoRespuesta,
   createLeadWeb,
   createLeadInstagram,
   asignarLead,
@@ -12,6 +13,9 @@ import {
   convertirLead,
   perderLead,
   getHistorialReasignaciones,
+  getNotasLead,
+  crearNotaLead,
+  eliminarNotaLead,
   procesarSLA,
 } from '../controllers/leadsControllers';
 import { validarHMACMeta } from '../middlewares/validarHMACMeta';
@@ -30,8 +34,15 @@ router.post('/leads/instagram', limiterWebhook, validarHMACMeta, asyncHandler(cr
 router.use('/leads', verificarToken);
 
 router.get('/leads', asyncHandler(getLeads));
+// ⚠ Debe ir ANTES de '/leads/:id' para que "tiempo-respuesta" no se tome como id.
+router.get('/leads/tiempo-respuesta', asyncHandler(getTiempoRespuesta));
 router.get('/leads/:id', asyncHandler(getLeadById));
 router.get('/leads/:id/historial-reasignaciones', asyncHandler(getHistorialReasignaciones));
+
+// Diario de negociación del lead
+router.get('/leads/:id/notas', asyncHandler(getNotasLead));
+router.post('/leads/:id/notas', asyncHandler(crearNotaLead));
+router.delete('/leads/:id/notas/:notaId', asyncHandler(eliminarNotaLead));
 router.put('/leads/:id/asignar', asyncHandler(asignarLead));
 router.put('/leads/:id/contactar', asyncHandler(contactarLead));
 router.put('/leads/:id/reasignar', asyncHandler(reasignarLead));

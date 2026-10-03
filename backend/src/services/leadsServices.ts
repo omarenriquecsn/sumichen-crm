@@ -11,7 +11,14 @@ import {
   marcarLeadContactado,
   getVendedoresDeZona,
   getLeadsSLAVencido,
+  getTiempoRespuestaPromedio,
 } from '../repositories/leadsRepository';
+import {
+  getNotasByLead,
+  createNota,
+  getNotaById,
+  deleteNota,
+} from '../repositories/leadNotasRepository';
 import { ApiError } from '../utils/ApiError';
 import { construirUrlAtenderLead } from '../utils/atenderLead';
 import { In } from 'typeorm';
@@ -33,6 +40,10 @@ export const getLeadsService = async (filtros: any, reqUser?: any) => {
 
 export const getLeadsParaExportService = async () => {
   return await getLeadsParaExport();
+};
+
+export const getTiempoRespuestaService = async (desde?: Date, hasta?: Date) => {
+  return await getTiempoRespuestaPromedio(desde, hasta);
 };
 
 export const getLeadByIdService = async (id: string, reqUser?: any) => {
@@ -252,6 +263,70 @@ export const getHistorialReasignacionesService = async (leadId: string, reqUser?
     throw new ApiError('No autorizado', 403);
   }
   return lead.reasignaciones || [];
+};
+
+/**
+ * Verifica el acceso al lead (mismo criterio que getLeadByIdService) y lo
+ * devuelve. Se usa para las notas del diario.
+ */
+const validarAccesoLead = async (leadId: string, reqUser?: any) => {
+  if (reqUser?.rol !== 'admin' && reqUser?.rol !== 'vendedor') {
+    throw new ApiError('No autorizado', 403);
+  }
+  const lead = await getLeadById(leadId);
+  if (!lead) throw new ApiError('Lead no encontrado', 404);
+  if (
+    reqUser?.rol === 'vendedor' &&
+    (lead.estado === EstadoLeadEnum.PERDIDO ||
+      lead.vendedor_asignado_id !== reqUser.vendedor_db_id)
+  ) {
+    throw new ApiError('No autorizado', 403);
+  }
+  return lead;
+};
+
+export const getNotasLeadService = async (leadId: string, reqUser?: any) => {
+  await validarAccesoLead(leadId, reqUser);
+  return await getNotasByLead(leadId);
+};
+
+export const crearNotaLeadService = async (
+  leadId: string,
+  contenido: string,
+  reqUser?: any,
+) => {
+  await validarAccesoLead(leadId, reqUser);
+  const texto = (contenido || '').trim();
+  if (!texto) throw new ApiError('La nota no puede estar vacía', 400);
+  if (texto.length > 5000) {
+    throw new ApiError('La nota no puede superar los 5000 caracteres', 400);
+  }
+  return await createNota({
+    lead_id: leadId,
+    vendedor_id: reqUser?.vendedor_db_id ?? null,
+    contenido: texto,
+  });
+};
+
+export const eliminarNotaLeadService = async (
+  leadId: string,
+  notaId: string,
+  reqUser?: any,
+) => {
+  await validarAccesoLead(leadId, reqUser);
+  const nota = await getNotaById(notaId);
+  if (!nota || nota.lead_id !== leadId) {
+    throw new ApiError('Nota no encontrada', 404);
+  }
+  // Solo el autor de la nota o un admin pueden eliminarla.
+  if (
+    reqUser?.rol !== 'admin' &&
+    nota.vendedor_id !== reqUser?.vendedor_db_id
+  ) {
+    throw new ApiError('No autorizado para eliminar esta nota', 403);
+  }
+  await deleteNota(notaId);
+  return { ok: true };
 };
 
 // SLA Monitor - para job cron

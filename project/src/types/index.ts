@@ -595,6 +595,8 @@ export interface Lead {
   metadata: Record<string, unknown> | null;
   asignado_en: string | null;
   ultima_actividad_en: string | null;
+  /** Primer contacto (clic en "Atender por WhatsApp"). */
+  contactado_en?: string | null;
   fecha_creacion: string;
   fecha_actualizacion: string;
   vendedor_asignado?: Vendedor | null;
@@ -602,6 +604,20 @@ export interface Lead {
   cliente?: Cliente | null;
   reasignaciones?: Reasignacion[];
   conversaciones?: Conversacion[];
+  /** Diario de negociación (cargado con el lead o por el hook de notas). */
+  notas?: LeadNota[];
+  /** Calculado en el backend: el lead convertido compró (pedido procesado/parcial). */
+  compro?: boolean;
+}
+
+/** Entrada del diario de negociación de un lead. */
+export interface LeadNota {
+  id: string;
+  lead_id: string;
+  vendedor_id: string | null;
+  contenido: string;
+  fecha_creacion: string;
+  vendedor?: Vendedor | null;
 }
 
 export interface Reasignacion {

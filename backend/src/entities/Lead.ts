@@ -14,6 +14,7 @@ import { Cliente } from './Clientes';
 import { Zona } from './Zona';
 import { Reasignacion } from './Reasignacion';
 import { Conversacion } from './Conversacion';
+import { LeadNota } from './LeadNota';
 
 export enum OrigenLeadEnum {
   INSTAGRAM = 'instagram',
@@ -104,6 +105,13 @@ export class Lead {
   @Column({ name: 'ultima_actividad_en', type: 'timestamptz', nullable: true })
   ultima_actividad_en: Date | null;
 
+  /**
+   * Momento en que el vendedor pulsó "Atender por WhatsApp" (primer paso a
+   * `contactado`). Se usa para calcular el tiempo de respuesta real.
+   */
+  @Column({ name: 'contactado_en', type: 'timestamptz', nullable: true })
+  contactado_en: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'fecha_creacion' })
   fecha_creacion: Date;
 
@@ -127,4 +135,14 @@ export class Lead {
 
   @OneToMany(() => Conversacion, (c) => c.lead)
   conversaciones: Conversacion[];
+
+  @OneToMany(() => LeadNota, (n) => n.lead)
+  notas: LeadNota[];
+
+  /**
+   * Campo calculado (NO persistido): true si el lead fue convertido en cliente
+   * y ese cliente tiene al menos un pedido de venta (procesado/devuelto_parcial).
+   * Se rellena en `getLeads` y `getLeadsParaExport`.
+   */
+  compro?: boolean;
 }
