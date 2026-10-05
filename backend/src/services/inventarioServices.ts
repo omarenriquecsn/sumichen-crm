@@ -302,14 +302,21 @@ export interface StockInicialInput {
 }
 
 /**
- * Registra el stock inicial de un producto recién creado: un lote en el
- * almacén indicado + su movimiento de ENTRADA. Se usa al crear un producto
+ * Registra (o actualiza) el stock de un lote para un producto: un lote en el
+ * almacén indicado + su movimiento de inventario. Se usa al crear un producto
  * manualmente desde la app (el stock masivo sigue entrando por el Excel).
+ *
+ * - Si el lote (producto + almacén + código) NO existe → lo crea con un
+ *   movimiento de ENTRADA.
+ * - Si YA existe → actualiza cantidad y fechas (upsert, igual que la
+ *   sincronización del Excel) y registra un ajuste si la cantidad cambia.
+ *
+ * Devuelve `creado: true` cuando el lote se creó y `false` cuando se actualizó.
  */
 export const registrarLoteInicial = async (
   productoId: string,
   input: StockInicialInput,
-): Promise<void> => {
+): Promise<{ creado: boolean }> => {
   const cantidad = Math.round((Number(input.cantidad) || 0) * 100) / 100;
   if (!(cantidad > 0)) {
     throw new ApiError('La cantidad inicial debe ser mayor a 0', 400);
@@ -321,8 +328,34 @@ export const registrarLoteInicial = async (
   }
 
   const existente = await getLote(productoId, input.almacen, lote);
+
   if (existente) {
-    throw new ApiError('Ya existe un lote con ese código para el producto', 400);
+    const actual = Number(existente.cantidad_actual) || 0;
+    await updateLoteDatos(existente.id, {
+      cantidad_inicial: cantidad,
+      cantidad_actual: cantidad,
+      fecha_ingreso: input.fechaIngreso,
+      fecha_vencimiento: input.fechaVencimiento ?? null,
+    });
+
+    const delta = redondear2(cantidad - actual);
+    if (delta !== 0) {
+      await createMovimiento({
+        tipo:
+          delta > 0
+            ? MovimientoInventarioTipoEnum.AJUSTE_POSITIVO
+            : MovimientoInventarioTipoEnum.AJUSTE_NEGATIVO,
+        producto_id: productoId,
+        lote_id: existente.id,
+        almacen: input.almacen,
+        cantidad: Math.abs(delta),
+        saldo_resultante: cantidad,
+        motivo_categoria: MotivoAjusteEnum.CONTEO_FISICO,
+        observacion: `Actualización manual del lote ${lote} (${input.fechaIngreso})`,
+      });
+    }
+
+    return { creado: false };
   }
 
   await createLote({
@@ -344,6 +377,8 @@ export const registrarLoteInicial = async (
     saldo_resultante: cantidad,
     observacion: `Stock inicial lote ${lote} (${input.fechaIngreso})`,
   });
+
+  return { creado: true };
 };
 
 /** Devuelve el catálogo de productos con el stock real por almacén. */

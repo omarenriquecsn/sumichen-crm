@@ -93,12 +93,24 @@ const AgregarProducto = () => {
     crearProducto(
       { productoData },
       {
-        onSuccess: () => {
-          toast.success(
-            conStock
-              ? "¡Producto creado con stock inicial!"
-              : "¡Producto agregado exitosamente!"
-          );
+        onSuccess: (data) => {
+          const res = data as {
+            productoExistente?: boolean;
+            loteRegistrado?: boolean;
+          };
+          if (res?.productoExistente) {
+            toast.success(
+              res.loteRegistrado
+                ? "Producto existente actualizado y lote registrado"
+                : "Producto existente actualizado"
+            );
+          } else {
+            toast.success(
+              res?.loteRegistrado
+                ? "¡Producto creado con stock inicial!"
+                : "¡Producto agregado exitosamente!"
+            );
+          }
           setFormData(estadoInicial());
         },
         onError: (err: unknown) => {
@@ -117,9 +129,13 @@ const AgregarProducto = () => {
     >
       <div className="flex items-center justify-center min-h-[60vh] py-6">
         <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-2xl">
-          <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">
+          <h1 className="text-2xl font-bold mb-2 text-center text-gray-800">
             Agregar Producto
           </h1>
+          <p className="text-sm text-gray-500 text-center mb-6">
+            Si el código ya existe, se actualizará el producto y se registrará
+            el nuevo lote con sus fechas, almacén y cantidad.
+          </p>
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Datos del producto */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

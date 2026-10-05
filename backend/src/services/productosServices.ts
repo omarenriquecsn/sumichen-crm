@@ -30,8 +30,15 @@ export interface StockInicialProducto {
 }
 
 /**
- * Crea un producto. Si el body trae `stock_inicial` con cantidad > 0, además
- * registra el lote inicial (almacén + lote + fecha) y su movimiento de entrada.
+ * Crea un producto o, si ya existe uno con el mismo código (normalizado, igual
+ * que el Excel: mayúsculas sin espacios y sin la variante tras el guion),
+ * actualiza sus datos y le agrega/actualiza el lote indicado.
+ *
+ * Si el body trae `stock_inicial` con cantidad > 0, registra el lote
+ * (almacén + lote + fechas) con upsert: lo crea si es nuevo o actualiza su
+ * cantidad/fechas si ya existía.
+ *
+ * Devuelve el producto con los flags `productoExistente` y `loteRegistrado`.
  */
 export const createProductoService = async (
   productoData: Partial<Producto> & { stock_inicial?: StockInicialProducto },
@@ -41,8 +48,8 @@ export const createProductoService = async (
   const cantidadInicial = Number(stock_inicial?.cantidad) || 0;
   const conStock = !!stock_inicial && cantidadInicial > 0;
 
-  // Se valida el stock ANTES de crear el producto para no dejar registros a
-  // medias si algo falta.
+  // Se valida el stock ANTES de crear/actualizar el producto para no dejar
+  // registros a medias si algo falta.
   if (conStock) {
     const almacen = stock_inicial!.almacen;
     if (almacen !== AlmacenEnum.GLOBALCA && almacen !== AlmacenEnum.WMS) {
@@ -56,19 +63,62 @@ export const createProductoService = async (
     }
   }
 
-  const nuevoProducto = await createProducto(datos);
+  const datosLote = conStock
+    ? {
+        almacen: stock_inicial!.almacen as AlmacenEnum,
+        cantidad: cantidadInicial,
+        lote: String(stock_inicial!.lote),
+        fechaIngreso: String(stock_inicial!.fecha_ingreso),
+        fechaVencimiento: stock_inicial!.fecha_vencimiento ?? null,
+      }
+    : null;
 
-  if (conStock) {
-    await registrarLoteInicial(nuevoProducto.id, {
-      almacen: stock_inicial!.almacen as AlmacenEnum,
-      cantidad: cantidadInicial,
-      lote: String(stock_inicial!.lote),
-      fechaIngreso: String(stock_inicial!.fecha_ingreso),
-      fechaVencimiento: stock_inicial!.fecha_vencimiento ?? null,
-    });
+  // Busca un producto existente por código normalizado (mismo criterio que la
+  // sincronización del Excel).
+  const codigo = baseCodigo(datos.descripcion || '');
+  const existente = codigo
+    ? (await getProductos()).find(
+        (p) => baseCodigo(p.descripcion || '') === codigo,
+      )
+    : undefined;
+
+  if (existente) {
+    // El código (`descripcion`) es la clave del producto: NO se sobrescribe,
+    // solo se actualizan los demás campos. Así el match case-insensitive /
+    // con variante (`-1`) no altera el código real del producto.
+    const datosActualizar: Partial<Producto> = {};
+    if (datos.nombre !== undefined) datosActualizar.nombre = datos.nombre;
+    if (datos.unidad_medida !== undefined)
+      datosActualizar.unidad_medida = datos.unidad_medida;
+    if (datos.precio_base !== undefined)
+      datosActualizar.precio_base = datos.precio_base;
+    if (datos.disponible !== undefined)
+      datosActualizar.disponible = datos.disponible;
+
+    const actualizado = await updateProducto(existente.id, datosActualizar);
+
+    if (datosLote) {
+      await registrarLoteInicial(existente.id, datosLote);
+    }
+
+    return {
+      ...(actualizado ?? existente),
+      productoExistente: true,
+      loteRegistrado: conStock,
+    };
   }
 
-  return nuevoProducto;
+  const nuevoProducto = await createProducto(datos);
+
+  if (datosLote) {
+    await registrarLoteInicial(nuevoProducto.id, datosLote);
+  }
+
+  return {
+    ...nuevoProducto,
+    productoExistente: false,
+    loteRegistrado: conStock,
+  };
 };
 
 export const updateProductoService = async (
