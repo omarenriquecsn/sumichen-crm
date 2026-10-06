@@ -235,6 +235,7 @@ const ClienteForm: React.FC<Props> = ({ onSubmit, initialData, accion }) => {
               <option value="Polimeros y Material de Empaque">Polimeros y Material de Empaque</option>
               <option value="Industria farmaceutica">Industria farmaceutica</option>
               <option value="Industria Petrolera">Industria Petrolera</option>
+              <option value="Revendedores">Revendedores</option>
             </select>
             {errors.sector && (
               <p className="text-red-500 text-xs mt-1">

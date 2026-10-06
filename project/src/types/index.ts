@@ -558,6 +558,7 @@ export type Mes = {
   POLIMEROS = 'Polimeros y Material de Empaque',
   INDUSTRIA_FARMACEUTICA = 'Industria farmaceutica',
   INDUSTRIA_PETROLERA = 'Industria Petrolera',
+  REVENDEDORES = 'Revendedores',
 }
 
 // ===== MARKETING / LEADS / CHAT =====
