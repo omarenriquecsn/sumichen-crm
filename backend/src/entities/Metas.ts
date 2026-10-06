@@ -6,10 +6,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { Vendedor } from './Vendedores';
 
 @Entity('metas')
+@Unique('uq_metas_vendedor_mes_ano', ['vendedor_id', 'mes', 'ano'])
 export class Meta {
   @PrimaryGeneratedColumn('uuid')
   id: string;

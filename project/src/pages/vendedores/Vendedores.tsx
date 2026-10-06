@@ -186,6 +186,7 @@ const Vendedores: React.FC = () => {
         {vendedorSeleccionado && (
           <MetasForm
             vendedor={vendedorSeleccionado}
+            metas={Array.isArray(metas) ? metas : []}
             onSubmit={(metas) => {
               handleActualizarMetas(metas);
               setModalOpen(false);

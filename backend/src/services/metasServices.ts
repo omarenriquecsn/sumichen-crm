@@ -2,12 +2,11 @@ import { Meta } from '../entities/Metas';
 import {
   getMetas,
   getMetaById,
+  getMetaPorVendedorMesAnio,
   createMeta,
   updateMeta,
   deleteMeta,
 } from '../repositories/metasRepository';
-import { getPedidosByVendedorService } from './pedidosServices';
-import { getClientesVendedorService } from './clientesServices';
 
 export const getMetasService = async () => {
   const metas = await getMetas();
@@ -27,16 +26,23 @@ export const getMetasByIdService = async (id: string, rol: string, ano?: string)
 export const createMetasService = async (metaData: Partial<Meta>) => {
   if (!metaData.vendedor_id)
     throw new Error('No se ha proporcionado un vendedor');
-  const vendedorPedidos = await getPedidosByVendedorService(
+  if (!metaData.mes) throw new Error('No se ha proporcionado un mes');
+
+  const ano = metaData.ano ?? new Date().getFullYear();
+
+  // Upsert: si ya existe una meta de ese vendedor/mes/año, la sustituye;
+  // si no, la crea. Así "la meta más nueva reemplaza a la anterior del mes".
+  const existente = await getMetaPorVendedorMesAnio(
     metaData.vendedor_id,
+    metaData.mes,
+    ano,
   );
 
-  const metaActualizada = {
-    ...metaData,
-  };
-  const nuevaMeta = await createMeta(metaActualizada);
+  if (existente) {
+    return await updateMeta(existente.id, { ...metaData, ano });
+  }
 
-  return nuevaMeta;
+  return await createMeta({ ...metaData, ano });
 };
 
 export const updateMetasClientesService = async (

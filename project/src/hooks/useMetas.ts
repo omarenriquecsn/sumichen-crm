@@ -62,8 +62,10 @@ export function usePostMetas() {
       toast.success("Metas guardadas correctamente");
       return res.json();
     },
-    onSuccess: (_, { vendedorId }) => {
-      queryClient.invalidateQueries({ queryKey: ["metas", vendedorId] });
+    onSuccess: () => {
+      // Invalida toda la clave "metas" (prefijo): cubre la lista ["metas"] que
+      // usa Vendedores y la variante ["metas", id] de useApi.
+      queryClient.invalidateQueries({ queryKey: ["metas"] });
     },
   });
 }
