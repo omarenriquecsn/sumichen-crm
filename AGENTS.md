@@ -1057,6 +1057,7 @@ Una página: cabecera con RIF/nombre/dirección del cliente, cotización, fechas
 - Para cambios de UI: mantener Tailwind + MUI y el patrón de hooks agregadores + React Query.
 - **Punto 37 / Respaldo diario (DB + evidencias) a Supabase Storage + correo** ✅ (18/09): `ejecutarBackup()` en `services/backupServices.ts` corre dentro de `crm-clean` a las **03:30**; sube el `pg_dump` a `backups/db/` (retención **7 diarios + 4 semanales**), lo adjunta por correo (Resend) y hace **espejo incremental** de las evidencias a `backups/evidencias/`. Restore con `node build/scripts/restoreBackup.js --list` / `[fecha] --yes`. Env `BACKUP_*`. Ver Punto 37 en §8.
 - **Punto 40 / CC/CCO manual al enviar correo a clientes** ✅ (25/09): el modal "Nuevo mensaje" ahora tiene campos **CC** y **CCO** funcionales (texto libre separado por comas); el backend los valida y los envía por Gmail (`cc`/`bcc`) o Resend (`cc`/`bcc`). **Sin tabla de contactos ni migración** (decisión del usuario). Ver Punto 40 en §8.
+- **Punto 49 / Metas por mes: la asignación nueva sustituye a la anterior** ✅ (06/10): `POST /metas` pasó a ser un **upsert por `(vendedor_id, mes, ano)`** (`metasServices.createMetasService` + `getMetaPorVendedorMesAnio`): reasignar el mismo mes **actualiza** la meta existente en vez de duplicarla. Migración `1787524227000-MetasUnicasSchema.ts` limpia duplicados y crea el índice `UNIQUE uq_metas_vendedor_mes_ano`. El formulario (`metasForm.tsx`) precarga los valores del mes y `Vendedores.tsx` le pasa las metas. Commit `e6f1433`, desplegado y **verificado en producción** (índice presente, 0 duplicados). Ver Punto 49 en §8.
 ### Punto 27 � Firma en Configuraci�n + correo al cliente v�a Resend con adjuntos (01/09) ? (build/lint/typecheck OK backend y frontend)
 
 > **Resumen**: (1) cada vendedor/admin sube desde **Configuraci�n ? Perfil** una **imagen de firma/logo �nica** (subir otra la sustituye; se identifica por el id de la tabla endedores). (2) El bot�n **"Enviar Email"** del detalle de cliente ya NO abre Gmail/mailto (cuerpo de texto plano que no renderiza im�genes): ahora abre un **modal de redacci�n estilo Gmail** (ComponerCorreoModal) con editor enriquecido (Quill) y **adjuntos**, y el backend env�a el correo **desde el servidor v�a Resend** con cuerpo HTML que incrusta la firma del vendedor como <img> en el pie (por eso s� se ve la imagen).
@@ -1644,5 +1645,24 @@ Commit en la rama.
 - Si la tabla esta vacia, el util lanza `No hay ... para exportar` y el controller responde 404 con el mensaje (el toast del frontend lo muestra); mismo contrato que los descargables previos.
 - **Deploy**: recompilar/reiniciar el backend (`npm run build` + `pm2 restart crm-server`) y subir el `dist/` del frontend. No requiere migracion.
 
+### Punto 49 — Metas por mes: la asignación nueva sustituye a la anterior (06/10) ✅ (build/lint/typecheck OK backend y frontend; verificado en dev y producción)
 
+> **Resumen**: antes, cada "Asignar Metas" **insertaba una fila nueva** aunque ya existiera una meta de ese mes → el mismo vendedor podía tener N metas del mismo mes, y los consumidores (`.find(...)`) tomaban una cualquiera (a menudo la más antigua). Ahora `POST /metas` es un **upsert por `(vendedor_id, mes, ano)`**: si ya existe la meta del mes, la **actualiza** (la sustituye); si no, la crea. El formulario **precarga** los valores existentes del mes elegido para que sea una edición real.
+
+#### Backend
+- **Migración** `1787524227000-MetasUnicasSchema.ts` (idempotente): borra duplicados del mismo `(vendedor_id, mes, ano)` conservando el más reciente (`(fecha_actualizacion, id)` mayor) y crea `CREATE UNIQUE INDEX IF NOT EXISTS uq_metas_vendedor_mes_ano ON metas (vendedor_id, mes, ano)`. `down` elimina el índice.
+- **Entidad** `Metas.ts`: `@Unique('uq_metas_vendedor_mes_ano', ['vendedor_id', 'mes', 'ano'])`.
+- **`metasRepository.ts`**: nuevo `getMetaPorVendedorMesAnio(vendedorId, mes, ano)` (devuelve la más reciente).
+- **`metasServices.createMetasService`**: upsert — valida `vendedor_id` y `mes`, `ano` por defecto = año actual; si existe meta del mes → `updateMeta(existente.id, {...metaData})`; si no → `createMeta`. Se eliminó la llamada muerta a `getPedidosByVendedorService` (y el import sin uso de `clientesServices`).
+
+#### Frontend
+- `metasForm.tsx`: nueva prop `metas?: Meta[]`; un `useEffect` precarga la meta existente de ese vendedor/mes (la más reciente por `fecha_creacion/actualizacion`) y muestra el aviso "Ya existe una meta de ese mes... se sustituirá por estos valores". Sin meta existente, arranca en ceros.
+- `Vendedores.tsx`: pasa `metas={Array.isArray(metas) ? metas : []}` al `MetasForm`.
+- `useMetas.ts` (`usePostMetas`): `onSuccess` invalida la clave prefijo `["metas"]` (antes invalidaba `["metas", vendedorId]`, que no coincidía con la query `["metas"]` de `useGetMetas`).
+
+#### Verificación (dev)
+- `createMetasService` 1.ª vez → **1 fila** (`objetivo_ventas=100`); 2.ª vez mismo mes con otros valores → **sigue 1 fila** (`555`). El listado devuelve `555`. Limpieza de duplicados probada (2→1 conservando el más reciente) en transacción con rollback.
+
+#### Deploy
+- Commit `e6f1433` → `origin/main`; `.\deploy.ps1` OK. **Producción verificada** por SSH: índice `uq_metas_vendedor_mes_ano` presente, migración `MetasUnicasSchema1787524227000` registrada como la última y **0 duplicados** en `metas`.
 
