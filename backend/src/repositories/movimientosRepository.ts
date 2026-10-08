@@ -30,6 +30,8 @@ export const getMovimientos = async (
     .createQueryBuilder('m')
     .leftJoinAndSelect('m.lote', 'lote')
     .leftJoinAndSelect('m.producto', 'producto')
+    .leftJoinAndSelect('m.pedido', 'pedido')
+    .leftJoinAndSelect('pedido.cliente', 'cliente')
     .orderBy('m.fecha_creacion', 'DESC');
 
   if (filtros?.productoId) {

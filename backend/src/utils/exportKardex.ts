@@ -30,8 +30,13 @@ async function exportKardexToExcel() {
     { header: 'Saldo Resultante', key: 'saldo', width: 18 },
     { header: 'Motivo', key: 'motivo', width: 18 },
     { header: 'Observación', key: 'observacion', width: 45 },
+    { header: 'Cliente', key: 'cliente', width: 40 },
+    { header: 'RIF', key: 'rif', width: 16 },
   ];
   movimientos.forEach((mov) => {
+    // Los movimientos con pedido son de venta (reserva/salida/liberación/
+    // devolución); los ajustes y entradas no tienen cliente.
+    const cliente = mov.pedido?.cliente;
     sheetInventario.addRow({
       fecha: formatearFecha(mov.fecha_creacion),
       codigo: mov.producto?.descripcion || 'N/A',
@@ -43,6 +48,8 @@ async function exportKardexToExcel() {
       saldo: Number(mov.saldo_resultante ?? 0),
       motivo: mov.motivo_categoria || 'N/A',
       observacion: mov.observacion || 'N/A',
+      cliente: cliente ? cliente.empresa || 'N/A' : 'N/A',
+      rif: cliente?.rif || 'N/A',
     });
   });
   sheetInventario.getRow(1).font = { bold: true };
