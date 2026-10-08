@@ -325,6 +325,11 @@ export interface MovimientoInventario {
   lote?: Lote;
   almacen?: Almacen | null;
   pedido_id?: string | null;
+  pedido?: {
+    id: string;
+    numero?: number;
+    cliente?: { id: string; rif: string; empresa?: string };
+  } | null;
   devolucion_id?: string | null;
   cantidad: number;
   saldo_resultante: number;

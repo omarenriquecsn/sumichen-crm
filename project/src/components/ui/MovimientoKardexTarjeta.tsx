@@ -53,6 +53,19 @@ export const MovimientoKardexTarjeta: React.FC<
         </div>
       </div>
 
+      {m.pedido?.cliente && (
+        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+          <div>
+            <p className="text-xs text-gray-400">Cliente</p>
+            <p className="truncate">{m.pedido.cliente.empresa ?? "-"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400">RIF</p>
+            <p>{m.pedido.cliente.rif ?? "-"}</p>
+          </div>
+        </div>
+      )}
+
       <div className="border-t border-gray-100 pt-2">
         <p className="text-xs text-gray-400">Motivo</p>
         <p className="text-sm text-gray-600">

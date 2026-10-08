@@ -50,6 +50,8 @@ const Logistica = () => {
       m.almacen,
       m.motivo_categoria,
       m.observacion,
+      m.pedido?.cliente?.empresa,
+      m.pedido?.cliente?.rif,
     ]
       .filter(Boolean)
       .join(" ")
@@ -202,7 +204,7 @@ const Logistica = () => {
             <input
               value={busquedaKardex}
               onChange={(e) => setBusquedaKardex(e.target.value)}
-              placeholder="Buscar (producto, lote, tipo, motivo)..."
+              placeholder="Buscar (producto, lote, tipo, motivo, cliente, RIF)..."
               className="w-full sm:w-96 border px-3 py-2 rounded"
             />
             <select
@@ -242,6 +244,8 @@ const Logistica = () => {
                   <th className="px-4 py-2 text-right">Cantidad</th>
                   <th className="px-4 py-2 text-right">Saldo</th>
                   <th className="px-4 py-2 text-left">Motivo</th>
+                  <th className="px-4 py-2 text-left">Cliente</th>
+                  <th className="px-4 py-2 text-left">RIF</th>
                 </tr>
               </thead>
               <tbody>
@@ -267,11 +271,17 @@ const Logistica = () => {
                     <td className="px-4 py-2 text-gray-500">
                       {m.motivo_categoria ?? m.observacion ?? "-"}
                     </td>
+                    <td className="px-4 py-2">
+                      {m.pedido?.cliente?.empresa ?? "-"}
+                    </td>
+                    <td className="px-4 py-2">
+                      {m.pedido?.cliente?.rif ?? "-"}
+                    </td>
                   </tr>
                 ))}
                 {kardexFiltrado.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-6 text-center text-gray-500">
+                    <td colSpan={10} className="px-4 py-6 text-center text-gray-500">
                       Sin movimientos.
                     </td>
                   </tr>
