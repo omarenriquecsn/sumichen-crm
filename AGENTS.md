@@ -1666,3 +1666,23 @@ Commit en la rama.
 #### Deploy
 - Commit `e6f1433` → `origin/main`; `.\deploy.ps1` OK. **Producción verificada** por SSH: índice `uq_metas_vendedor_mes_ano` presente, migración `MetasUnicasSchema1787524227000` registrada como la última y **0 duplicados** en `metas`.
 
+### Punto 50 — Select de clientes del pedido manual: virtualizado con react-window (08/10) ✅ (tsc/lint/build OK frontend; desplegado a producción)
+
+> **Resumen**: el `<select>` de cliente del flujo **Nuevo Pedido → Manual** (`SelectCliente`) se volvía **muy lento** porque **react-select no virtualiza**: montaba **todas** las opciones (cientos/miles de clientes, sobre todo para admin que ve todos) como nodos DOM en cada apertura/búsqueda. Se reemplazó el `MenuList` por uno **virtualizado con `react-window`** (`FixedSizeList`), de modo que solo se renderizan las filas visibles (~10 nodos) sin importar cuántos clientes haya. Mismo fix, por consistencia, en `SelectProductos` y `SelectVendedor`. No se tocó backend, tipos ni el modelo de datos (la página sigue cargando la lista completa, necesaria para lookups de la tabla y el match de cotizaciones).
+
+#### Archivos
+- **`components/ui/VirtualMenuList.tsx`** (nuevo): `MenuList` genérico para react-select. Fila `ROW_HEIGHT = 35`, altura `maxHeight || 320`, `initialScrollOffset` según la opción seleccionada y `scrollToItem` sincronizado con `focusedOption` (navegación con teclado). Uso: `components={{ MenuList: VirtualMenuList }} maxMenuHeight={320}`.
+- **`components/ui/SelectCliente.tsx`**: usa `VirtualMenuList`, `maxMenuHeight={320}`, `options` memoizadas (`useMemo`, antes se rearmaba el array en cada render) y ya no muestra el spinner interno si llega `clientesProp` (evita parpadeo). Sigue mostrando todos los clientes (activos e inactivos); default `label = empresa ?? ""`.
+- **`components/ui/SelectProductos.tsx`**: `VirtualMenuList` + `maxMenuHeight={320}` y `options` memoizadas.
+- **`components/ui/SelectVendedor.tsx`**: `VirtualMenuList` + `maxMenuHeight={320}`.
+- **`project/package.json`**: nueva dependencia `react-window@^1.8.11` (+ `@types/react-window@^1.8.8` dev). Se usa react-window **v1.x** (API compatible con react-select v5).
+
+#### Decisión (con el usuario)
+- Enfoque elegido: **virtualizar** (cambio mínimo y seguro, mantiene búsqueda local) en vez de búsqueda en servidor (`AsyncSelect`), porque la página reutiliza la lista completa de clientes en otros puntos.
+- El selector **mantiene todos los clientes** (no se filtra por estado inactivo).
+
+#### Verificación / Deploy
+- `npx tsc --noEmit -p tsconfig.app.json` → 0 errores; `npm run lint` → 0 problemas; `npm run build` OK (solo warnings pre-existentes de chunk/dynamic import).
+- Commit `cc6be9b` → `origin/main`; `.\deploy.ps1 -OnlyFrontend` (solo frontend, el backend no cambió) → `DEPLOY OK`, `Backend OK`, `https://crmsumichen.com -> HTTP 200`; el bundle nuevo (`index-BTEK63CF.js`) reemplazó al anterior.
+- ⚠ La validación fue estática (tipos/lint/build) + patrón estándar de virtualización de react-select; **falta confirmar en producción** abriendo **Nuevo Pedido → Manual** que el desplegable abre fluido y selecciona el cliente correcto.
+
