@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Almacen, formProducto, Producto } from "../../types";
 import { toast } from "react-toastify";
 import Select from 'react-select';
 import { decimalesDePrecio, redondearA } from "../../utils/pedidos";
+import { VirtualMenuList } from "./VirtualMenuList";
 
 const ETIQUETA_ALMACEN: Record<Almacen, string> = {
   globalca: "GLOBALCA",
@@ -53,6 +54,17 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
   // Lookup para consultar el stock por producto al editar la línea.
   const productoPorId = new Map<string, Producto>(
     productos.map((p) => [p.id, p]),
+  );
+
+  // Opciones memoizadas: antes se rearmaban en cada render.
+  const opciones = useMemo<ProductoSelectOption[]>(
+    () =>
+      (Array.isArray(productos) ? productos : []).map((p) => ({
+        ...p,
+        value: p.id,
+        label: p.nombre,
+      })),
+    [productos],
   );
 
   const toggleProducto = (producto: Producto) => {
@@ -203,8 +215,10 @@ const SelectorDeProductos = ({ productos, seleccionInicial, onSeleccionar }: Sel
   return (
     <div className="space-y-4">
       <Select<ProductoSelectOption>
-        options={(Array.isArray(productos) ? productos : []).map((p) => ({ ...p, value: p.id, label: p.nombre }))}
+        options={opciones}
         value={selectedOption}
+        components={{ MenuList: VirtualMenuList }}
+        maxMenuHeight={320}
         onChange={(option) => setSelectedOption(option)}
         placeholder="Seleccione un producto..."
         isClearable

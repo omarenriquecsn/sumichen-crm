@@ -5,6 +5,7 @@ import { Cliente, Vendedor } from "../../types";
 import useVendedores from "../../hooks/useVendedores";
 import { useState } from "react";
 import { useVendedorCliente } from "../../hooks/useCliente";
+import { VirtualMenuList } from "./VirtualMenuList";
 
 type SelectVendedorProps = {
   closeModal: () => void;
@@ -62,6 +63,8 @@ const SelectVendedor = ({
           value: v.id,
           label: `${v.nombre} ${v.apellido}`,
         }))}
+        components={{ MenuList: VirtualMenuList }}
+        maxMenuHeight={320}
         onChange={(opcion: { value: string; label: string } | null) =>
           setVendedorSeleccionado(opcion?.value ?? null)
         }

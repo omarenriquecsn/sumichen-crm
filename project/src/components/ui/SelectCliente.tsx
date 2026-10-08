@@ -1,8 +1,12 @@
 import Select from "react-select";
+import { useMemo } from "react";
 import { useSupabase } from "../../hooks/useSupabase";
 import { toast } from "react-toastify";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { Cliente } from "../../types";
+import { VirtualMenuList } from "./VirtualMenuList";
+
+type OpcionCliente = { value: string; label: string };
 
 type SelectClienteProps = {
   setClienteSeleccionado: React.Dispatch<React.SetStateAction<string | null>>;
@@ -26,12 +30,24 @@ const SelectCliente = ({
   } = supabase.useClientes();
 
   const clientes = clientesProp ?? clientesDb;
+
+  // Solo se reconstruye cuando cambia la lista de clientes (antes se rearmaba
+  // el array de opciones en cada render).
+  const opciones = useMemo<OpcionCliente[]>(
+    () =>
+      (Array.isArray(clientes) ? clientes : []).map((c) => ({
+        value: c.id,
+        label: c.empresa ?? "",
+      })),
+    [clientes],
+  );
+
   if (errorClientes) {
     toast.error("Error al cargar los clientes");
     return;
   }
 
-  if (loadingClientes) {
+  if (!clientesProp && loadingClientes) {
     return <LoadingSpinner />;
   }
 
@@ -45,18 +61,16 @@ const SelectCliente = ({
       <h3 className="text-lg font-medium text-gray-900">
         Selecciona un cliente
       </h3>
-      <Select
-        options={clientes.map((c) => ({
-          value: c.id,
-          label: c.empresa,
-        }))}
+      <Select<OpcionCliente>
+        options={opciones}
+        components={{ MenuList: VirtualMenuList }}
+        maxMenuHeight={320}
         onChange={(opcion) => setClienteSeleccionado(opcion?.value ?? null)}
         placeholder="Selecciona un cliente"
         isSearchable
         menuPortalTarget={document.body}
         styles={{
           menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-          menuList: (base) => ({ ...base, maxHeight: "70vh" }),
           menu: (base) => ({ ...base, zIndex: 99999 }),
         }}
       />
