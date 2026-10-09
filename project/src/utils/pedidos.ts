@@ -291,6 +291,15 @@ export const montoNetoPedido = (
   pedido: Pick<Pedido, "total" | "total_devuelto">,
 ) => Math.max(0, Number(pedido.total) - Number(pedido.total_devuelto ?? 0));
 
+/**
+ * Fecha que determina el mes en que cuenta la venta: la fecha de aprobación
+ * (`procesado`). Para pedidos históricos sin `fecha_aprobacion` cae a la fecha
+ * de creación.
+ */
+export const fechaVentaPedido = (
+  pedido: Pick<Pedido, "fecha_aprobacion" | "fecha_creacion">,
+): Date => new Date(pedido.fecha_aprobacion ?? pedido.fecha_creacion);
+
 export const getEstadoColor = (estado: string) => {
   switch (estado) {
     case "pendiente":
@@ -330,8 +339,8 @@ export const utilsPedidos = (pedidos: Pedido[], cliente: Cliente) => {
   const ultimaCompra =
     pedidosFiltrados()?.length ?? 0 > 0
       ? pedidosFiltrados()?.reduce((prev: Pedido, curr: Pedido) => {
-          const fechaPrev = new Date(prev.fecha_creacion);
-          const fechaCurr = new Date(prev.fecha_creacion);
+          const fechaPrev = fechaVentaPedido(prev);
+          const fechaCurr = fechaVentaPedido(curr);
 
           const diffPrev = Math.abs(hoy.getDate() - fechaPrev.getDate());
           const diffCurr = Math.abs(hoy.getDate() - fechaCurr.getDate());

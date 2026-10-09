@@ -1686,3 +1686,37 @@ Commit en la rama.
 - Commit `cc6be9b` → `origin/main`; `.\deploy.ps1 -OnlyFrontend` (solo frontend, el backend no cambió) → `DEPLOY OK`, `Backend OK`, `https://crmsumichen.com -> HTTP 200`; el bundle nuevo (`index-BTEK63CF.js`) reemplazó al anterior.
 - ⚠ La validación fue estática (tipos/lint/build) + patrón estándar de virtualización de react-select; **falta confirmar en producción** abriendo **Nuevo Pedido → Manual** que el desplegable abre fluido y selecciona el cliente correcto.
 
+### Punto 51 — Venta de un pedido cuenta en el MES DE APROBACIÓN (08/10) ✅ (typecheck/lint/build OK backend y frontend; probado en dev)
+
+> **Resumen**: antes, todos los cálculos de ventas por mes usaban `pedido.fecha_creacion`. Ahora el mes de una venta es el **mes en que el pedido pasó a `procesado`** (aprobado). Se agregó `pedidos.fecha_aprobacion` (se sella al aprobar) y todos los cálculos usan el helper `fechaVentaPedido(p)` = `fecha_aprobacion ?? fecha_creacion` (fallback para pedidos históricos, que quedan con la columna en NULL).
+
+#### Decisiones (confirmadas con el usuario)
+- **Históricos**: sin backfill. Los pedidos ya aprobados quedan con `fecha_aprobacion = NULL` → caen a `fecha_creacion` (no se alteran cifras pasadas). Solo los aprobados desde el cambio usan la fecha real.
+- **Devoluciones**: la venta **neta** cuenta en el **mes de aprobación** (una devolución posterior ajusta retroactivamente ese mes; una devolución total sigue excluida por `esPedidoVenta`).
+
+#### Backend
+- **Migración** `1787524228000-FechaAprobacionPedidoSchema.ts` (idempotente): `ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS fecha_aprobacion timestamptz`. **Aplicada en dev**.
+- **Entidad** `Pedidos.ts`: columna `fecha_aprobacion?: Date` (nullable).
+- **`pedidosServices.updatePedidosService`**: al detectar la transición `pendiente → procesado` sella `fecha_aprobacion = new Date()`; si el pedido deja de estar `procesado` la limpia (`null`). Se reutiliza la condición para las reservas de inventario y el push `pedido_aprobado`.
+- **`devolucionesServices`** NO toca `fecha_aprobacion` (la devolución se sigue contando en el mes de aprobación).
+- **`exportClientes.ts`**: el % de la proyección usa `fecha_aprobacion ?? fecha_creacion`.
+- **`exportPedidos.ts`**: nueva columna "Fecha de Aprobación".
+
+#### Frontend
+- **`types/index.ts`**: `Pedido.fecha_aprobacion?: Date | string | null`.
+- **`utils/pedidos.ts`**: helper `fechaVentaPedido` (+ fix del bug de `ultimaCompra`, que usaba `prev.fecha_creacion` dos veces).
+- **`utils/ventas.ts`**: `ventasPorMes` y `pedidosProcesadosDe` usan `fechaVentaPedido`; `incrementoMensual` acepta un accessor opcional `getFecha` (default `fecha_creacion`) para no romper su uso con clientes/oportunidades.
+- **`hooks/useVentas.ts`** (`cifraVentasMes`, `cifraVentasBaseMes`), **`utils/panelAdmin.ts`**, **`pages/dashboard/DashboardAdmin.tsx`** (`pedidosMes`), **`components/ui/ProyeccionVentas.tsx`** y **`Analitica.tsx`/`AnaliticaModal.tsx`** (pasan `fechaVentaPedido` a `incrementoMensual`): migrados a `fechaVentaPedido`.
+- No se tocó `calculoIncremento` (legacy genérico, se usa con clientes/oportunidades) ni los "Creado: …" de las listas (siguen mostrando la fecha de creación).
+
+#### Pruebas realizadas
+- **Lógica (script `project/scripts/testFechaAprobacion.ts`)** — 10 grupos de casos, todos OK: prioridad de `fecha_aprobacion`, fallback a `fecha_creacion` (null/undefined), caso principal (creado mes pasado / aprobado este mes → cuenta en aprobación, no en creación), mismo mes, histórico sin fecha, pendiente no cuenta, devolución parcial (neto en el mes de aprobación), devolución total (excluida), agregado de varios y `incrementoMensual` con accessor. Ejecutar: `npx esbuild scripts/testFechaAprobacion.ts --bundle --platform=node --format=cjs --outfile=%TEMP%/t.cjs --log-level=error; node %TEMP%/t.cjs`.
+- **Integración (`backend/scripts/verificarFechaAprobacion.ts`)** — contra `crm_local`: columna creada; 206 históricos con `fecha_aprobacion` NULL (sin backfill); al aprobar un pedido de prueba se sella la fecha y **no cambia** `fecha_creacion`; el mes de venta es el de aprobación; al revertir a `pendiente` se limpia. Limpia su propio pedido de prueba (try/finally). Ejecutar: `node build/scripts/verificarFechaAprobacion.js` (solo lectura) / `... --apply` (incluye el ciclo completo).
+- `npm run typecheck` + `npm run lint` + `npm run build` OK en backend; `npx tsc --noEmit -p tsconfig.app.json` + `npm run lint` + `npm run build` OK en frontend.
+
+#### ⚠ Notas / deuda
+- Un pedido creado y aprobado en meses distintos cambia de mes respecto a antes (es el objetivo). Los pedidos históricos mantienen su mes (fallback).
+- Los pedidos legacy aprobados **no** quedan con fecha de aprobación; si se quiere "corregir" su mes habría que backfillear a mano (no recomendado: no hay dato real).
+- `calculoIncremento(ventasCerradas)` de `DashboardAdmin` (tarjeta de incremento legacy) sigue usando `fecha_creacion`, por ser un helper genérico; no mide el mes de venta real.
+- Deploy: `.\deploy.ps1` (backend + frontend; la migración corre sola al reiniciar).
+

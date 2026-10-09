@@ -187,6 +187,9 @@ export interface Pedido {
   notas?: string;
   fecha_creacion: Date;
   fecha_actualizacion?: Date;
+  /** Fecha en que el pedido pasó a `procesado`. Si es null (pedidos históricos)
+   *  los cálculos de ventas por mes usan `fecha_creacion`. */
+  fecha_aprobacion?: Date | string | null;
   tipo_pago: "contado" | "credito";
   dias_credito?: number;
   moneda: "usd" | "bs";

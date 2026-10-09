@@ -1,7 +1,7 @@
 import useVendedores from "../hooks/useVendedores";
 import { useSupabase } from "../hooks/useSupabase";
 import { Meta, Vendedor } from "../types";
-import { esPedidoVenta, montoNetoPedido } from "./pedidos";
+import { esPedidoVenta, montoNetoPedido, fechaVentaPedido } from "./pedidos";
 
 const PanelAdmin = () => {
   const { data: pedidos } = useSupabase().usePedidos();
@@ -28,10 +28,10 @@ const PanelAdmin = () => {
     ? pedidos.filter((pedido) => esPedidoVenta(pedido)).length
     : 0;
 
-  // Calculo de pedidos por vendedor
+  // Calculo de pedidos por vendedor (mes de la fecha de aprobación)
   const pedidosMes = Array.isArray(pedidos)
     ? pedidos.filter((pedido) => {
-        const fechaPedido = new Date(pedido.fecha_creacion);
+        const fechaPedido = fechaVentaPedido(pedido);
         const mesPedido = fechaPedido.getMonth();
         const mesActual = new Date().getMonth();
         return mesPedido === mesActual;

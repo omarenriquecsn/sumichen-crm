@@ -1,7 +1,7 @@
 import React from "react";
 import { Target } from "lucide-react";
 import { Cliente, Pedido } from "../../types";
-import { esPedidoVenta } from "../../utils/pedidos";
+import { esPedidoVenta, fechaVentaPedido } from "../../utils/pedidos";
 
 type PropsProyeccionVentas = {
   cliente: Cliente;
@@ -13,8 +13,8 @@ const fmtMonto = (n: number) =>
 
 /**
  * Barra de "Proyección de ventas": compara las ventas completadas del cliente
- * EN EL MES ACTUAL (pedidos 'procesado'/'devuelto_parcial' creados este mes) a
- * PRECIO BASE (precio_base * cantidad neta) contra su proyección_venta.
+ * EN EL MES ACTUAL (pedidos 'procesado'/'devuelto_parcial' aprobados este mes)
+ * a PRECIO BASE (precio_base * cantidad neta) contra su proyección_venta.
  * Si el cliente no tiene proyección (null/0/negativa) muestra un aviso.
  */
 export const ProyeccionVentas: React.FC<PropsProyeccionVentas> = ({
@@ -44,7 +44,7 @@ export const ProyeccionVentas: React.FC<PropsProyeccionVentas> = ({
   const ventasProcesadas = (Array.isArray(pedidos) ? pedidos : [])
     .filter((p) => {
       if (p.cliente_id !== cliente.id || !esPedidoVenta(p)) return false;
-      const fecha = new Date(p.fecha_creacion);
+      const fecha = fechaVentaPedido(p);
       return (
         fecha.getMonth() === mesActual && fecha.getFullYear() === anioActual
       );

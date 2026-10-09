@@ -323,10 +323,28 @@ export const updatePedidosService = async (
 ) => {
   const anterior = await AppDataSource.getRepository(Pedido).findOneBy({ id });
 
+  // Transición pendiente → procesado: se sella la fecha de aprobación, que es
+  // la que usan los cálculos de ventas por mes.
+  const aprobadoAhora =
+    pedidoData.estado === 'procesado' && anterior?.estado !== 'procesado';
+  // Si un pedido deja de estar aprobado (p. ej. vuelve a `pendiente`), se limpia
+  // para que no quede una fecha de aprobación sin respaldo.
+  const dejoDeEstarAprobado =
+    anterior?.estado === 'procesado' &&
+    pedidoData.estado !== undefined &&
+    pedidoData.estado !== 'procesado';
+
   const pedidoActualizado = await AppDataSource.transaction(async (manager) => {
-    await manager.getRepository(Pedido).update(id, pedidoData);
+    const datos: Partial<Pedido> = { ...pedidoData };
+    if (aprobadoAhora) {
+      datos.fecha_aprobacion = new Date();
+    } else if (dejoDeEstarAprobado) {
+      (datos as { fecha_aprobacion?: Date | null }).fecha_aprobacion = null;
+    }
+
+    await manager.getRepository(Pedido).update(id, datos);
     // Al confirmar (pendiente → procesado) las reservas pasan a salida.
-    if (pedidoData.estado === 'procesado' && anterior?.estado !== 'procesado') {
+    if (aprobadoAhora) {
       await confirmarSalidasPedido(manager, id);
     }
     return manager.getRepository(Pedido).findOneBy({ id });
@@ -334,7 +352,7 @@ export const updatePedidosService = async (
 
   // Web Push — evento `pedido_aprobado`: cuando un pedido pasa a "procesado"
   // (confirmado), se notifica al vendedor que lo creó.
-  if (pedidoActualizado && anterior && pedidoData.estado === 'procesado' && anterior.estado !== 'procesado') {
+  if (pedidoActualizado && anterior && aprobadoAhora) {
     try {
       const cliente = await getClientesByIdAuxiliar(pedidoActualizado.cliente_id);
       await enviarPushAUsuario(

@@ -1,6 +1,6 @@
 import { Cliente, Pedido, Oportunidad, Actividad, Mes } from "../types";
 import { clientesNuevosMes } from "./clientes";
-import { esPedidoVenta, montoNetoPedido } from "./pedidos";
+import { esPedidoVenta, montoNetoPedido, fechaVentaPedido } from "./pedidos";
 
 // ⚠ Legacy: comparaba "este mes" contra TODO el histórico acumulado y contaba registros (no dinero).
 // Se mantiene por compatibilidad con los dashboards (DashboardAdmin/DashboardVendedor).
@@ -37,9 +37,11 @@ export const incrementoEntreValores = (
 };
 
 // Incremento real mes a mes (con cruce de año). Si se pasa getValor, suma ese valor por registro (dinero).
+// `getFecha` permite indicar qué fecha usar (p. ej. fecha de aprobación en pedidos); por defecto `fecha_creacion`.
 export const incrementoMensual = <T>(
   lista: T[],
-  getValor?: (item: T) => number
+  getValor?: (item: T) => number,
+  getFecha?: (item: T) => string | Date | null | undefined
 ): number | null => {
   const ahora = new Date();
   const mesActual = ahora.getMonth();
@@ -52,9 +54,13 @@ export const incrementoMensual = <T>(
 
   const delMes = (mes: number, anio: number) =>
     (Array.isArray(lista) ? lista : []).filter((item) => {
-      const fecha = new Date(
-        (item as { fecha_creacion?: unknown }).fecha_creacion as string
-      );
+      const fechaCruda = getFecha
+        ? getFecha(item)
+        : ((item as { fecha_creacion?: unknown }).fecha_creacion as
+            | string
+            | Date
+            | undefined);
+      const fecha = fechaCruda ? new Date(fechaCruda) : new Date(NaN);
       return (
         !isNaN(fecha.getTime()) &&
         fecha.getMonth() === mes &&
@@ -116,7 +122,8 @@ export const incrementoConversionMensual = (
   );
 };
 
-// Calculo de ventas por mes (solo año actual, para no contar pedidos de años pasados)
+// Calculo de ventas por mes (solo año actual, para no contar pedidos de años pasados).
+// El mes viene de la fecha de aprobación (fallback a creación en pedidos históricos).
 export const ventasPorMes = (
   pedidos: Pedido[] | undefined,
   mes: number
@@ -126,7 +133,7 @@ export const ventasPorMes = (
     ? pedidos
         ?.filter((pedido) => {
           if (!esPedidoVenta(pedido)) return false;
-          const fecha = new Date(pedido.fecha_creacion);
+          const fecha = fechaVentaPedido(pedido);
           return (
             fecha.getMonth() === mes && fecha.getFullYear() === anioActual
           );
@@ -194,7 +201,7 @@ export const arrayMeses = (
   return meses;
 };
 
-// Pedidos procesados de un mes/año concreto
+// Pedidos procesados de un mes/año concreto (mes según fecha de aprobación)
 const pedidosProcesadosDe = (
   pedidos: Pedido[],
   mes: number,
@@ -202,7 +209,7 @@ const pedidosProcesadosDe = (
 ): Pedido[] =>
   (Array.isArray(pedidos) ? pedidos : []).filter((p) => {
     if (!esPedidoVenta(p)) return false;
-    const fecha = new Date(p.fecha_creacion);
+    const fecha = fechaVentaPedido(p);
     return (
       !isNaN(fecha.getTime()) &&
       fecha.getMonth() === mes &&

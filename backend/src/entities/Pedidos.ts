@@ -80,6 +80,12 @@ export class Pedido {
   @UpdateDateColumn({ type: 'timestamptz' })
   fecha_actualizacion: Date;
 
+  // Fecha en que el pedido pasó a "procesado" (aprobado). Es la fecha que usan
+  // los cálculos de ventas por mes. Nullable: los pedidos históricos quedan en
+  // NULL y los cálculos caen a `fecha_creacion`.
+  @Column({ name: 'fecha_aprobacion', type: 'timestamptz', nullable: true })
+  fecha_aprobacion?: Date;
+
   @OneToMany(
     () => ProductosPedido,
     (productos_pedido) => productos_pedido.pedido,

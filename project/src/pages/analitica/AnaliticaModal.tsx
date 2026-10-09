@@ -21,6 +21,7 @@ import {
   recompras,
   compradoresUnicosMes,
 } from "../../utils/ventas";
+import { fechaVentaPedido } from "../../utils/pedidos";
 import { typeChange } from "../../constants/typeChange";
 import {
   objetivoClientesConvertidos,
@@ -141,8 +142,10 @@ const AnaliticaModal: React.FC<AnaliticaModalProps> = ({
   );
 
   const cifraMesActual = cifraVentasMes(mesActual);
-  const incrementoVentas = incrementoMensual(PedidosProcesados, (p) =>
-    Number(p.total),
+  const incrementoVentas = incrementoMensual(
+    PedidosProcesados,
+    (p) => Number(p.total),
+    (p) => fechaVentaPedido(p),
   );
   const incrementoClientes = incrementoEntreValores(
     clientesProspecto,

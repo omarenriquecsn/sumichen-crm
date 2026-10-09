@@ -1,5 +1,5 @@
 import { Pedido } from "../types";
-import { esPedidoVenta, montoNetoPedido } from "../utils/pedidos";
+import { esPedidoVenta, montoNetoPedido, fechaVentaPedido } from "../utils/pedidos";
 
  export const useVentas = (pedidos: Pedido[] | undefined) => {
     const anioActual = new Date().getFullYear();
@@ -12,7 +12,7 @@ import { esPedidoVenta, montoNetoPedido } from "../utils/pedidos";
     const cifraVentasMes = (mes: number) => {
        const VentasdelMes = PedidosProcesados.filter(
            (pedido) => {
-               const fecha = new Date(pedido.fecha_creacion);
+               const fecha = fechaVentaPedido(pedido);
                return fecha.getMonth() === mes && fecha.getFullYear() === anioActual;
            }
        ) ?? [];
@@ -29,7 +29,7 @@ import { esPedidoVenta, montoNetoPedido } from "../utils/pedidos";
        const cifraVentasBaseMes = (mes: number) => {
            const VentasdelMes = PedidosProcesados.filter(
                (pedido) => {
-                   const fecha = new Date(pedido.fecha_creacion);
+                   const fecha = fechaVentaPedido(pedido);
                    return fecha.getMonth() === mes && fecha.getFullYear() === anioActual;
                }
            ) ?? [];

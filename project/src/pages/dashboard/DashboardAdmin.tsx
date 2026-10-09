@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import PanelAdmin from "../../utils/panelAdmin";
 import { calculoIncremento } from "../../utils/ventas";
-import { esPedidoVenta, montoNetoPedido } from "../../utils/pedidos";
+import { esPedidoVenta, montoNetoPedido, fechaVentaPedido } from "../../utils/pedidos";
 import { typeChange } from "../../constants/typeChange";
 import {
   BarChart,
@@ -104,7 +104,7 @@ export const DashboardAdmin: React.FC = () => {
 
   const pedidosMes = Array.isArray(pedidos)
     ? pedidos.filter((pedido) => {
-        const fechaPedido = new Date(pedido.fecha_creacion);
+        const fechaPedido = fechaVentaPedido(pedido);
         const mesPedido = fechaPedido.getMonth();
         const mesActual = new Date().getMonth();
         return mesPedido === mesActual;

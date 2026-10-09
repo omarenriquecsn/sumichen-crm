@@ -44,6 +44,7 @@ async function exportPedidosToExcel() {
   // 3. Definir columnas con encabezados claros
   sheet.columns = [
     { header: 'Fecha de Creación', key: 'fecha_creacion', width: 20 },
+    { header: 'Fecha de Aprobación', key: 'fecha_aprobacion', width: 20 },
     { header: 'Fecha de Entrega', key: 'fecha_entrega', width: 20 },
     { header: 'Número de Pedido', key: 'numero', width: 15 },
     { header: 'Cliente', key: 'cliente_id', width: 50 },
@@ -81,6 +82,7 @@ async function exportPedidosToExcel() {
         moneda: pedido.moneda,
         transporte: pedido.transporte,
         fecha_creacion: formatDate(pedido.fecha_creacion),
+        fecha_aprobacion: formatDate(pedido.fecha_aprobacion),
         fecha_actualizacion: formatDate(pedido.fecha_actualizacion),
         estado: pedido.estado,
         notas: pedido.notas,
@@ -114,7 +116,8 @@ async function exportPedidosToExcel() {
 }
 
 // Formato de fecha legible
-function formatDate(date: string | Date) {
+function formatDate(date: string | Date | null | undefined) {
+  if (!date) return '';
   return new Date(date).toLocaleString('es-VE', {
     day: '2-digit',
     month: '2-digit',

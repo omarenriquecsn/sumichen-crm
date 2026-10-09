@@ -21,9 +21,10 @@ import { getLeadsParaExportService } from '../services/leadsServices';
     }
 
     // Ventas completadas por cliente EN EL MES ACTUAL (pedidos 'procesado' o
-    // con devolución parcial, creados este mes), a PRECIO BASE neto, para
+    // con devolución parcial, aprobados este mes), a PRECIO BASE neto, para
     // calcular el % alcanzado de la proyección de venta (igual que la ficha
-    // del cliente en el frontend).
+    // del cliente en el frontend). Se usa la fecha de aprobación (fallback a la
+    // fecha de creación para pedidos históricos sin fecha_aprobacion).
     const ahora = new Date();
     const mesActual = ahora.getMonth();
     const anioActual = ahora.getFullYear();
@@ -34,7 +35,7 @@ import { getLeadsParaExportService } from '../services/leadsServices';
       const esVenta =
         pedido.estado === 'procesado' || pedido.estado === 'devuelto_parcial';
       if (!esVenta) continue;
-      const fecha = new Date(pedido.fecha_creacion);
+      const fecha = new Date(pedido.fecha_aprobacion ?? pedido.fecha_creacion);
       if (
         fecha.getMonth() !== mesActual ||
         fecha.getFullYear() !== anioActual
