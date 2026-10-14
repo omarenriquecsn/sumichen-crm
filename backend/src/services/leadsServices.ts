@@ -21,6 +21,7 @@ import {
 } from '../repositories/leadNotasRepository';
 import { ApiError } from '../utils/ApiError';
 import { construirUrlAtenderLead } from '../utils/atenderLead';
+import { esFinDeSemana } from '../utils/finSemana';
 import { In } from 'typeorm';
 import { EstadoLeadEnum, TipoWebEnum, CanalEntradaEnum } from '../entities/Lead';
 import { Vendedor } from '../entities/Vendedores';
@@ -331,6 +332,14 @@ export const eliminarNotaLeadService = async (
 
 // SLA Monitor - para job cron
 export const procesarSLAVencidos = async (horasSLA = 12) => {
+  // Fin de semana: no se reasigna ni se desasigna ningún lead. El cliente que
+  // escribe es atendido por el asistente (mensaje de horario) y el SLA se
+  // retoma el próximo día hábil.
+  if (esFinDeSemana()) {
+    console.log('[SLA Monitor] Fin de semana: no se procesa el SLA.');
+    return [];
+  }
+
   const leadsVencidos = await getLeadsSLAVencido(horasSLA);
   const resultados = [];
 
