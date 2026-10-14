@@ -618,8 +618,7 @@ export const Pedidos: React.FC<PedidosProps> = ({
                       Ver Detalles
                     </button>
                     {pedido.estado === "pendiente" &&
-                      (session?.user.user_metadata.rol === "admin" ||
-                        pedido.vendedor_id === currentUser?.id) && (
+                      session?.user.user_metadata.rol === "admin" && (
                         <button
                           onClick={() => {
                             setPedidoAEditar(pedido);

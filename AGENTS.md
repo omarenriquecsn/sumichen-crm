@@ -1720,3 +1720,19 @@ Commit en la rama.
 - `calculoIncremento(ventasCerradas)` de `DashboardAdmin` (tarjeta de incremento legacy) sigue usando `fecha_creacion`, por ser un helper genérico; no mide el mes de venta real.
 - Deploy: `.\deploy.ps1` (backend + frontend; la migración corre sola al reiniciar).
 
+### Punto 52 — Fix de desplegables (clientes/productos) que se superponían en móvil (14/10) ✅ (tsc/lint/build OK frontend)
+
+> **Resumen**: en móvil, las opciones de los `<Select>` de **clientes**, **productos** y **vendedores** se **superponían** unas con otras y el texto se veía **aglomerado**. Causa: `VirtualMenuList` (Punto 50) virtualiza con `react-window` `FixedSizeList` con una altura de fila **fija** (`ROW_HEIGHT = 35`); en pantallas estrechas las etiquetas largas (`empresa`/`nombre`) hacen *wrap* a 2-3 líneas, superan los 35 px y, como la posición de cada fila está fijada (`top = índice * 35`), una opción se monta sobre la siguiente. Fix (enfoque híbrido): en móvil **no se virtualiza** (menú estándar de react-select → cada fila crece según su contenido, texto completo) y en escritorio se mantiene la virtualización (con `ROW_HEIGHT = 38` y `overflow: hidden` en el wrapper como blindaje).
+
+#### Cambios (solo `project/src/components/ui/VirtualMenuList.tsx`)
+- Hook `useEsMovil()` con `matchMedia("(max-width: 639px)")` + listener de `resize` (breakpoint `sm` de Tailwind).
+- **Móvil**: devuelve el markup estándar del `MenuList` (usa `innerProps`, `innerRef` y `getStyles("menuList", props)`), sin `react-window`.
+- **Escritorio**: `FixedSizeList` con `itemSize = 38` (antes 35) y cada fila envuelta en `overflow: hidden`.
+- Los 3 selects (`SelectCliente`, `SelectProductos`, `SelectVendedor`) **no cambian**: ya usan `components={{ MenuList: VirtualMenuList }}`.
+- Sin backend ni migraciones.
+
+#### Verificación
+- `npx tsc --noEmit -p tsconfig.app.json` → 0 errores; `npm run lint` → 0 problemas; `npm run build` OK (solo warnings pre-existentes).
+- Pendiente prueba manual en DevTools (móvil): **Nuevo Pedido → Manual** (select de cliente y de productos) confirmar filas sin solape ni texto aglomerado.
+- Deploy: `npm run build` + subir `project/dist/` (o `.\deploy.ps1 -OnlyFrontend`).
+
