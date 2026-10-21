@@ -22,8 +22,13 @@ interface ProductosLogisticaProps {
 
 const ProductosLogistica = ({ readonly = false }: ProductosLogisticaProps) => {
   const supabase = useSupabase();
+  // En la página Productos (solo lectura) solo se muestran productos y lotes con
+  // saldo > 0. En Logística se mantiene todo visible para poder ajustarlo.
+  const soloConStock = readonly;
   const { data: productos, isLoading } = supabase.useStockProductos();
-  const { data: lotes } = supabase.useLotes({});
+  const { data: lotes } = supabase.useLotes(
+    soloConStock ? { con_stock: true } : {},
+  );
 
   const [vista, setVista] = useState<"lista" | "tarjetas">("lista");
   const [busqueda, setBusqueda] = useState("");
@@ -38,10 +43,12 @@ const ProductosLogistica = ({ readonly = false }: ProductosLogisticaProps) => {
   // Primero los productos con stock en almacén; los que están en 0 al final
   // (orden por nombre dentro de cada grupo).
   const lista = (productos ?? [])
-    .filter((p) =>
-      `${p.nombre} ${p.descripcion}`
-        .toLowerCase()
-        .includes(busqueda.toLowerCase()),
+    .filter(
+      (p) =>
+        (!soloConStock || Number(p.stock?.total ?? 0) > 0) &&
+        `${p.nombre} ${p.descripcion}`
+          .toLowerCase()
+          .includes(busqueda.toLowerCase()),
     )
     .sort((a, b) => {
       const dispA = Number(a.stock?.total ?? 0) > 0 ? 0 : 1;
@@ -51,7 +58,11 @@ const ProductosLogistica = ({ readonly = false }: ProductosLogisticaProps) => {
     });
 
   const lotesDe = (productoId: string) =>
-    (lotes ?? []).filter((l) => l.producto_id === productoId);
+    (lotes ?? []).filter(
+      (l) =>
+        l.producto_id === productoId &&
+        (!soloConStock || Number(l.cantidad_actual) > 0),
+    );
 
   const guardarVencimiento = (loteId: string) => {
     const valor = vencimientos[loteId];
@@ -112,6 +123,18 @@ const ProductosLogistica = ({ readonly = false }: ProductosLogisticaProps) => {
               </tr>
             </thead>
             <tbody>
+              {lista.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-6 text-center text-gray-500"
+                  >
+                    {soloConStock
+                      ? "No hay productos con stock disponible."
+                      : "No se encontraron productos."}
+                  </td>
+                </tr>
+              )}
               {lista.map((p) => (
                 <tr
                   key={p.id}
@@ -139,6 +162,13 @@ const ProductosLogistica = ({ readonly = false }: ProductosLogisticaProps) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {lista.length === 0 && (
+            <p className="text-sm text-gray-500 col-span-full">
+              {soloConStock
+                ? "No hay productos con stock disponible."
+                : "No se encontraron productos."}
+            </p>
+          )}
           {lista.map((p) => (
             <button
               key={p.id}
@@ -181,7 +211,11 @@ const ProductosLogistica = ({ readonly = false }: ProductosLogisticaProps) => {
             )}
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {lotesDe(productoSeleccionado.id).length === 0 && (
-                <p className="text-sm text-gray-500">Sin lotes registrados.</p>
+                <p className="text-sm text-gray-500">
+                  {soloConStock
+                    ? "Sin lotes con stock."
+                    : "Sin lotes registrados."}
+                </p>
               )}
               {lotesDe(productoSeleccionado.id).map((l) => (
                 <div key={l.id} className="border rounded-lg p-3">
