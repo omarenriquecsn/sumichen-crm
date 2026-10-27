@@ -6,6 +6,15 @@ import { getUsuariosService } from '../services/usuariosServices';
 import { getPedidos } from '../repositories/pedidosRepository';
 import { getLeadsParaExportService } from '../services/leadsServices';
 
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+function formatearMesAnio(fecha: Date | string): string {
+  const d = new Date(fecha);
+  if (isNaN(d.getTime())) return 'N/A';
+  return `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
  async function exportClientesToExcel() {
     const queryClientes = await getClientesService()
     const queryVendedores = await getUsuariosService();
@@ -86,7 +95,7 @@ import { getLeadsParaExportService } from '../services/leadsServices';
       { header: 'Estado', key: 'estado', width: 15 },
       { header: 'Sector', key: 'sector', width: 30 },
       { header: 'Estado Anterior', key: 'estado_anterior', width: 15 },
-      { header: 'Fecha de Cambio de Estado', key: 'fecha_estado', width: 20 },
+      { header: 'Mes de Cambio de Estado', key: 'fecha_estado', width: 18 },
       { header: 'Vendedor', key: 'vendedor', width: 36 },
       { header: 'Etapa Pipeline', key: 'etapa_venta', width: 15 },
       { header: 'Proyección de Ventas ($)', key: 'proyeccion_venta', width: 22 },
@@ -125,7 +134,7 @@ import { getLeadsParaExportService } from '../services/leadsServices';
         sector: cliente.sector || 'N/A',
         estado_anterior: cliente.estado_anterior || 'N/A',
         fecha_estado: cliente.fecha_estado
-          ? new Date(cliente.fecha_estado).toLocaleString('es-VE')
+          ? formatearMesAnio(cliente.fecha_estado)
           : 'N/A',
         etapa_venta: cliente.etapa_venta,
         proyeccion_venta:
