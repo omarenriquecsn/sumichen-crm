@@ -4,6 +4,7 @@ import { Lead, EstadoLeadEnum, TipoWebEnum } from '../entities/Lead';
 import { Vendedor } from '../entities/Vendedores';
 import { Zona } from '../entities/Zona';
 import { getClientesConCompra } from './pedidosRepository';
+import { calcularVencimientoSLAActual } from '../utils/horarioLaboral';
 
 /**
  * Rellena `lead.compro` en memoria: true si el lead tiene cliente asociado y
@@ -182,11 +183,13 @@ export const asignarLeadAutomatico = async (leadId: string, zonaId: string) => {
 
   if (!mejorVendedor) return null;
 
+  const ahora = new Date();
   lead.vendedor_asignado_id = mejorVendedor.id;
   lead.zona_id = zonaId;
   lead.estado = EstadoLeadEnum.ASIGNADO;
-  lead.asignado_en = new Date();
-  lead.ultima_actividad_en = new Date();
+  lead.asignado_en = ahora;
+  lead.ultima_actividad_en = ahora;
+  lead.sla_vence_en = await calcularVencimientoSLAActual(ahora);
 
   return await leadRepo.save(lead);
 };
@@ -199,13 +202,15 @@ export const asignarLeadAutomatico = async (leadId: string, zonaId: string) => {
 export const asignarLeadAVendedor = async (leadId: string, vendedorId: string) => {
   const leadRepo = AppDataSource.getRepository(Lead);
   const lead = await leadRepo.findOne({ where: { id: leadId } });
-  if (!lead) return null;
+  if (!lead || lead.estado !== EstadoLeadEnum.NUEVO) return null;
 
+  const ahora = new Date();
   lead.vendedor_asignado_id = vendedorId;
   lead.zona_id = null;
   lead.estado = EstadoLeadEnum.ASIGNADO;
-  lead.asignado_en = new Date();
-  lead.ultima_actividad_en = new Date();
+  lead.asignado_en = ahora;
+  lead.ultima_actividad_en = ahora;
+  lead.sla_vence_en = await calcularVencimientoSLAActual(ahora);
 
   return await leadRepo.save(lead);
 };
@@ -217,9 +222,13 @@ export const reasignarLead = async (leadId: string, nuevoVendedorId: string | nu
   if (!lead) throw new Error('Lead no encontrado');
 
   const anteriorId = lead.vendedor_asignado_id;
+  const ahora = new Date();
   lead.vendedor_asignado_id = nuevoVendedorId;
-  lead.asignado_en = nuevoVendedorId ? new Date() : null;
-  lead.ultima_actividad_en = new Date();
+  lead.asignado_en = nuevoVendedorId ? ahora : null;
+  lead.ultima_actividad_en = ahora;
+  lead.sla_vence_en = nuevoVendedorId
+    ? await calcularVencimientoSLAActual(ahora)
+    : null;
   lead.estado = nuevoVendedorId ? EstadoLeadEnum.REASIGNADO : EstadoLeadEnum.NUEVO;
 
   await leadRepo.save(lead);
@@ -291,6 +300,7 @@ export const marcarLeadPerdido = async (leadId: string) => {
   // perdió (evita doble contacto). Los admins lo siguen viendo.
   lead.vendedor_asignado_id = null;
   lead.asignado_en = null;
+  lead.sla_vence_en = null;
   lead.ultima_actividad_en = new Date();
   return await leadRepo.save(lead);
 };
@@ -300,7 +310,9 @@ export const marcarLeadContactado = async (leadId: string) => {
   const lead = await leadRepo.findOne({ where: { id: leadId } });
   if (!lead) throw new Error('Lead no encontrado');
   lead.estado = EstadoLeadEnum.CONTACTADO;
-  // Reinicia la ventana SLA: el lead está siendo gestionado.
+  // Un lead atendido sale del SLA: no se reasigna aunque el vendedor use su
+  // número privado y el sistema no pueda ver la conversación.
+  lead.sla_vence_en = null;
   lead.ultima_actividad_en = new Date();
   // Tiempo de respuesta: solo se registra el PRIMER contacto (cuando el
   // vendedor pulsa "Atender por WhatsApp"); no se sobreescribe si ya existía.
@@ -326,11 +338,12 @@ export const getLeadsPorVencerSLA = async (horas: number) => {
 };
 
 /**
- * Leads pausados por fin de semana: sin vendedor asignado, con
- * `metadata.paso_menu = 'fin_semana'` y aún no convertidos/perdidos.
+ * LEGADO: leads pausados por el flujo antiguo de fin de semana
+ * (`metadata.paso_menu = 'fin_semana'`), sin vendedor y no convertidos/perdidos.
  *
- * El worker `finSemanaMonitor` los reanuda el próximo día hábil reenviándoles
- * el menú de bienvenida (tipo de contacto) para continuar la asignación.
+ * El worker `reanudacionMonitor` los detecta junto con `fuera_horario` y, al
+ * ser anteriores al nuevo flujo (no guardaron zona), les reenvía el menú de
+ * tipo de contacto para que continúen la asignación.
  */
 export const getLeadsFinSemanaPausados = async () => {
   const repo = AppDataSource.getRepository(Lead);
@@ -345,18 +358,19 @@ export const getLeadsFinSemanaPausados = async () => {
     .getMany();
 };
 
-export const getLeadsSLAVencido = async (horas: number) => {
+export const getLeadsSLAVencido = async () => {
   const repo = AppDataSource.getRepository(Lead);
-  const limite = new Date(Date.now() - horas * 60 * 60 * 1000);
   // ⚠ Incluir 'reasignado': tras una reasignación el lead queda en ese estado
-  // (con asignado_en reiniciado) y debe seguir monitoreándose para el nuevo vendedor.
+  // (con sla_vence_en recalculado) y debe seguir monitoreándose.
   // ⚠ NO incluir 'contactado': un lead ya atendido (el vendedor lo marcó en
   // gestión desde "Atender por WhatsApp") no debe reasignarse por SLA.
+  // El vencimiento es fijo (siguiente día hábil a la misma hora) y ya viene
+  // calculado en horas laborales; no se reinicia con la actividad del cliente.
   return await repo
     .createQueryBuilder('lead')
     .where('lead.estado IN (:...estados)', { estados: ['asignado', 'reasignado'] })
-    .andWhere('lead.asignado_en < :limite', { limite })
-    .andWhere('lead.ultima_actividad_en < :limite', { limite })
+    .andWhere('lead.sla_vence_en IS NOT NULL')
+    .andWhere('lead.sla_vence_en < now()')
     // Los leads de proveedor/trabajo se asignan a un usuario específico y NO
     // aplican reasignación por zona (no tienen zona).
     .andWhere('(lead.tipo_web IS NULL OR lead.tipo_web NOT IN (:...sinSLA))', {
@@ -364,5 +378,25 @@ export const getLeadsSLAVencido = async (horas: number) => {
     })
     .leftJoinAndSelect('lead.vendedor_asignado', 'vendedor')
     .leftJoinAndSelect('lead.zona', 'zona')
+    .getMany();
+};
+
+/**
+ * Leads retenidos por el asistente fuera de horario (noches, fines de semana y
+ * feriados). Quedan sin vendedor con `metadata.paso_menu = 'fuera_horario'`
+ * (o `'fin_semana'` legado) y el worker los asigna el próximo día hábil.
+ */
+export const getLeadsRetenidos = async () => {
+  const repo = AppDataSource.getRepository(Lead);
+  return await repo
+    .createQueryBuilder('lead')
+    .where('lead.vendedor_asignado_id IS NULL')
+    .andWhere(`lead.metadata->>'paso_menu' IN (:...pasos)`, {
+      pasos: ['fuera_horario', 'fin_semana'],
+    })
+    .andWhere('lead.estado NOT IN (:...estados)', {
+      estados: [EstadoLeadEnum.CONVERTIDO, EstadoLeadEnum.PERDIDO],
+    })
+    .orderBy('lead.fecha_creacion', 'ASC')
     .getMany();
 };

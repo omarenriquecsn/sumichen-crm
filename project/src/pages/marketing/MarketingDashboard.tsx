@@ -17,8 +17,8 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { Users, TrendingUp, Target, Clock, RefreshCw, Globe, Check, AlertCircle, MessageSquare, Bot, Plus, Trash2, Save, Megaphone, ShoppingCart } from "lucide-react";
-import { Lead, OpcionIntencion, Vendedor, Campana } from "../../types";
+import { Users, TrendingUp, Target, Clock, RefreshCw, Globe, Check, AlertCircle, MessageSquare, Bot, Plus, Trash2, Save, Megaphone, ShoppingCart, CalendarDays } from "lucide-react";
+import { Lead, OpcionIntencion, Vendedor, Campana, DiaNoLaborable } from "../../types";
 
 const COLORS = ["#16A34A", "#2563EB", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"];
 
@@ -39,7 +39,7 @@ interface PieLabelProps {
 }
 
 const MarketingDashboard: React.FC = () => {
-  const { useLeads, useTiempoRespuesta, useMenuBienvenida, useActualizarMenuBienvenida, useCampanas, useCrearCampana, useActualizarCampana, useEliminarCampana } = useSupabase();
+  const { useLeads, useTiempoRespuesta, useMenuBienvenida, useActualizarMenuBienvenida, useCampanas, useCrearCampana, useActualizarCampana, useEliminarCampana, useDiasNoLaborables, useCrearDiaNoLaborable, useEliminarDiaNoLaborable } = useSupabase();
   const { data: vendedores } = useUsuariosTodos();
   const { data: menuConfig, isLoading: menuLoading } = useMenuBienvenida();
   const actualizarMenu = useActualizarMenuBienvenida();
@@ -47,6 +47,9 @@ const MarketingDashboard: React.FC = () => {
   const crearCampana = useCrearCampana();
   const actualizarCampana = useActualizarCampana();
   const eliminarCampana = useEliminarCampana();
+  const { data: diasNoLaborables } = useDiasNoLaborables();
+  const crearDiaNoLaborable = useCrearDiaNoLaborable();
+  const eliminarDiaNoLaborable = useEliminarDiaNoLaborable();
   const [fechaDesde, setFechaDesde] = React.useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -186,6 +189,47 @@ const MarketingDashboard: React.FC = () => {
     eliminarCampana.mutate(c.id, {
       onSuccess: () => toast.success("Campaña eliminada"),
       onError: (err) => toast.error(err.message || "Error al eliminar la campaña"),
+    });
+  };
+
+  // Días no laborables (feriados)
+  const [nuevoDiaNoLaborable, setNuevoDiaNoLaborable] = React.useState({
+    fecha: "",
+    descripcion: "",
+    recurrente_anual: false,
+  });
+
+  const formatoDiaNoLaborable = (d: DiaNoLaborable) => {
+    const [anio, mes, dia] = d.fecha.split("-");
+    return d.recurrente_anual ? `${dia}/${mes} (cada año)` : `${dia}/${mes}/${anio}`;
+  };
+
+  const handleAgregarDiaNoLaborable = () => {
+    if (!nuevoDiaNoLaborable.fecha) {
+      toast.error("Selecciona una fecha");
+      return;
+    }
+    crearDiaNoLaborable.mutate(
+      {
+        fecha: nuevoDiaNoLaborable.fecha,
+        descripcion: nuevoDiaNoLaborable.descripcion.trim() || undefined,
+        recurrente_anual: nuevoDiaNoLaborable.recurrente_anual,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Día no laborable agregado");
+          setNuevoDiaNoLaborable({ fecha: "", descripcion: "", recurrente_anual: false });
+        },
+        onError: (err) => toast.error(err.message || "Error al agregar el día no laborable"),
+      }
+    );
+  };
+
+  const handleEliminarDiaNoLaborable = (d: DiaNoLaborable) => {
+    if (!window.confirm(`¿Eliminar el día no laborable "${d.descripcion || formatoDiaNoLaborable(d)}"?`)) return;
+    eliminarDiaNoLaborable.mutate(d.id, {
+      onSuccess: () => toast.success("Día no laborable eliminado"),
+      onError: (err) => toast.error(err.message || "Error al eliminar el día no laborable"),
     });
   };
 
@@ -455,17 +499,18 @@ const MarketingDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Atención en fin de semana */}
+              {/* Atención fuera de horario */}
               <div className="md:col-span-2 border-t border-gray-100 pt-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Atención en fin de semana (sábado y domingo)
+                      Atención fuera de horario (noches, fines de semana y feriados)
                     </label>
                     <p className="text-xs text-gray-400">
-                      Los leads de WhatsApp <b>sin vendedor</b> que escriban sábado o domingo reciben este mensaje con el
-                      horario (una vez por día) y el asistente queda en pausa. El próximo día hábil se reanuda el flujo de
-                      asignación automáticamente.
+                      Horario de atención: <b>lunes a viernes de 8:00 a.m. a 5:00 p.m.</b> Los leads de WhatsApp{" "}
+                      <b>sin vendedor</b> que escriban fuera de ese horario responden el tipo de contacto y el estado
+                      como siempre; al elegir el estado reciben este mensaje (una vez por día) y el asistente queda en
+                      pausa. El próximo día hábil a las 8:00 se asignan automáticamente al vendedor de su zona.
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
@@ -486,7 +531,7 @@ const MarketingDashboard: React.FC = () => {
                   onChange={(e) => setMenuForm((prev) => ({ ...prev, mensaje_fin_semana: e.target.value }))}
                   rows={3}
                   className="w-full mt-3 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="¡Gracias por escribir a Sumichem! Nuestro horario de atención es de lunes a viernes de 8:00 a.m. a 5:00 p.m..."
+                  placeholder="¡Gracias por escribir a Sumichem, {nombre}! Nuestro horario de atención es de lunes a viernes de 8:00 a.m. a 5:00 p.m. Un asesor se comunicará contigo el próximo día hábil."
                 />
                 <p className="text-xs text-gray-400 mt-1">Variable: {"{nombre}"}</p>
               </div>
@@ -577,6 +622,84 @@ const MarketingDashboard: React.FC = () => {
                   {actualizarMenu.isPending ? "Guardando..." : "Guardar menú"}
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Días no laborables (feriados) */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-orange-600" /> Días no laborables (feriados)
+            </h3>
+            <p className="text-sm text-gray-500">
+              Estos días no cuentan como horario laboral: el asistente retiene los leads sin vendedor y el SLA no
+              vence. Los feriados recurrentes se repiten cada año (ej. 01/01); los exactos aplican solo a esa fecha
+              (ej. Carnaval 2026).
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <input
+              type="date"
+              value={nuevoDiaNoLaborable.fecha}
+              onChange={(e) =>
+                setNuevoDiaNoLaborable((prev) => ({ ...prev, fecha: e.target.value }))
+              }
+              className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+            <input
+              value={nuevoDiaNoLaborable.descripcion}
+              onChange={(e) =>
+                setNuevoDiaNoLaborable((prev) => ({ ...prev, descripcion: e.target.value }))
+              }
+              placeholder="Descripción (opcional, ej. Carnaval)"
+              className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+            <label className="flex items-center gap-2 text-sm text-gray-700 px-2 shrink-0">
+              <input
+                type="checkbox"
+                checked={nuevoDiaNoLaborable.recurrente_anual}
+                onChange={(e) =>
+                  setNuevoDiaNoLaborable((prev) => ({ ...prev, recurrente_anual: e.target.checked }))
+                }
+                className="rounded border-gray-300"
+              />
+              Cada año
+            </label>
+            <button
+              onClick={handleAgregarDiaNoLaborable}
+              disabled={crearDiaNoLaborable.isPending || !nuevoDiaNoLaborable.fecha}
+              className="flex items-center justify-center gap-2 bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shrink-0"
+            >
+              <Plus className="h-4 w-4" /> Agregar
+            </button>
+          </div>
+
+          {!(diasNoLaborables || []).length ? (
+            <p className="text-sm text-gray-400 py-4 text-center">
+              Aún no hay días no laborables configurados.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {(diasNoLaborables || []).map((d) => (
+                <div key={d.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg bg-gray-50">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{formatoDiaNoLaborable(d)}</p>
+                    <p className="text-xs text-gray-500 truncate">{d.descripcion || "Sin descripción"}</p>
+                  </div>
+                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800 self-start sm:self-auto">
+                    {d.recurrente_anual ? "Cada año" : "Fecha exacta"}
+                  </span>
+                  <button
+                    onClick={() => handleEliminarDiaNoLaborable(d)}
+                    className="text-red-500 hover:text-red-700 shrink-0 self-end sm:self-auto"
+                    title="Eliminar día no laborable"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>

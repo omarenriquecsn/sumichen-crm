@@ -7,7 +7,9 @@ import { TipoWebEnum } from '../entities/Lead';
 import { enviarPushAUsuario } from './pushServices';
 import { EventoNotificacionEnum } from '../enums/EventoNotificacionEnum';
 import { construirUrlAtenderLead } from '../utils/atenderLead';
-import { esFinDeSemana, getPartesFechaLocal } from '../utils/finSemana';
+import { getPartesFechaLocal } from '../utils/finSemana';
+import { esFueraDeHorarioAhora } from '../utils/horarioLaboral';
+import { asignarLeadRetenido } from './leadsRetenidosServices';
 
 /**
  * Asistente de bienvenida (WhatsApp).
@@ -246,6 +248,23 @@ export const procesarRespuestaTipoContacto = async (lead: any, cuerpo: string) =
     return;
   }
 
+  // Proveedor / Trabajo fuera de horario: se retienen y se asignan al usuario
+  // configurado el próximo día hábil (sin preguntar estado ni zona).
+  if (config.fin_semana_activo && (await esFueraDeHorarioAhora())) {
+    const vendedorDestinoId =
+      tipo === 'proveedor' ? config.vendedor_proveedores_id : config.vendedor_trabajo_id;
+    // Se guarda ya el tipo_web para que el lead retenido sea identificable y no
+    // entre al SLA por zona cuando se asigne en la mañana.
+    await updateLead(lead.id, {
+      tipo_web: (tipo === 'proveedor' ? TipoWebEnum.PROVEEDOR : TipoWebEnum.TRABAJO) as any,
+    });
+    await retenerFueraDeHorario(lead, config, {
+      tipo_contacto: tipo,
+      vendedor_destino_id: vendedorDestinoId || null,
+    });
+    return;
+  }
+
   // Opciones "Proveedor" / "Trabajo": asignación directa al usuario configurado.
   await asignarTipoEspecial(lead, config, tipo);
 };
@@ -304,6 +323,18 @@ export const procesarRespuestaEstado = async (lead: any, cuerpo: string) => {
     return;
   }
 
+  // Fuera de horario (noche, fin de semana o feriado): se guarda la zona y se
+  // retiene el lead. El worker lo asigna el próximo día hábil a las 8:00.
+  if (config.fin_semana_activo && (await esFueraDeHorarioAhora())) {
+    await retenerFueraDeHorario(lead, config, {
+      tipo_contacto: 'cliente',
+      estado_seleccionado: estado,
+      zona_seleccionada: zona.nombre,
+      zona_id_pendiente: zona.id,
+    });
+    return;
+  }
+
   const asignado = await asignarLeadAutomatico(lead.id, zona.id);
   if (!asignado) {
     await enviarSeguro(telefono, config.mensaje_sin_vendedor.replace(/\{nombre\}/g, nombre), phoneNumberId);
@@ -323,7 +354,7 @@ export const procesarRespuestaEstado = async (lead: any, cuerpo: string) => {
         asignado.vendedor_asignado_id,
         {
           titulo: '🔔 Nuevo lead asignado',
-          cuerpo: `${nombre} fue asignado a ti por WhatsApp. Dispones de 12 horas para atenderlo.`,
+          cuerpo: `${nombre} fue asignado a ti por WhatsApp. Tienes hasta el próximo día hábil para atenderlo.`,
           url: construirUrlAtenderLead(lead),
         },
         EventoNotificacionEnum.LEAD_ASIGNADO,
@@ -416,29 +447,43 @@ export const procesarRespuestaIntencion = async (lead: any, cuerpo: string) => {
 };
 
 /**
- * Fin de semana: envía el horario de atención y deja el asistente en pausa.
+ * Fuera de horario (noches, fines de semana y feriados): guarda los datos ya
+ * recopilados del lead y deja el asistente en pausa.
  *
- * - Se responde al menos una vez por día (`metadata.fin_semana_respondido`),
- *   así el cliente que escribe varias veces el sábado/domingo no recibe spam.
- * - El lead queda con `metadata.paso_menu = 'fin_semana'`; el worker
- *   `finSemanaMonitor` lo reanuda el próximo día hábil (o si vuelve a escribir
- *   en día hábil antes de que corra el worker).
+ * - Se responde al menos una vez por día (`metadata.fuera_horario_respondido`),
+ *   así el cliente que escribe varias veces no recibe spam.
+ * - El lead queda con `metadata.paso_menu = 'fuera_horario'`; el worker
+ *   `reanudacionMonitor` lo asigna el próximo día hábil a las 8:00. Si vuelve a
+ *   escribir en horario laboral antes de que corra el worker, se asigna en ese
+ *   momento.
  */
-const responderFinDeSemana = async (lead: any, config: any) => {
+const retenerFueraDeHorario = async (
+  lead: any,
+  config: any,
+  extra: Record<string, any>,
+) => {
   const { telefono, phoneNumberId } = getTelefono(lead);
   const nombre = lead?.datos_contacto?.nombre || '';
   if (!telefono) return;
 
   const hoy = getPartesFechaLocal().ymd;
-  const yaRespondidoHoy = lead?.metadata?.fin_semana_respondido === hoy;
+  const yaRespondidoHoy =
+    (lead?.metadata?.fuera_horario_respondido || lead?.metadata?.fin_semana_respondido) === hoy;
+
+  // Se omiten las claves undefined para no borrar datos ya guardados (por
+  // ejemplo el tipo de contacto al reenviar el aviso de horario).
+  const extraLimpio = Object.fromEntries(
+    Object.entries(extra).filter(([, valor]) => valor !== undefined),
+  );
 
   // Se marca la pausa SIEMPRE (aunque ya se haya respondido hoy) para que el
   // asistente no avance y el worker lo retome el próximo día hábil.
   await updateLead(lead.id, {
     metadata: {
       ...(lead.metadata || {}),
-      paso_menu: 'fin_semana',
-      fin_semana_respondido: hoy,
+      ...extraLimpio,
+      paso_menu: 'fuera_horario',
+      fuera_horario_respondido: hoy,
     },
   });
 
@@ -456,20 +501,34 @@ export const procesarAsistente = async (leadId: string, cuerpo: string) => {
   const lead = await getLeadById(leadId);
   if (!lead) return;
 
-  // Fin de semana: si el lead aún no tiene vendedor, se pausa el flujo y se
-  // responde el horario de atención. Los leads ya asignados siguen el flujo
-  // normal (se guardan el mensaje y el push al vendedor).
-  if (config.fin_semana_activo && !lead.vendedor_asignado_id && esFinDeSemana()) {
-    await responderFinDeSemana(lead, config);
-    return;
-  }
-
   const paso = lead.metadata?.paso_menu;
 
-  // Lead pausado por fin de semana que vuelve a escribir en día hábil (antes
-  // de que corra el worker de reanudación): se reinicia el asistente.
-  if (paso === 'fin_semana') {
-    if (!lead.vendedor_asignado_id) await enviarMenuTipoContacto(lead);
+  // Lead retenido fuera de horario (o legado de fin de semana).
+  if (paso === 'fuera_horario' || paso === 'fin_semana') {
+    if (lead.vendedor_asignado_id) return;
+
+    // Si sigue fuera de horario, se mantiene la pausa (y se recuerda el
+    // horario una vez por día).
+    if (config.fin_semana_activo && (await esFueraDeHorarioAhora())) {
+      const meta: Record<string, any> = (lead.metadata || {}) as Record<string, any>;
+      await retenerFueraDeHorario(lead, config, {
+        tipo_contacto: meta.tipo_contacto,
+        estado_seleccionado: meta.estado_seleccionado,
+        zona_seleccionada: meta.zona_seleccionada,
+        zona_id_pendiente: meta.zona_id_pendiente,
+        vendedor_destino_id: meta.vendedor_destino_id,
+      });
+      return;
+    }
+
+    // Ya es horario laboral y el worker aún no pasó: se asigna de inmediato.
+    // Los leads legado de fin de semana no tienen zona guardada, así que se
+    // reinicia el asistente para que el cliente responda el estado.
+    if (paso === 'fin_semana') {
+      await enviarMenuTipoContacto(lead);
+      return;
+    }
+    await asignarLeadRetenido(lead.id);
     return;
   }
 

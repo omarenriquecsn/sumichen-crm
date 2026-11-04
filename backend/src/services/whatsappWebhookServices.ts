@@ -130,6 +130,12 @@ const procesarMensajeWhatsApp = async (msg: any, value: any, _payload: any) => {
     delete metadata.estados_disponibles;
     delete metadata.intencion_seleccionada;
     delete metadata.tipo_contacto;
+    delete metadata.zona_id_pendiente;
+    delete metadata.vendedor_destino_id;
+    delete metadata.estado_seleccionado;
+    delete metadata.zona_seleccionada;
+    delete metadata.fuera_horario_respondido;
+    delete metadata.retenido_aviso;
     lead = await updateLead(lead.id, {
       estado: EstadoLeadEnum.NUEVO,
       vendedor_asignado_id: null,

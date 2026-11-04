@@ -27,6 +27,7 @@ import googleAuthRoutes from './googleAuthRoutes';
 import inventarioRoutes from './inventarioRoutes';
 import instrumentosRoutes from './instrumentosRoutes';
 import campanasRoutes from './campanasRoutes';
+import diasNoLaborablesRoutes from './diasNoLaborablesRoutes';
 
 // import turnRoutes from "./turnRoutes"
 const router: Router = Router();
@@ -59,5 +60,6 @@ router.use('/', googleAuthRoutes);
 router.use('/', inventarioRoutes);
 router.use('/', instrumentosRoutes);
 router.use('/', campanasRoutes);
+router.use('/', diasNoLaborablesRoutes);
 
 export default router;

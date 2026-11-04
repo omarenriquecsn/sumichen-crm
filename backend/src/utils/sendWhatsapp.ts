@@ -45,7 +45,7 @@ export const sendWhatsAppText = async (to: string, body: string, phoneNumberId?:
   const response = await axios.post(
     url,
     data,
-    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, timeout: 10000 }
   );
   return response.data;
 };
@@ -77,7 +77,7 @@ export const sendWhatsAppDocument = async (
   const uploadResponse = await axios.post(
     `https://graph.facebook.com/v19.0/${phoneId}/media`,
     formData,
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }
   );
   const mediaId: string = uploadResponse.data.id;
 
@@ -93,7 +93,7 @@ export const sendWhatsAppDocument = async (
   const response = await axios.post(
     `https://graph.facebook.com/v19.0/${phoneId}/messages`,
     data,
-    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, timeout: 10000 }
   );
   return response.data;
 };
@@ -136,7 +136,7 @@ export const sendWhatsAppImage = async (
   const uploadResponse = await axios.post(
     `https://graph.facebook.com/v19.0/${phoneId}/media`,
     formData,
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }
   );
   const mediaId: string = uploadResponse.data.id;
 
@@ -152,7 +152,7 @@ export const sendWhatsAppImage = async (
   const response = await axios.post(
     `https://graph.facebook.com/v19.0/${phoneId}/messages`,
     data,
-    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, timeout: 10000 }
   );
   return response.data;
 };
@@ -178,7 +178,7 @@ const sendWhatsAppTemplate = async (template: string) => {
     const response = await axios.post(
       `https://graph.facebook.com/v19.0/${getPhoneId()}/messages?access_token=${getToken()}`,
       data,
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
     );
     return response.data;
   } catch (error: any) {

@@ -604,6 +604,8 @@ export interface Lead {
   metadata: Record<string, unknown> | null;
   asignado_en: string | null;
   ultima_actividad_en: string | null;
+  /** Vencimiento del SLA (siguiente día hábil a la misma hora). */
+  sla_vence_en?: string | null;
   /** Primer contacto (clic en "Atender por WhatsApp"). */
   contactado_en?: string | null;
   fecha_creacion: string;
@@ -701,6 +703,16 @@ export interface Campana {
   palabra_clave: string;
   descripcion: string | null;
   activa: boolean;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+}
+
+/** Feriado / día no laborable (afecta el flujo fuera de horario y el SLA). */
+export interface DiaNoLaborable {
+  id: string;
+  fecha: string;
+  descripcion: string | null;
+  recurrente_anual: boolean;
   fecha_creacion: string;
   fecha_actualizacion: string;
 }

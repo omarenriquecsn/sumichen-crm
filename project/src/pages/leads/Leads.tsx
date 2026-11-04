@@ -37,6 +37,9 @@ const tipoWebLabels: Record<string, string> = {
   trabajo: "Busca trabajo",
 };
 
+const estaRetenido = (lead: Lead): boolean =>
+  (lead.metadata?.paso_menu as string | undefined) === "fuera_horario";
+
 const Leads: React.FC = () => {
   const { userData } = useAuth();
   const { useLeads, useAsignarLead, useReasignarLead, usePerderLead, useZonas, useCampanas } = useSupabase();
@@ -327,6 +330,11 @@ const Leads: React.FC = () => {
                     <Users className="h-3 w-3 mr-1" /> {lead.vendedor_asignado.nombre} {lead.vendedor_asignado.apellido}
                   </span>
                 )}
+                {estaRetenido(lead) && (
+                  <span className="inline-flex items-center px-2 py-1 rounded font-medium bg-amber-100 text-amber-800">
+                    Retenido — se asigna al abrir
+                  </span>
+                )}
               </div>
 
               <p className="text-xs text-gray-400">
@@ -476,6 +484,13 @@ const Leads: React.FC = () => {
                       {lead.estado === 'reasignado' && <RotateCcw className="h-3 w-3 mr-1" />}
                       {lead.estado.charAt(0).toUpperCase() + lead.estado.slice(1)}
                     </span>
+                    {estaRetenido(lead) && (
+                      <div className="mt-1">
+                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                          Retenido — se asigna al abrir
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {lead.vendedor_asignado ? (
