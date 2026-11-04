@@ -21,7 +21,6 @@ import {
 } from '../repositories/leadNotasRepository';
 import { ApiError } from '../utils/ApiError';
 import { construirUrlAtenderLead } from '../utils/atenderLead';
-import { esFinDeSemana } from '../utils/finSemana';
 import { In } from 'typeorm';
 import { EstadoLeadEnum, TipoWebEnum, CanalEntradaEnum } from '../entities/Lead';
 import { Vendedor } from '../entities/Vendedores';
@@ -136,7 +135,7 @@ export const asignarLeadService = async (leadId: string, zonaId: string, reqUser
         asignado.vendedor_asignado_id,
         {
           titulo: '🔔 Nuevo lead asignado',
-          cuerpo: `${nombre} fue asignado a ti. Dispones de 12 horas para atenderlo.`,
+          cuerpo: `${nombre} fue asignado a ti. Tienes hasta el próximo día hábil para atenderlo.`,
           url: construirUrlAtenderLead(asignado),
         },
         EventoNotificacionEnum.LEAD_ASIGNADO,
@@ -172,7 +171,7 @@ export const reasignarLeadService = async (leadId: string, nuevoVendedorId: stri
         reasignado.vendedor_asignado_id,
         {
           titulo: '🔄 Lead reasignado a ti',
-          cuerpo: `${nombre} fue reasignado a ti. Dispones de 12 horas para atenderlo.`,
+          cuerpo: `${nombre} fue reasignado a ti. Tienes hasta el próximo día hábil para atenderlo.`,
           url: construirUrlAtenderLead(reasignado),
         },
         EventoNotificacionEnum.LEAD_REASIGNADO,
@@ -331,16 +330,10 @@ export const eliminarNotaLeadService = async (
 };
 
 // SLA Monitor - para job cron
-export const procesarSLAVencidos = async (horasSLA = 12) => {
-  // Fin de semana: no se reasigna ni se desasigna ningún lead. El cliente que
-  // escribe es atendido por el asistente (mensaje de horario) y el SLA se
-  // retoma el próximo día hábil.
-  if (esFinDeSemana()) {
-    console.log('[SLA Monitor] Fin de semana: no se procesa el SLA.');
-    return [];
-  }
-
-  const leadsVencidos = await getLeadsSLAVencido(horasSLA);
+export const procesarSLAVencidos = async () => {
+  // El vencimiento ya se guarda en horas laborales (`sla_vence_en`), así que
+  // no hace falta excluir fines de semana/feriados aquí.
+  const leadsVencidos = await getLeadsSLAVencido();
   const resultados = [];
 
   for (const lead of leadsVencidos) {
@@ -375,7 +368,7 @@ export const procesarSLAVencidos = async (horasSLA = 12) => {
               mejorVendedor.id,
               {
                 titulo: '⏰ SLA vencido · Lead reasignado a ti',
-                cuerpo: `${nombre} venció el SLA de 12h y fue reasignado a ti. Dispones de 12 horas para atenderlo.`,
+                cuerpo: `${nombre} venció el SLA y fue reasignado a ti. Tienes hasta el próximo día hábil para atenderlo.`,
                 url: construirUrlAtenderLead(lead),
               },
               EventoNotificacionEnum.LEAD_REASIGNADO,
@@ -400,7 +393,7 @@ export const procesarSLAVencidos = async (horasSLA = 12) => {
         await enviarPushAAdmins(
           {
             titulo: '⚠️ SLA vencido sin vendedor',
-            cuerpo: `${nombre} venció el SLA de 12h y no hay vendedores disponibles en su zona para reasignarlo.`,
+            cuerpo: `${nombre} venció el SLA y no hay vendedores disponibles en su zona para reasignarlo.`,
             url: '#/leads',
           },
           EventoNotificacionEnum.SLA_VENCIDO_SIN_VENDEDOR,

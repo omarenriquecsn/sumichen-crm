@@ -1736,3 +1736,36 @@ Commit en la rama.
 - Pendiente prueba manual en DevTools (móvil): **Nuevo Pedido → Manual** (select de cliente y de productos) confirmar filas sin solape ni texto aglomerado.
 - Deploy: `npm run build` + subir `project/dist/` (o `.\deploy.ps1 -OnlyFrontend`).
 
+### Punto 53 — Flujo fuera de horario (noches/fines de semana/feriados) + SLA en horas laborales (03/11) ✅ (build/lint/typecheck OK backend y frontend; flujo probado end-to-end con backend + Vite)
+
+> **Resumen**: el asistente ahora atiende **fuera de horario** (antes de las 8:00, después de las 17:00, sábados, domingos y feriados) sin asignar de inmediato: pregunta tipo de contacto y estado como siempre y, al responder el estado, retiene el lead con la zona guardada y responde "un asesor se comunicará el próximo día hábil". El próximo día hábil a las 8:00 un worker asigna por zona (o al usuario configurado si es proveedor/trabajo), abre la conversación y avisa al vendedor por push. El flujo de fin de semana quedó **unificado** con este comportamiento. El SLA pasó de 12h de reloj a **siguiente día hábil a la misma hora**, fijo desde la asignación (no se reinicia con actividad) y saltando feriados. Un lead `contactado` (clic en "Atender por WhatsApp") sigue sin reasignarse nunca.
+
+#### Backend
+- **Migración** `1787524229000-HorarioLaboralSchema.ts` (idempotente): tabla `dias_no_laborables` (`fecha` única, `descripcion`, `recurrente_anual`), seed de feriados fijos de Venezuela + móviles 2026, columna `leads.sla_vence_en` (+ índice) y backfill de leads activos con `calcularVencimientoSLA`. También actualiza el texto por defecto de `menu_bienvenida.mensaje_fin_semana`.
+- **Utilidades**: `utils/horarioLaboralBase.ts` (puro, sin DB: `esFueraDeHorario`, `calcularVencimientoSLA`, `fechaLocalAUtc`, `esDiaHabilPorFecha`) y `utils/horarioLaboral.ts` (carga feriados con caché de 60 s, `esFueraDeHorarioAhora`, `esDiaHabilAhora`, `calcularVencimientoSLAActual`, `invalidarCacheDiasNoLaborables`). Horario por env `HORARIO_INICIO` (8) y `HORARIO_FIN` (17), zona `WEEKEND_TZ`.
+- **Feriados**: entidad `DiaNoLaborable` + repositorio + módulo `GET/POST/DELETE /dias-no-laborables` (GET con JWT, POST/DELETE solo admin). Los `recurrente_anual` se guardan con año de referencia 2000 y se comparan por `MM-DD`.
+- **Asistente** (`asistenteMenuServices.ts`): `retenerFueraDeHorario` guarda `paso_menu='fuera_horario'`, `fuera_horario_respondido`, `estado_seleccionado`, `zona_id_pendiente`, `zona_seleccionada` (cliente) o `tipo_contacto`/`vendedor_destino_id` (proveedor/trabajo) y envía el mensaje una vez por día. `procesarRespuestaEstado` retiene en vez de asignar si está fuera de horario; `procesarAsistente` reanuda de inmediato si el cliente escribe en horario laboral antes del worker. Se eliminó el corte previo de fin de semana; los leads legado con `paso_menu='fin_semana'` se reenvían al menú el próximo día hábil.
+- **Worker** `worker/reanudacionMonitor.ts` (reemplaza a `finSemanaMonitor.ts`, arranca en `index.ts`): entre 8:00 y 17:00 de un día hábil asigna los leads retenidos con `asignarLeadRetenido` (`services/leadsRetenidosServices.ts`): cliente por zona con menor carga, proveedor/trabajo al usuario configurado; abre conversación y envía push. Si no hay zona/vendedor avisa a los admins **una vez por día** y deja el lead para reintento.
+- **SLA**: `leadsRepository` calcula `sla_vence_en` en `asignarLeadAutomatico`, `asignarLeadAVendedor` y `reasignarLead`, y lo limpia al marcar `contactado`/`perdido` o desasignar. `getLeadsSLAVencido` filtra solo por `sla_vence_en < now()` (ya no usa `asignado_en`/`ultima_actividad_en`), por lo que el vencimiento **no se reinicia con mensajes del cliente**. `procesarSLAVencidos` ya no tiene el corte de fin de semana. Los pushes cambiaron de "12 horas" a "próximo día hábil".
+- **Fix de robustez** `utils/sendWhatsapp.ts`: las llamadas HTTP a Meta (`axios`) ahora tienen `timeout: 10000`. Sin esto, un webhook podía quedar colgado esperando a `graph.facebook.com` cuando el token/red falla (la prueba con token inválido lo reprodujo).
+
+#### Frontend
+- `types/index.ts`: `Lead.sla_vence_en` y `DiaNoLaborable`.
+- `hooks/useApi.ts`: `useDiasNoLaborables`, `useCrearDiaNoLaborable`, `useEliminarDiaNoLaborable` (invalidan `["dias-no-laborables"]`).
+- `pages/marketing/MarketingDashboard.tsx`: la sección de fin de semana pasa a **"Atención fuera de horario (noches, fines de semana y feriados)"** con el nuevo texto de ayuda; nueva sección **"Días no laborables (feriados)"** para agregar/eliminar fechas exactas o recurrentes.
+- `pages/leads/Leads.tsx`: badge **"Retenido — se asigna al abrir"** en tarjeta y tabla para `metadata.paso_menu='fuera_horario'`.
+- `.env.example`: `HORARIO_INICIO=8`, `HORARIO_FIN=17`, `REANUDACION_CHECK_MIN=15` (con alias legado `FIN_SEMANA_*`).
+
+#### Comportamiento resultante
+- Lunes 16:00 asignado → vence martes 16:00. Viernes 16:00 → lunes 16:00. Viernes 18:00 → lunes 17:00. Sábado 14:00 → lunes 14:00. Lunes 07:00 → martes 08:00. Los feriados se saltan.
+- Fuera de horario el cliente responde tipo + estado y recibe el mensaje de horario; **no** se crea conversación ni se asigna vendedor hasta el próximo día hábil.
+- `contactado` sigue fuera del SLA: el botón "Atender desde tu WhatsApp" es la única señal fiable (los vendedores usan su número privado).
+
+#### Verificación
+- `npm run build` + `npm run typecheck` + `npm run lint` OK en backend; `npx tsc --noEmit -p tsconfig.app.json` + `npm run lint` + `npm run build` OK en frontend.
+- Helper probado con `node`: lunes/viernes/sábado, antes/después de horario y feriados recurrentes/exactos.
+- Migración aplicada en la DB dev `crm_local`: 13 feriados sembrados (9 recurrentes), `sla_vence_en` creado y texto del menú actualizado. Con un lead temporal se verificó que `getLeadsRetenidos` lo detecta, que `asignarLeadAutomatico` calcula `sla_vence_en`, que `getLeadsSLAVencido` lo incluye al vencer y lo excluye al pasar a `contactado`.
+- CRUD de feriados probado contra `crm_local` (crear, listar y eliminar).
+- **Prueba end-to-end (03/11)** con backend + Vite levantados y webhook simulado (HMAC), Meta/push deshabilitados para no enviar mensajes reales; se verificó: cliente fuera de horario (tipo→estado→retención, acumulación de pendientes, sin conversación), asignación matutina (conversación + siembra de pendientes + SLA), `contactado` sin reasignación, proveedor fuera de horario (retención + asignación al usuario configurado), SLA reasignando a otro vendedor de Maracay, feriado de hoy reteniendo en horario laboral, cliente en horario laboral asignado al instante y continuando a intención (`tipo_web=cotizacion`), proveedor en horario laboral asignado al instante. Todos los casos pasaron y los datos de prueba se limpiaron; suscripciones push y menú restaurados.
+- ⚠ Para aplicar la migración en otros entornos: `npm run build` + reiniciar el backend (o desplegar). Revisar/ajustar los feriados móviles de cada año desde `/marketing`.
+

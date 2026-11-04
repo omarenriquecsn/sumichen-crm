@@ -144,7 +144,7 @@ export const eliminarNotaLead = asyncHandler(async (req: Request, res: Response)
 export const procesarSLA = asyncHandler(async (req: Request, res: Response) => {
   // Endpoint protegido para ejecutar manualmente el job SLA (admin)
   if (req.user?.rol !== 'admin') throw new ApiError('Solo administradores', 403);
-  const horas = req.body.horas ?? 12;
-  const resultado = await procesarSLAVencidos(horas);
+  // El vencimiento ya está calculado en `leads.sla_vence_en` (horas laborales).
+  const resultado = await procesarSLAVencidos();
   res.json({ procesados: resultado.length, detalles: resultado });
 });

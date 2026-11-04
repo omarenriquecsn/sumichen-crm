@@ -33,6 +33,7 @@ import {
   LeadNota,
   MenuBienvenida,
   Campana,
+  DiaNoLaborable,
 } from "../types";
 
 /**
@@ -2416,6 +2417,78 @@ export const useApi = () => {
     });
   };
 
+  // ---------- Días no laborables (feriados) ----------
+  const useDiasNoLaborables = () => {
+    return useQuery<DiaNoLaborable[]>({
+      queryKey: ["dias-no-laborables"],
+      queryFn: async () => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/dias-no-laborables`, {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Error al obtener los días no laborables");
+        return res.json();
+      },
+      enabled: !!session?.access_token,
+      staleTime: 1000 * 60 * 5,
+    });
+  };
+
+  const useCrearDiaNoLaborable = () => {
+    return useMutation({
+      mutationFn: async (data: {
+        fecha: string;
+        descripcion?: string;
+        recurrente_anual?: boolean;
+      }) => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/dias-no-laborables`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) {
+          const err = await res
+            .json()
+            .catch(() => ({ message: "Error al crear el día no laborable" }));
+          throw new Error(err.message || "Error al crear el día no laborable");
+        }
+        return res.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["dias-no-laborables"] });
+      },
+    });
+  };
+
+  const useEliminarDiaNoLaborable = () => {
+    return useMutation({
+      mutationFn: async (id: string) => {
+        if (!session?.access_token) throw new Error("Sin token");
+        const res = await fetch(`${URL}/dias-no-laborables/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const err = await res
+            .json()
+            .catch(() => ({ message: "Error al eliminar el día no laborable" }));
+          throw new Error(err.message || "Error al eliminar el día no laborable");
+        }
+        return res.json().catch(() => ({}));
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["dias-no-laborables"] });
+      },
+    });
+  };
+
   // Documentos de utilidades (carpeta uploads/utilidades: horario, condiciones
   // de despacho). Se muestran en Configuración → Documentos.
   const useUtilidades = () => {
@@ -2578,6 +2651,10 @@ export const useApi = () => {
     useCrearCampana,
     useActualizarCampana,
     useEliminarCampana,
+    // Días no laborables (feriados)
+    useDiasNoLaborables,
+    useCrearDiaNoLaborable,
+    useEliminarDiaNoLaborable,
     // Documentos de utilidades
     useUtilidades,
     useSubirUtilidad,

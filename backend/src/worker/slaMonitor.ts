@@ -2,13 +2,14 @@ import { AppDataSource } from '../config/dataBaseConfig';
 import { procesarSLAVencidos } from '../services/leadsServices';
 
 export const iniciarSLA = async () => {
-  const horasSLA = parseInt(process.env.SLA_HOURS || '12', 10);
-  console.log(`[SLA Monitor] Iniciado - verificando cada 15 min, SLA: ${horasSLA}h`);
+  console.log(
+    '[SLA Monitor] Iniciado - verificando cada 15 min, SLA: siguiente día hábil (horas laborales)',
+  );
 
   const intervalo = setInterval(async () => {
     try {
       await AppDataSource.isInitialized;
-      const resultado = await procesarSLAVencidos(horasSLA);
+      const resultado = await procesarSLAVencidos();
       if (resultado.length > 0) {
         console.log(`[SLA Monitor] ${new Date().toISOString()} - Procesados ${resultado.length} leads:`);
         resultado.forEach((r) => console.log(`  - Lead ${r.leadId}: ${r.accion}`, r.nuevoVendedorId ? `→ ${r.nuevoVendedorId}` : ''));
@@ -20,7 +21,7 @@ export const iniciarSLA = async () => {
 
   // Ejecutar una vez al inicio
   try {
-    const resultado = await procesarSLAVencidos(horasSLA);
+    const resultado = await procesarSLAVencidos();
     if (resultado.length > 0) {
       console.log(`[SLA Monitor] Ejecución inicial: ${resultado.length} leads procesados`);
     }

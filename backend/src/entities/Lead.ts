@@ -106,6 +106,14 @@ export class Lead {
   ultima_actividad_en: Date | null;
 
   /**
+   * Vencimiento del SLA calculado al asignar/reasignar: siguiente día hábil a
+   * la misma hora (ajustado a 8-17, saltando fines de semana y feriados).
+   * Es fijo: no se reinicia con la actividad del cliente.
+   */
+  @Column({ name: 'sla_vence_en', type: 'timestamptz', nullable: true })
+  sla_vence_en: Date | null;
+
+  /**
    * Momento en que el vendedor pulsó "Atender por WhatsApp" (primer paso a
    * `contactado`). Se usa para calcular el tiempo de respuesta real.
    */
