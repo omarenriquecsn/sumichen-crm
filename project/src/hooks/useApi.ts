@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useAuth } from "../context/useAuth";
 import { User } from "@supabase/supabase-js";
 import {
@@ -1856,6 +1856,7 @@ export const useApi = () => {
       },
       enabled: !!currentUser,
       staleTime: 1000 * 60 * 2,
+      placeholderData: keepPreviousData,
       retry: 1,
     });
   };

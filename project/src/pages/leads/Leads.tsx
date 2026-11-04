@@ -4,7 +4,7 @@ import { useAuth } from "../../context/useAuth";
 import { useSupabase } from "../../hooks/useSupabase";
 import useVendedores from "../../hooks/useVendedores";
 import { toast } from "react-toastify";
-import { Users, MapPin, AlertCircle, CheckCircle, X, RotateCcw, ArrowRight, Search, ChevronLeft, ChevronRight, MessageSquare, NotebookPen } from "lucide-react";
+import { Users, MapPin, AlertCircle, CheckCircle, X, RotateCcw, ArrowRight, Search, ChevronLeft, ChevronRight, MessageSquare, NotebookPen, Loader2 } from "lucide-react";
 import { Lead, Zona, Vendedor, Campana } from "../../types";
 import ConvertirLeadModal from "../../components/forms/ConvertirLeadModal";
 import NotasLeadModal from "../../components/forms/NotasLeadModal";
@@ -55,6 +55,7 @@ const Leads: React.FC = () => {
     search: "",
   });
   const [searchInput, setSearchInput] = React.useState("");
+  const ultimaBusquedaAplicada = React.useRef("");
   const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
   const [reasignandoLead, setReasignandoLead] = React.useState<string | null>(null);
   const [convertirLeadSel, setConvertirLeadSel] = React.useState<Lead | null>(null);
@@ -68,13 +69,15 @@ const Leads: React.FC = () => {
   // última tecla para no disparar una consulta por cada pulsación.
   React.useEffect(() => {
     const timer = setTimeout(() => {
-      setFiltros((prev) => (prev.search === searchInput ? prev : { ...prev, search: searchInput }));
+      if (ultimaBusquedaAplicada.current === searchInput) return;
+      ultimaBusquedaAplicada.current = searchInput;
+      setFiltros((prev) => ({ ...prev, search: searchInput }));
       setPage(1);
     }, 400);
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const { data, isLoading, refetch } = useLeads(undefined, {
+  const { data, isLoading, isFetching, refetch } = useLeads(undefined, {
     estado: filtros.estado || undefined,
     origen: filtros.origen || undefined,
     palabra_clave: filtros.palabra_clave || undefined,
@@ -160,8 +163,6 @@ const Leads: React.FC = () => {
     setReasignandoLead(lead.id);
   };
 
-  if (isLoading) return <Layout title="Mis Leads" subtitle="Leads asignados y pendientes"><div className="flex items-center justify-center py-12">Cargando...</div></Layout>;
-
   return (
     <Layout title={userData?.rol === 'admin' ? "Todos los Leads" : "Mis Leads"} subtitle="Gestión de leads entrantes">
       <div className="bg-white rounded-xl shadow-lg p-6">
@@ -175,8 +176,11 @@ const Leads: React.FC = () => {
                 placeholder="Buscar por nombre, teléfono, email..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              {isFetching && (
+                <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-blue-500" />
+              )}
             </div>
           </form>
           <div className="flex flex-wrap gap-2">
@@ -258,6 +262,12 @@ const Leads: React.FC = () => {
           </div>
         </div>
 
+        {isLoading ? (
+          <div className="flex items-center justify-center gap-2 py-12 text-gray-500">
+            <Loader2 className="h-5 w-5 animate-spin" /> Cargando...
+          </div>
+        ) : (
+          <>
         {/* Lista de leads (móvil/tablet: tarjetas) */}
         <div className="grid grid-cols-1 gap-3 lg:hidden">
           {data?.data?.map((lead) => (
@@ -602,6 +612,19 @@ const Leads: React.FC = () => {
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
+        )}
+
+        {!isLoading && (data?.data?.length ?? 0) === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Search className="h-10 w-10 text-gray-300" />
+            <p className="mt-3 text-sm font-medium text-gray-700">No se encontraron leads</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Prueba con otro término de búsqueda o cambia los filtros.
+            </p>
+          </div>
+        )}
+
+          </>
         )}
 
         {/* Modal Reasignar */}
