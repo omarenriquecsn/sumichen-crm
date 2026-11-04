@@ -1769,3 +1769,11 @@ Commit en la rama.
 - **Prueba end-to-end (03/11)** con backend + Vite levantados y webhook simulado (HMAC), Meta/push deshabilitados para no enviar mensajes reales; se verificó: cliente fuera de horario (tipo→estado→retención, acumulación de pendientes, sin conversación), asignación matutina (conversación + siembra de pendientes + SLA), `contactado` sin reasignación, proveedor fuera de horario (retención + asignación al usuario configurado), SLA reasignando a otro vendedor de Maracay, feriado de hoy reteniendo en horario laboral, cliente en horario laboral asignado al instante y continuando a intención (`tipo_web=cotizacion`), proveedor en horario laboral asignado al instante. Todos los casos pasaron y los datos de prueba se limpiaron; suscripciones push y menú restaurados.
 - ⚠ Para aplicar la migración en otros entornos: `npm run build` + reiniciar el backend (o desplegar). Revisar/ajustar los feriados móviles de cada año desde `/marketing`.
 
+#### Deploy a producción (03/11/2026, 20:17 hora local)
+- Desplegado desde `main` (`c0ac6da`) con `.\deploy.ps1` (backend + frontend; `deploy.ps1 -DryRun` previo OK). Tag de respaldo: `backup/main-pre-horario-laboral-20261103`.
+- Respaldo de BD previo en el VPS: `~/backups/crmdb-pre-horario-20261104-001355.dump` (1.2 MB). Backups de deploy: `backend/build.bak-20261103-201657` y `project/dist.bak-20261103-201657`.
+- Migración `HorarioLaboralSchema1787524229000` aplicada; 13 feriados (9 recurrentes); `leads.sla_vence_en` creado; texto de `menu_bienvenida` actualizado.
+- Grace inicial: los **60 leads activos** quedaron con `sla_vence_en = 2026-11-04 21:00 UTC` (mié 17:00 local) y **0 reasignaciones** en los primeros minutos. A partir de ahí el SLA corre normal.
+- Verificado: `crm-server` online, `[Reanudacion] Iniciado` en logs, `/health` y `https://crmsumichen.com` HTTP 200, bundle nuevo `index-CVi8vHoU.js`, `/api/dias-no-laborables` responde 401 sin token y `/api/health` 200.
+- Rollback: `git switch -c rollback-horario backup/main-pre-horario-laboral-20261103` + `.\deploy.ps1 -AllowBranch`; el esquema nuevo es aditivo y no necesita revertirse.
+
