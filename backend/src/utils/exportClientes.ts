@@ -10,6 +10,14 @@ const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 function formatearMesAnio(fecha: Date | string): string {
+  // Las columnas `date` llegan como "YYYY-MM-DD". Se leen directamente para
+  // evitar que la conversión a UTC desplace el día al mes anterior.
+  if (typeof fecha === 'string') {
+    const match = fecha.match(/^(\d{4})-(\d{2})/);
+    if (match) {
+      return `${MESES[Number(match[2]) - 1]} ${match[1]}`;
+    }
+  }
   const d = new Date(fecha);
   if (isNaN(d.getTime())) return 'N/A';
   return `${MESES[d.getMonth()]} ${d.getFullYear()}`;
@@ -101,6 +109,7 @@ function formatearMesAnio(fecha: Date | string): string {
       { header: 'Proyección de Ventas ($)', key: 'proyeccion_venta', width: 22 },
       { header: 'Porcentaje Alcanzado (%)', key: 'porcentaje_alcanzado', width: 22 },
       { header: 'Fecha de Creación', key: 'fecha_creacion', width: 20 },
+      { header: 'Mes y Año de Creación', key: 'mes_creacion', width: 20 },
       { header: 'Última Actualización', key: 'fecha_actualizacion', width: 20 },
       { header: 'Proveniente de Marketing', key: 'proveniente_marketing', width: 22 },
       { header: 'Origen del Lead', key: 'origen_lead', width: 18 },
@@ -148,6 +157,9 @@ function formatearMesAnio(fecha: Date | string): string {
         vendedor: vendedor ? `${vendedor.nombre} ${vendedor.apellido}` : 'N/A',
         fecha_creacion: cliente.fecha_creacion
           ? cliente.fecha_creacion
+          : 'N/A',
+        mes_creacion: cliente.fecha_creacion
+          ? formatearMesAnio(cliente.fecha_creacion)
           : 'N/A',
         fecha_actualizacion: cliente.fecha_actualizacion
           ? cliente.fecha_actualizacion

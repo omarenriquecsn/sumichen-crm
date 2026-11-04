@@ -650,14 +650,14 @@ const Leads: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Motivo</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Motivo de la reasignación</label>
                   <select
                     value={motivoReasignacion}
                     onChange={(e) => setMotivoReasignacion(e.target.value)}
                     className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Seleccionar...</option>
-                    <option value="sla_vencido">SLA vencido (12h sin respuesta)</option>
+                    <option value="sla_vencido">No atendido en el plazo (SLA vencido)</option>
                     <option value="manual_admin">Reasignación manual</option>
                     <option value="vendedor_inactivo">Vendedor inactivo</option>
                   </select>

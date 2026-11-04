@@ -116,7 +116,15 @@ export const getLeadById = async (id: string) => {
 export const getLeadsParaExport = async () => {
   const repo = AppDataSource.getRepository(Lead);
   const leads = await repo.find({
-    relations: ['vendedor_asignado', 'zona', 'cliente', 'notas', 'notas.vendedor'],
+    relations: [
+      'vendedor_asignado',
+      'zona',
+      'cliente',
+      'notas',
+      'notas.vendedor',
+      'reasignaciones',
+      'reasignaciones.vendedor_anterior',
+    ],
     order: { fecha_creacion: 'DESC' },
   });
   await marcarCompra(leads);

@@ -3,6 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import { getLeadsParaExportService } from '../services/leadsServices';
 
+const MOTIVOS_REASIGNACION: Record<string, string> = {
+  sla_vencido: 'No atendido en el plazo (SLA vencido)',
+  manual_admin: 'Reasignación manual',
+  vendedor_inactivo: 'Vendedor inactivo',
+  sin_vendedor_zona: 'Sin vendedor en la zona',
+};
+
 async function exportLeadsToExcel() {
   const leads = (await getLeadsParaExportService()) || [];
   if (leads.length === 0) {
@@ -20,6 +27,8 @@ async function exportLeadsToExcel() {
     { header: 'Estado', key: 'estado', width: 12 },
     { header: 'Zona', key: 'zona', width: 25 },
     { header: 'Vendedor Asignado', key: 'vendedor', width: 30 },
+    { header: 'Vendedor Anterior', key: 'vendedor_anterior', width: 30 },
+    { header: 'Motivo de Reasignación', key: 'motivo_reasignacion', width: 35 },
     { header: 'Nombre', key: 'nombre', width: 30 },
     { header: 'Teléfono', key: 'telefono', width: 20 },
     { header: 'Email', key: 'email', width: 30 },
@@ -39,6 +48,22 @@ async function exportLeadsToExcel() {
     const vendedor = lead.vendedor_asignado
       ? `${lead.vendedor_asignado.nombre} ${lead.vendedor_asignado.apellido}`
       : 'N/A';
+
+    // Última reasignación (el historial viene sin orden garantizado).
+    const ultimaReasignacion = [...(lead.reasignaciones || [])].sort(
+      (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+    )[0];
+
+    const vendedorAnterior = ultimaReasignacion
+      ? ultimaReasignacion.vendedor_anterior
+        ? `${ultimaReasignacion.vendedor_anterior.nombre} ${ultimaReasignacion.vendedor_anterior.apellido}`
+        : 'Sin vendedor anterior (no asignado)'
+      : 'No reasignado';
+
+    const motivoReasignacion = ultimaReasignacion
+      ? MOTIVOS_REASIGNACION[ultimaReasignacion.motivo] ||
+        ultimaReasignacion.motivo
+      : 'No reasignado';
 
     const notasNegociacion =
       [...(lead.notas || [])]
@@ -64,6 +89,8 @@ async function exportLeadsToExcel() {
       estado: lead.estado,
       zona: lead.zona ? lead.zona.nombre : 'N/A',
       vendedor: vendedor,
+      vendedor_anterior: vendedorAnterior,
+      motivo_reasignacion: motivoReasignacion,
       nombre: contacto.nombre || 'N/A',
       telefono: contacto.telefono || 'N/A',
       email: contacto.email || 'N/A',
