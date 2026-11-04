@@ -102,13 +102,19 @@ export class HorarioLaboralSchema1787524229000 implements MigrationInterface {
            AND estado IN ('asignado', 'reasignado')`,
       );
 
+    // Los leads activos existentes reciben un plazo inicial desde el momento
+    // del deploy (no desde su asignación original) para evitar una ola de
+    // reasignaciones masivas al estrenar el nuevo SLA. A partir de aquí, toda
+    // asignación/reasignación usa su propia fecha.
+    const ahora = new Date();
     for (const lead of leads) {
       const desde =
         lead.asignado_en instanceof Date
           ? lead.asignado_en
           : new Date(lead.asignado_en);
       if (Number.isNaN(desde.getTime())) continue;
-      const vence = calcularVencimientoSLA(desde, { exactas, recurrentes });
+      const base = desde.getTime() > ahora.getTime() ? desde : ahora;
+      const vence = calcularVencimientoSLA(base, { exactas, recurrentes });
       await queryRunner.query(
         `UPDATE leads SET sla_vence_en = $1 WHERE id = $2`,
         [vence, lead.id],
