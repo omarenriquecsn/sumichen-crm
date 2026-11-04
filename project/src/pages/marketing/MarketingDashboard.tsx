@@ -17,8 +17,9 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { Users, TrendingUp, Target, Clock, RefreshCw, Globe, Check, AlertCircle, MessageSquare, Bot, Plus, Trash2, Save, Megaphone, ShoppingCart, CalendarDays } from "lucide-react";
+import { Users, TrendingUp, Target, Clock, RefreshCw, Globe, Check, AlertCircle, MessageSquare, Bot, Plus, Trash2, Save, Megaphone, ShoppingCart, CalendarDays, Eye } from "lucide-react";
 import { Lead, OpcionIntencion, Vendedor, Campana, DiaNoLaborable } from "../../types";
+import DiasNoLaborablesModal from "../../components/ui/DiasNoLaborablesModal";
 
 const COLORS = ["#16A34A", "#2563EB", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"];
 
@@ -198,31 +199,41 @@ const MarketingDashboard: React.FC = () => {
     descripcion: "",
     recurrente_anual: false,
   });
+  const [modalDiasAbierto, setModalDiasAbierto] = React.useState(false);
 
   const formatoDiaNoLaborable = (d: DiaNoLaborable) => {
     const [anio, mes, dia] = d.fecha.split("-");
     return d.recurrente_anual ? `${dia}/${mes} (cada año)` : `${dia}/${mes}/${anio}`;
   };
 
-  const handleAgregarDiaNoLaborable = () => {
+  const crearDiaNoLaborableAsync = async (data: {
+    fecha: string;
+    descripcion?: string;
+    recurrente_anual: boolean;
+  }): Promise<boolean> => {
+    try {
+      await crearDiaNoLaborable.mutateAsync(data);
+      toast.success("Día no laborable agregado");
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al agregar el día no laborable");
+      return false;
+    }
+  };
+
+  const handleAgregarDiaNoLaborable = async () => {
     if (!nuevoDiaNoLaborable.fecha) {
       toast.error("Selecciona una fecha");
       return;
     }
-    crearDiaNoLaborable.mutate(
-      {
-        fecha: nuevoDiaNoLaborable.fecha,
-        descripcion: nuevoDiaNoLaborable.descripcion.trim() || undefined,
-        recurrente_anual: nuevoDiaNoLaborable.recurrente_anual,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Día no laborable agregado");
-          setNuevoDiaNoLaborable({ fecha: "", descripcion: "", recurrente_anual: false });
-        },
-        onError: (err) => toast.error(err.message || "Error al agregar el día no laborable"),
-      }
-    );
+    const ok = await crearDiaNoLaborableAsync({
+      fecha: nuevoDiaNoLaborable.fecha,
+      descripcion: nuevoDiaNoLaborable.descripcion.trim() || undefined,
+      recurrente_anual: nuevoDiaNoLaborable.recurrente_anual,
+    });
+    if (ok) {
+      setNuevoDiaNoLaborable({ fecha: "", descripcion: "", recurrente_anual: false });
+    }
   };
 
   const handleEliminarDiaNoLaborable = (d: DiaNoLaborable) => {
@@ -676,33 +687,27 @@ const MarketingDashboard: React.FC = () => {
             </button>
           </div>
 
-          {!(diasNoLaborables || []).length ? (
-            <p className="text-sm text-gray-400 py-4 text-center">
-              Aún no hay días no laborables configurados.
+          <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-gray-500">
+              Consulta, agrega o elimina los días configurados desde el calendario.
             </p>
-          ) : (
-            <div className="space-y-2">
-              {(diasNoLaborables || []).map((d) => (
-                <div key={d.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg bg-gray-50">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{formatoDiaNoLaborable(d)}</p>
-                    <p className="text-xs text-gray-500 truncate">{d.descripcion || "Sin descripción"}</p>
-                  </div>
-                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800 self-start sm:self-auto">
-                    {d.recurrente_anual ? "Cada año" : "Fecha exacta"}
-                  </span>
-                  <button
-                    onClick={() => handleEliminarDiaNoLaborable(d)}
-                    className="text-red-500 hover:text-red-700 shrink-0 self-end sm:self-auto"
-                    title="Eliminar día no laborable"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+            <button
+              onClick={() => setModalDiasAbierto(true)}
+              className="flex items-center justify-center gap-2 bg-white text-orange-700 border border-orange-300 px-4 py-2 rounded hover:bg-orange-50 text-sm font-medium shrink-0"
+            >
+              <Eye className="h-4 w-4" /> Ver configurados ({(diasNoLaborables || []).length})
+            </button>
+          </div>
         </div>
+
+        <DiasNoLaborablesModal
+          isOpen={modalDiasAbierto}
+          onClose={() => setModalDiasAbierto(false)}
+          dias={diasNoLaborables || []}
+          creando={crearDiaNoLaborable.isPending}
+          onCrear={crearDiaNoLaborableAsync}
+          onEliminar={handleEliminarDiaNoLaborable}
+        />
 
         {/* Campañas publicitarias (palabras clave de origen) */}
         <div className="bg-white rounded-xl shadow-lg p-6">
